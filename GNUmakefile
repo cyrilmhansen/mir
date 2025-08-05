@@ -400,9 +400,10 @@ clean-mir-utility-tests:
 # ------------------ BASIC compiler example -------------------
 .PHONY: basic-test clean-basic
 
-$(BUILD_DIR)/basic/basicc$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) $(SRC_DIR)/examples/basic/basicc.c
+$(BUILD_DIR)/basic/basicc$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
+	$(SRC_DIR)/examples/basic/basicc.c $(SRC_DIR)/examples/basic/basic_runtime.c
 	mkdir -p $(BUILD_DIR)/basic
-	$(COMPILE_AND_LINK) $^ $(EXEO)$@
+	$(COMPILE_AND_LINK) -DBASIC_SRC_DIR=\"$(SRC_DIR)\" $^ $(EXEO)$@
 
 basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/hello.bas > $(BUILD_DIR)/basic/hello.out
@@ -417,11 +418,14 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
 	printf '2\n3\n' | $(BUILD_DIR)/basic/basicc$(EXE) -c -o $(BUILD_DIR)/basic/adder $(SRC_DIR)/examples/basic/adder.bas
 	test -s $(BUILD_DIR)/basic/adder.mir
 	test -s $(BUILD_DIR)/basic/adder.bmir
-
+	$(BUILD_DIR)/basic/basicc$(EXE) -b -o $(BUILD_DIR)/basic/hello-bin $(SRC_DIR)/examples/basic/hello.bas
+	$(BUILD_DIR)/basic/hello-bin > $(BUILD_DIR)/basic/hello-bin.out
+	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/hello-bin.out
 clean-basic:
 	$(RM) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/hello.out $(BUILD_DIR)/basic/adder.out \
 	$(BUILD_DIR)/basic/guess.out $(BUILD_DIR)/basic/hello.bmir $(BUILD_DIR)/basic/hello.mir \
-	$(BUILD_DIR)/basic/adder.bmir $(BUILD_DIR)/basic/adder.mir
+	$(BUILD_DIR)/basic/adder.bmir $(BUILD_DIR)/basic/adder.mir $(BUILD_DIR)/basic/hello-bin \
+	$(BUILD_DIR)/basic/hello-bin.out $(BUILD_DIR)/basic/hello-bin.ctab
 # ------------------ MIR interp tests --------------------------
 
 .PHONY: clean-mir-interp-tests

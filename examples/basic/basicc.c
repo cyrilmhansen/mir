@@ -5,15 +5,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <stdint.h>
 
-/* Runtime helpers */
-void basic_print (double x) { printf ("%g\n", x); }
-void basic_print_str (const char *s) { puts (s); }
-double basic_input (void) {
-  double x = 0.0;
-  if (scanf ("%lf", &x) != 1) return 0.0;
-  return x;
-}
+#ifndef BASIC_SRC_DIR
+#define BASIC_SRC_DIR "."
+#endif
+
+/* Runtime helpers defined in basic_runtime.c */
+extern void basic_print (double);
+extern void basic_print_str (const char *);
+extern double basic_input (void);
 
 static void *resolve (const char *name) {
   if (!strcmp (name, "basic_print")) return basic_print;
@@ -380,14 +381,19 @@ static char *change_suffix (const char *name, const char *suf) {
   return res;
 }
 
-static void gen_program (StmtVec *prog, int jit, int asm_p, int obj_p, const char *out_name,
-                         const char *src_name) {
+static size_t ctab_byte_num;
+static FILE *ctab_file;
+
+static int ctab_writer (MIR_context_t ctx MIR_UNUSED, uint8_t byte) {
+  fprintf (ctab_file, "0x%02x, ", byte);
+  if (++ctab_byte_num % 16 == 0) fprintf (ctab_file, "\n");
+  return 1;
+}
+
+static void gen_program (StmtVec *prog, int jit, int asm_p, int obj_p, int bin_p,
+                         const char *out_name, const char *src_name) {
   MIR_context_t ctx = MIR_init ();
   MIR_module_t module = MIR_new_module (ctx, "BASIC");
-  MIR_type_t res_t = MIR_T_I64;
-  MIR_item_t func = MIR_new_func (ctx, "main", 1, &res_t, 0);
-  VarVec vars = {0};
-
   MIR_item_t print_proto = MIR_new_proto (ctx, "basic_print_p", 0, NULL, 1, MIR_T_D, "x");
   MIR_item_t print_import = MIR_new_import (ctx, "basic_print");
   MIR_item_t prints_proto = MIR_new_proto (ctx, "basic_print_str_p", 0, NULL, 1, MIR_T_P, "s");
@@ -395,6 +401,9 @@ static void gen_program (StmtVec *prog, int jit, int asm_p, int obj_p, const cha
   MIR_type_t d = MIR_T_D;
   MIR_item_t input_proto = MIR_new_proto (ctx, "basic_input_p", 1, &d, 0);
   MIR_item_t input_import = MIR_new_import (ctx, "basic_input");
+  MIR_type_t res_t = MIR_T_I64;
+  MIR_item_t func = MIR_new_func (ctx, "main", 1, &res_t, 0);
+  VarVec vars = {0};
 
   /* create labels for lines */
   size_t n = prog->len;
@@ -510,6 +519,38 @@ static void gen_program (StmtVec *prog, int jit, int asm_p, int obj_p, const cha
     MIR_finish (ctx);
     return;
   }
+  if (bin_p) {
+    char *exe_name = out_name ? strdup (out_name) : change_suffix (src_name, "");
+    char *ctab_name = change_suffix (exe_name, ".ctab");
+    ctab_file = fopen (ctab_name, "w");
+    if (ctab_file != NULL) {
+      fprintf (ctab_file, "static const unsigned char mir_code[] = {\n");
+      ctab_byte_num = 0;
+      MIR_write_module_with_func (ctx, ctab_writer, module);
+      fprintf (ctab_file, "};\n");
+      fclose (ctab_file);
+      const char *cc = getenv ("CC");
+      if (cc == NULL) cc = "cc";
+      const char *src_dir = BASIC_SRC_DIR;
+      size_t size
+        = strlen (cc) + strlen (src_dir) * 5 + strlen (ctab_name) + strlen (exe_name) + 200;
+      char *cmd = malloc (size);
+      snprintf (cmd, size,
+                "%s -I\"%s\" -DCTAB_INCLUDE_STRING=\\\"%s\\\" \"%s/mir-bin-driver.c\" "
+                "\"%s/examples/basic/basic_runtime.c\" \"%s/mir.c\" \"%s/mir-gen.c\" -rdynamic -lm "
+                "-ldl -o "
+                "\"%s\"",
+                cc, src_dir, ctab_name, src_dir, src_dir, src_dir, src_dir, exe_name);
+      if (system (cmd) != 0) perror (cmd);
+      free (cmd);
+    } else {
+      perror (ctab_name);
+    }
+    free (ctab_name);
+    free (exe_name);
+    MIR_finish (ctx);
+    return;
+  }
   MIR_load_module (ctx, module);
   if (jit) {
     MIR_gen_init (ctx);
@@ -528,7 +569,7 @@ static void gen_program (StmtVec *prog, int jit, int asm_p, int obj_p, const cha
 }
 
 int main (int argc, char **argv) {
-  int jit = 0, asm_p = 0, obj_p = 0;
+  int jit = 0, asm_p = 0, obj_p = 0, bin_p = 0;
   const char *fname = NULL, *out_name = NULL;
   for (int i = 1; i < argc; i++) {
     if (strcmp (argv[i], "-j") == 0) {
@@ -537,6 +578,8 @@ int main (int argc, char **argv) {
       asm_p = obj_p = 1;
     } else if (strcmp (argv[i], "-c") == 0) {
       asm_p = obj_p = 1;
+    } else if (strcmp (argv[i], "-b") == 0) {
+      bin_p = 1;
     } else if (strcmp (argv[i], "-o") == 0 && i + 1 < argc) {
       out_name = argv[++i];
     } else {
@@ -544,7 +587,7 @@ int main (int argc, char **argv) {
     }
   }
   if (!fname) {
-    fprintf (stderr, "usage: %s [-j] [-S|-c] [-o output] file.bas\n", argv[0]);
+    fprintf (stderr, "usage: %s [-j] [-S|-c] [-b] [-o output] file.bas\n", argv[0]);
     return 1;
   }
   FILE *f = fopen (fname, "r");
@@ -562,6 +605,6 @@ int main (int argc, char **argv) {
       fprintf (stderr, "parse error: %s\n", line);
   }
   fclose (f);
-  gen_program (&prog, jit, asm_p, obj_p, out_name, fname);
+  gen_program (&prog, jit, asm_p, obj_p, bin_p, out_name, fname);
   return 0;
 }

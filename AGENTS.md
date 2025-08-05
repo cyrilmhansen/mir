@@ -10,4 +10,6 @@
 - `examples/basic/basicc.c` accepts:
   - `-j` to execute with the JIT generator.
   - `-S` or `-c` to emit MIR text (`.mir`) and binary (`.bmir`) files.
-  - `-o <path>` to set the base name for generated MIR files.
+  - `-b` to build a standalone executable.
+  - `-o <path>` to set the base name for generated files.
+  - Runtime helpers are implemented in `examples/basic/basic_runtime.c` and linked when building binaries.

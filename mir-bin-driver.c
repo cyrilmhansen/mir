@@ -38,11 +38,7 @@ static void close_libs (void) {
 
 static void open_libs (void) {
   for (int i = 0; i < sizeof (libs) / sizeof (struct lib); i++)
-    if ((libs[i].handler = dlopen (libs[i].name, RTLD_LAZY)) == NULL) {
-      fprintf (stderr, "can not open lib %s\n", libs[i].name);
-      close_libs ();
-      exit (1);
-    }
+    libs[i].handler = dlopen (libs[i].name, RTLD_LAZY);
 }
 
 static void *import_resolver (const char *name) {
@@ -57,6 +53,7 @@ static void *import_resolver (const char *name) {
   if (strcmp (name, "_MIR_set_code") == 0) return _MIR_set_code;
 #endif
 #endif
+  if ((sym = dlsym (NULL, name)) != NULL) return sym;
   for (int i = 0; i < sizeof (libs) / sizeof (struct lib); i++) {
     if ((sym = dlsym (libs[i].handler, name)) != NULL) break;
   }
@@ -129,8 +126,8 @@ int main (int argc, char *argv[], char *env[]) {
              real_usec_time () - start_time);
     start_time = real_usec_time ();
 #endif
-    MIR_interp (ctx, main_func, &val, 3, (MIR_val_t){.i = argc}, (MIR_val_t){.a = (void *) argv},
-                (MIR_val_t){.a = (void *) env});
+    MIR_interp (ctx, main_func, &val, 3, (MIR_val_t) {.i = argc}, (MIR_val_t) {.a = (void *) argv},
+                (MIR_val_t) {.a = (void *) env});
 #if MIR_BIN_DEBUG
     fprintf (stderr, "Finish of execution -- overall execution time %.0f usec\n",
              real_usec_time () - start_time);
