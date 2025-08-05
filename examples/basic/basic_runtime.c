@@ -9,9 +9,9 @@ double basic_input (void) {
   return x;
 }
 
-void basic_print (double x) { printf ("%g\n", x); }
+void basic_print (double x) { printf ("%g", x); }
 
-void basic_print_str (const char *s) { puts (s); }
+void basic_print_str (const char *s) { fputs (s, stdout); }
 
 char *basic_input_str (void) {
   char buf[256];
