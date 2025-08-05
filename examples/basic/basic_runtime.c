@@ -30,3 +30,25 @@ char *basic_get (void) {
 }
 
 int basic_strcmp (const char *a, const char *b) { return strcmp (a, b); }
+
+typedef struct BasicData {
+  int is_str;
+  double num;
+  char *str;
+} BasicData;
+
+BasicData *basic_data_items = NULL;
+size_t basic_data_len = 0;
+size_t basic_data_pos = 0;
+
+double basic_read (void) {
+  if (basic_data_pos >= basic_data_len || basic_data_items[basic_data_pos].is_str) return 0.0;
+  return basic_data_items[basic_data_pos++].num;
+}
+
+char *basic_read_str (void) {
+  if (basic_data_pos >= basic_data_len || !basic_data_items[basic_data_pos].is_str) return "";
+  return basic_data_items[basic_data_pos++].str;
+}
+
+void basic_restore (void) { basic_data_pos = 0; }

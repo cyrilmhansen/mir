@@ -18,6 +18,19 @@ extern double basic_input (void);
 extern char *basic_input_str (void);
 extern char *basic_get (void);
 extern int basic_strcmp (const char *, const char *);
+extern double basic_read (void);
+extern char *basic_read_str (void);
+extern void basic_restore (void);
+
+typedef struct BasicData {
+  int is_str;
+  double num;
+  char *str;
+} BasicData;
+
+extern BasicData *basic_data_items;
+extern size_t basic_data_len;
+extern size_t basic_data_pos;
 
 static void *resolve (const char *name) {
   if (!strcmp (name, "basic_print")) return basic_print;
@@ -26,6 +39,9 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_input_str")) return basic_input_str;
   if (!strcmp (name, "basic_get")) return basic_get;
   if (!strcmp (name, "basic_strcmp")) return basic_strcmp;
+  if (!strcmp (name, "basic_read")) return basic_read;
+  if (!strcmp (name, "basic_read_str")) return basic_read_str;
+  if (!strcmp (name, "basic_restore")) return basic_restore;
   if (!strcmp (name, "calloc")) return calloc;
   if (!strcmp (name, "memset")) return memset;
   return NULL;
@@ -57,8 +73,24 @@ static Node *new_node (NodeKind k) {
   return n;
 }
 
+typedef struct {
+  BasicData *data;
+  size_t len, cap;
+} DataVec;
+
+static DataVec data_vals;
+
+static void data_vec_push (DataVec *v, BasicData d) {
+  if (v->len == v->cap) {
+    v->cap = v->cap ? 2 * v->cap : 16;
+    v->data = realloc (v->data, v->cap * sizeof (BasicData));
+  }
+  v->data[v->len++] = d;
+}
+
 /* Statement representation */
-/* Added ST_REM for comment lines, ST_DIM for array declarations, and ST_CLEAR to reset state. */
+/* Added ST_REM for comment lines, ST_DIM for array declarations, ST_CLEAR to reset state, and
+   data-related statements. */
 typedef enum {
   ST_PRINT,
   ST_PRINTS,
@@ -67,6 +99,9 @@ typedef enum {
   ST_IF,
   ST_INPUT,
   ST_GET,
+  ST_DATA,
+  ST_READ,
+  ST_RESTORE,
   ST_CLEAR,
   ST_END,
   ST_REM,
@@ -101,6 +136,10 @@ typedef struct {
     struct {
       char *var;
     } get;
+    struct {
+      Node **vars;
+      size_t n;
+    } read;
     struct {
       char **names;
       int *sizes;
@@ -378,6 +417,50 @@ static int parse_stmt (Stmt *out) {
     cur += 3;
     out->kind = ST_GET;
     out->u.get.var = parse_id ();
+    return 1;
+  } else if (strncasecmp (cur, "DATA", 4) == 0) {
+    cur += 4;
+    out->kind = ST_DATA;
+    while (1) {
+      skip_ws ();
+      BasicData d;
+      d.is_str = 0;
+      d.num = 0;
+      d.str = NULL;
+      if (*cur == '"') {
+        d.is_str = 1;
+        d.str = parse_string ();
+      } else {
+        d.num = parse_number ();
+      }
+      data_vec_push (&data_vals, d);
+      skip_ws ();
+      if (*cur != ',') break;
+      cur++;
+    }
+    return 1;
+  } else if (strncasecmp (cur, "READ", 4) == 0) {
+    cur += 4;
+    out->kind = ST_READ;
+    out->u.read.vars = NULL;
+    out->u.read.n = 0;
+    size_t cap = 0;
+    while (1) {
+      Node *v = parse_factor ();
+      if (v == NULL) return 0;
+      if (out->u.read.n == cap) {
+        cap = cap ? cap * 2 : 4;
+        out->u.read.vars = realloc (out->u.read.vars, cap * sizeof (Node *));
+      }
+      out->u.read.vars[out->u.read.n++] = v;
+      skip_ws ();
+      if (*cur != ',') break;
+      cur++;
+    }
+    return 1;
+  } else if (strncasecmp (cur, "RESTORE", 7) == 0) {
+    cur += 7;
+    out->kind = ST_RESTORE;
     return 1;
   } else if (strncasecmp (cur, "LET", 3) == 0) {
     cur += 3;
@@ -731,9 +814,19 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   MIR_item_t strcmp_proto
     = MIR_new_proto (ctx, "basic_strcmp_p", 1, &i64, 2, MIR_T_P, "a", MIR_T_P, "b");
   MIR_item_t strcmp_import = MIR_new_import (ctx, "basic_strcmp");
+  MIR_item_t read_proto = MIR_new_proto (ctx, "basic_read_p", 1, &d, 0);
+  MIR_item_t read_import = MIR_new_import (ctx, "basic_read");
+  MIR_item_t read_str_proto = MIR_new_proto (ctx, "basic_read_str_p", 1, &p, 0);
+  MIR_item_t read_str_import = MIR_new_import (ctx, "basic_read_str");
+  MIR_item_t restore_proto = MIR_new_proto (ctx, "basic_restore_p", 0, NULL, 0);
+  MIR_item_t restore_import = MIR_new_import (ctx, "basic_restore");
   MIR_type_t res_t = MIR_T_I64;
   MIR_item_t func = MIR_new_func (ctx, "main", 1, &res_t, 0);
   VarVec vars = {0};
+
+  basic_data_items = data_vals.data;
+  basic_data_len = data_vals.len;
+  basic_data_pos = 0;
 
   /* return stack for GOSUB/RETURN */
   MIR_reg_t ret_stack = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, "ret_stack");
@@ -914,6 +1007,71 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                          MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, get_proto),
                                             MIR_new_ref_op (ctx, get_import),
                                             MIR_new_reg_op (ctx, v)));
+        break;
+      }
+      case ST_DATA: {
+        break;
+      }
+      case ST_READ: {
+        for (size_t ri = 0; ri < s->u.read.n; ri++) {
+          Node *v = s->u.read.vars[ri];
+          MIR_reg_t r;
+          if (v->is_str) {
+            char buf[32];
+            sprintf (buf, "$t%d", tmp_id++);
+            r = MIR_new_func_reg (ctx, func->u.func, MIR_T_P, buf);
+            MIR_append_insn (ctx, func,
+                             MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, read_str_proto),
+                                                MIR_new_ref_op (ctx, read_str_import),
+                                                MIR_new_reg_op (ctx, r)));
+          } else {
+            char buf[32];
+            sprintf (buf, "$t%d", tmp_id++);
+            r = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
+            MIR_append_insn (ctx, func,
+                             MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, read_proto),
+                                                MIR_new_ref_op (ctx, read_import),
+                                                MIR_new_reg_op (ctx, r)));
+          }
+          if (v->index != NULL) {
+            MIR_reg_t base = get_array (&vars, ctx, func, v->var, 0, v->is_str);
+            MIR_reg_t idxd = gen_expr (ctx, func, &vars, v->index);
+            char buf[32];
+            sprintf (buf, "$t%d", tmp_id++);
+            MIR_reg_t idx = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+            MIR_append_insn (ctx, func,
+                             MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, idx),
+                                           MIR_new_reg_op (ctx, idxd)));
+            sprintf (buf, "$t%d", tmp_id++);
+            MIR_reg_t off = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+            MIR_append_insn (ctx, func,
+                             MIR_new_insn (ctx, MIR_MUL, MIR_new_reg_op (ctx, off),
+                                           MIR_new_reg_op (ctx, idx), MIR_new_int_op (ctx, 8)));
+            sprintf (buf, "$t%d", tmp_id++);
+            MIR_reg_t addr = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+            MIR_append_insn (ctx, func,
+                             MIR_new_insn (ctx, MIR_ADD, MIR_new_reg_op (ctx, addr),
+                                           MIR_new_reg_op (ctx, base), MIR_new_reg_op (ctx, off)));
+            MIR_insn_code_t mov = v->is_str ? MIR_MOV : MIR_DMOV;
+            MIR_append_insn (ctx, func,
+                             MIR_new_insn (ctx, mov,
+                                           MIR_new_mem_op (ctx, v->is_str ? MIR_T_P : MIR_T_D, 0,
+                                                           addr, 0, 1),
+                                           MIR_new_reg_op (ctx, r)));
+          } else {
+            MIR_reg_t dest = get_var (&vars, ctx, func, v->var);
+            MIR_insn_code_t mov = v->is_str ? MIR_MOV : MIR_DMOV;
+            MIR_append_insn (ctx, func,
+                             MIR_new_insn (ctx, mov, MIR_new_reg_op (ctx, dest),
+                                           MIR_new_reg_op (ctx, r)));
+          }
+        }
+        break;
+      }
+      case ST_RESTORE: {
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, restore_proto),
+                                            MIR_new_ref_op (ctx, restore_import)));
         break;
       }
       case ST_CLEAR: {
