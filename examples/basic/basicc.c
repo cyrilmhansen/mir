@@ -59,7 +59,6 @@ typedef enum {
 } StmtKind;
 typedef enum { REL_NONE, REL_EQ, REL_NE, REL_LT, REL_LE, REL_GT, REL_GE } Relop;
 typedef struct {
-  int line;
   StmtKind kind;
   union {
     Node *expr; /* PRINT */
@@ -86,12 +85,31 @@ typedef struct {
   size_t len, cap;
 } StmtVec;
 
+/* Program line containing multiple statements */
+typedef struct {
+  int line;
+  StmtVec stmts;
+} Line;
+
+typedef struct {
+  Line *data;
+  size_t len, cap;
+} LineVec;
+
 static void vec_push (StmtVec *v, Stmt s) {
   if (v->len == v->cap) {
     v->cap = v->cap ? 2 * v->cap : 16;
     v->data = realloc (v->data, v->cap * sizeof (Stmt));
   }
   v->data[v->len++] = s;
+}
+
+static void line_vec_push (LineVec *v, Line l) {
+  if (v->len == v->cap) {
+    v->cap = v->cap ? 2 * v->cap : 16;
+    v->data = realloc (v->data, v->cap * sizeof (Line));
+  }
+  v->data[v->len++] = l;
 }
 
 /* Parsing utilities */
@@ -231,10 +249,7 @@ static Relop parse_relop (void) {
 }
 
 /* Parse a single line into statement */
-static int parse_line (char *line, Stmt *out) {
-  cur = line;
-  int line_no = parse_int ();
-  out->line = line_no;
+static int parse_stmt (Stmt *out) {
   skip_ws ();
   if (strncasecmp (cur, "REM", 3) == 0) {
     /* Comment line: ignore rest */
@@ -320,6 +335,27 @@ static int parse_line (char *line, Stmt *out) {
   return 0;
 }
 
+/* Parse a single line into multiple statements */
+static int parse_line (char *line, Line *out) {
+  cur = line;
+  int line_no = parse_int ();
+  out->line = line_no;
+  out->stmts = (StmtVec) {0};
+  while (1) {
+    Stmt s;
+    if (!parse_stmt (&s)) return 0;
+    vec_push (&out->stmts, s);
+    if (s.kind == ST_REM) break;
+    skip_ws ();
+    if (*cur == ':') {
+      cur++;
+      continue;
+    }
+    break;
+  }
+  return 1;
+}
+
 /* Variable mapping */
 typedef struct {
   char *name;
@@ -384,7 +420,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
 }
 
 /* Generate MIR for program */
-static MIR_label_t find_label (StmtVec *prog, MIR_label_t *labels, int line) {
+static MIR_label_t find_label (LineVec *prog, MIR_label_t *labels, int line) {
   for (size_t i = 0; i < prog->len; i++)
     if (prog->data[i].line == line) return labels[i];
   return labels[0];
@@ -410,7 +446,7 @@ static int ctab_writer (MIR_context_t ctx MIR_UNUSED, uint8_t byte) {
   return 1;
 }
 
-static void gen_program (StmtVec *prog, int jit, int asm_p, int obj_p, int bin_p,
+static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p,
                          const char *out_name, const char *src_name) {
   MIR_context_t ctx = MIR_init ();
   MIR_module_t module = MIR_new_module (ctx, "BASIC");
@@ -431,85 +467,88 @@ static void gen_program (StmtVec *prog, int jit, int asm_p, int obj_p, int bin_p
   for (size_t i = 0; i < n; i++) labels[i] = MIR_new_label (ctx);
 
   for (size_t i = 0; i < n; i++) {
-    Stmt *s = &prog->data[i];
+    Line *ln = &prog->data[i];
     MIR_append_insn (ctx, func, labels[i]);
-    switch (s->kind) {
-    case ST_PRINT: {
-      MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.expr);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, print_proto),
-                                          MIR_new_ref_op (ctx, print_import),
-                                          MIR_new_reg_op (ctx, r)));
-      break;
-    }
-    case ST_PRINTS: {
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, prints_proto),
-                                          MIR_new_ref_op (ctx, prints_import),
-                                          MIR_new_str_op (ctx, (MIR_str_t) {strlen (s->u.str) + 1,
-                                                                            s->u.str})));
-      break;
-    }
-    case ST_LET: {
-      MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.let.expr);
-      MIR_reg_t v = get_var (&vars, ctx, func, s->u.let.var);
-      MIR_append_insn (ctx, func,
-                       MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, v),
-                                     MIR_new_reg_op (ctx, r)));
-      break;
-    }
-    case ST_GOTO: {
-      MIR_append_insn (ctx, func,
-                       MIR_new_insn (ctx, MIR_JMP,
-                                     MIR_new_label_op (ctx,
-                                                       find_label (prog, labels, s->u.target))));
-      break;
-    }
-    case ST_IF: {
-      if (s->u.iff.rel == REL_NONE) {
-        MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.iff.expr);
+    for (size_t j = 0; j < ln->stmts.len; j++) {
+      Stmt *s = &ln->stmts.data[j];
+      switch (s->kind) {
+      case ST_PRINT: {
+        MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.expr);
         MIR_append_insn (ctx, func,
-                         MIR_new_insn (ctx, MIR_DBNE,
-                                       MIR_new_label_op (ctx, find_label (prog, labels,
-                                                                          s->u.iff.target)),
-                                       MIR_new_reg_op (ctx, r), MIR_new_double_op (ctx, 0.0)));
-      } else {
-        MIR_reg_t l = gen_expr (ctx, func, &vars, s->u.iff.lhs);
-        MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.iff.rhs);
-        MIR_insn_code_t code = MIR_DBEQ;
-        switch (s->u.iff.rel) {
-        case REL_EQ: code = MIR_DBEQ; break;
-        case REL_NE: code = MIR_DBNE; break;
-        case REL_LT: code = MIR_DBLT; break;
-        case REL_LE: code = MIR_DBLE; break;
-        case REL_GT: code = MIR_DBGT; break;
-        case REL_GE: code = MIR_DBGE; break;
-        default: code = MIR_DBEQ; break;
-        }
-        MIR_append_insn (ctx, func,
-                         MIR_new_insn (ctx, code,
-                                       MIR_new_label_op (ctx, find_label (prog, labels,
-                                                                          s->u.iff.target)),
-                                       MIR_new_reg_op (ctx, l), MIR_new_reg_op (ctx, r)));
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, print_proto),
+                                            MIR_new_ref_op (ctx, print_import),
+                                            MIR_new_reg_op (ctx, r)));
+        break;
       }
-      break;
-    }
-    case ST_INPUT: {
-      MIR_reg_t v = get_var (&vars, ctx, func, s->u.var);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, input_proto),
-                                          MIR_new_ref_op (ctx, input_import),
-                                          MIR_new_reg_op (ctx, v)));
-      break;
-    }
-    case ST_END: {
-      MIR_append_insn (ctx, func, MIR_new_ret_insn (ctx, 1, MIR_new_int_op (ctx, 0)));
-      break;
-    }
-    case ST_REM:
-    case ST_DIM:
-      /* no code generation needed for comments or DIM statements */
-      break;
+      case ST_PRINTS: {
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, prints_proto),
+                                            MIR_new_ref_op (ctx, prints_import),
+                                            MIR_new_str_op (ctx, (MIR_str_t) {strlen (s->u.str) + 1,
+                                                                              s->u.str})));
+        break;
+      }
+      case ST_LET: {
+        MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.let.expr);
+        MIR_reg_t v = get_var (&vars, ctx, func, s->u.let.var);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, v),
+                                       MIR_new_reg_op (ctx, r)));
+        break;
+      }
+      case ST_GOTO: {
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_JMP,
+                                       MIR_new_label_op (ctx,
+                                                         find_label (prog, labels, s->u.target))));
+        break;
+      }
+      case ST_IF: {
+        if (s->u.iff.rel == REL_NONE) {
+          MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.iff.expr);
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_DBNE,
+                                         MIR_new_label_op (ctx, find_label (prog, labels,
+                                                                            s->u.iff.target)),
+                                         MIR_new_reg_op (ctx, r), MIR_new_double_op (ctx, 0.0)));
+        } else {
+          MIR_reg_t l = gen_expr (ctx, func, &vars, s->u.iff.lhs);
+          MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.iff.rhs);
+          MIR_insn_code_t code = MIR_DBEQ;
+          switch (s->u.iff.rel) {
+          case REL_EQ: code = MIR_DBEQ; break;
+          case REL_NE: code = MIR_DBNE; break;
+          case REL_LT: code = MIR_DBLT; break;
+          case REL_LE: code = MIR_DBLE; break;
+          case REL_GT: code = MIR_DBGT; break;
+          case REL_GE: code = MIR_DBGE; break;
+          default: code = MIR_DBEQ; break;
+          }
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, code,
+                                         MIR_new_label_op (ctx, find_label (prog, labels,
+                                                                            s->u.iff.target)),
+                                         MIR_new_reg_op (ctx, l), MIR_new_reg_op (ctx, r)));
+        }
+        break;
+      }
+      case ST_INPUT: {
+        MIR_reg_t v = get_var (&vars, ctx, func, s->u.var);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, input_proto),
+                                            MIR_new_ref_op (ctx, input_import),
+                                            MIR_new_reg_op (ctx, v)));
+        break;
+      }
+      case ST_END: {
+        MIR_append_insn (ctx, func, MIR_new_ret_insn (ctx, 1, MIR_new_int_op (ctx, 0)));
+        break;
+      }
+      case ST_REM:
+      case ST_DIM:
+        /* no code generation needed for comments or DIM statements */
+        break;
+      }
     }
   }
   /* ensure function returns 0 if no END */
@@ -619,12 +658,12 @@ int main (int argc, char **argv) {
     perror (fname);
     return 1;
   }
-  StmtVec prog = {0};
+  LineVec prog = {0};
   char line[256];
   while (fgets (line, sizeof (line), f)) {
-    Stmt s;
-    if (parse_line (line, &s))
-      vec_push (&prog, s);
+    Line l;
+    if (parse_line (line, &l))
+      line_vec_push (&prog, l);
     else
       fprintf (stderr, "parse error: %s\n", line);
   }
