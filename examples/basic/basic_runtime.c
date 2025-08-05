@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 double basic_input (void) {
   double x = 0.0;
@@ -30,3 +31,16 @@ char *basic_get (void) {
 }
 
 int basic_strcmp (const char *a, const char *b) { return strcmp (a, b); }
+
+void basic_home (void) { printf ("\x1b[2J\x1b[H"); }
+
+void basic_vtab (double n) { printf ("\x1b[%d;H", (int) n); }
+
+double basic_rnd (double n) {
+  static int seeded = 0;
+  if (!seeded) {
+    srand ((unsigned) time (NULL));
+    seeded = 1;
+  }
+  return ((double) rand () / RAND_MAX) * n;
+}
