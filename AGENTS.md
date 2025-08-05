@@ -13,3 +13,6 @@
   - `-b` to build a standalone executable.
   - `-o <path>` to set the base name for generated files.
   - Runtime helpers are implemented in `examples/basic/basic_runtime.c` and linked when building binaries.
+
+- NB The compiler now understands `REM` comments and ignores `DIM` statements.
+
