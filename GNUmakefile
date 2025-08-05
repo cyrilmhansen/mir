@@ -191,7 +191,7 @@ endif
 clean: clean-mir clean-c2m clean-utils clean-l2m clean-adt-tests clean-mir-tests clean-mir2c-test clean-bench
 	$(RM) $(EXECUTABLES) $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/$(SOLIB)
 
-test: readme-example-test mir-bin-run-test c2mir-test
+test: readme-example-test mir-bin-run-test c2mir-test basic-test
 
 test-all: adt-test simplify-test io-test scan-test mir2c-test $(L2M-TEST) test
 
@@ -397,6 +397,23 @@ clean-mir-utility-tests:
 	$(RM) $(BUILD_DIR)/hello-test$(EXE)
 	$(RM) $(BUILD_DIR)/scan-test$(EXE) $(BUILD_DIR)/io-test$(EXE)
 
+# ------------------ BASIC compiler example -------------------
+.PHONY: basic-test clean-basic
+
+$(BUILD_DIR)/basic/basicc$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) $(SRC_DIR)/examples/basic/basicc.c
+	mkdir -p $(BUILD_DIR)/basic
+	$(COMPILE_AND_LINK) $^ $(EXEO)$@
+
+basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/hello.bas > $(BUILD_DIR)/basic/hello.out
+	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/hello.out
+	printf '2\n3\n' | $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/adder.bas > $(BUILD_DIR)/basic/adder.out
+	diff $(SRC_DIR)/examples/basic/adder.out $(BUILD_DIR)/basic/adder.out
+	printf '6\n' | $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/guess.bas > $(BUILD_DIR)/basic/guess.out
+	diff $(SRC_DIR)/examples/basic/guess.out $(BUILD_DIR)/basic/guess.out
+
+clean-basic:
+	$(RM) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/hello.out $(BUILD_DIR)/basic/adder.out $(BUILD_DIR)/basic/guess.out
 # ------------------ MIR interp tests --------------------------
 
 .PHONY: clean-mir-interp-tests
