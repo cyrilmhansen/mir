@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 double basic_input (void) {
   double x = 0.0;
@@ -9,3 +11,22 @@ double basic_input (void) {
 void basic_print (double x) { printf ("%g\n", x); }
 
 void basic_print_str (const char *s) { puts (s); }
+
+char *basic_input_str (void) {
+  char buf[256];
+  if (fgets (buf, sizeof (buf), stdin) == NULL) return strdup ("");
+  size_t len = strlen (buf);
+  if (len > 0 && buf[len - 1] == '\n') buf[len - 1] = '\0';
+  return strdup (buf);
+}
+
+char *basic_get (void) {
+  int c = getchar ();
+  if (c == EOF) c = 0;
+  char *s = malloc (2);
+  s[0] = (char) c;
+  s[1] = '\0';
+  return s;
+}
+
+int basic_strcmp (const char *a, const char *b) { return strcmp (a, b); }
