@@ -15,8 +15,8 @@ extern "C" {
 #define FALSE 0
 #define TRUE 1
 
-#if !defined(VARR_ENABLE_CHECKING) && !defined(NDEBUG)
-#define VARR_ENABLE_CHECKING
+#if !defined(HTAB_ENABLE_CHECKING) && !defined(NDEBUG)
+#define HTAB_ENABLE_CHECKING
 #endif
 
 #ifndef HTAB_ENABLE_CHECKING
