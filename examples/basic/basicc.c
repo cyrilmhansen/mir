@@ -44,7 +44,18 @@ static Node *new_node (NodeKind k) {
 }
 
 /* Statement representation */
-typedef enum { ST_PRINT, ST_PRINTS, ST_LET, ST_GOTO, ST_IF, ST_INPUT, ST_END } StmtKind;
+/* Added ST_REM for comment lines and ST_DIM for dimension declarations (ignored). */
+typedef enum {
+  ST_PRINT,
+  ST_PRINTS,
+  ST_LET,
+  ST_GOTO,
+  ST_IF,
+  ST_INPUT,
+  ST_END,
+  ST_REM,
+  ST_DIM,
+} StmtKind;
 typedef enum { REL_NONE, REL_EQ, REL_NE, REL_LT, REL_LE, REL_GT, REL_GE } Relop;
 typedef struct {
   int line;
@@ -224,7 +235,16 @@ static int parse_line (char *line, Stmt *out) {
   int line_no = parse_int ();
   out->line = line_no;
   skip_ws ();
-  if (strncasecmp (cur, "PRINT", 5) == 0) {
+  if (strncasecmp (cur, "REM", 3) == 0) {
+    /* Comment line: ignore rest */
+    out->kind = ST_REM;
+    return 1;
+  } else if (strncasecmp (cur, "DIM", 3) == 0) {
+    /* Currently we only support single dimension and ignore content */
+    cur += 3;
+    out->kind = ST_DIM;
+    return 1;
+  } else if (strncasecmp (cur, "PRINT", 5) == 0) {
     cur += 5;
     skip_ws ();
     if (*cur == '"') {
@@ -477,6 +497,10 @@ static void gen_program (StmtVec *prog, int jit, int asm_p, int obj_p, const cha
       MIR_append_insn (ctx, func, MIR_new_ret_insn (ctx, 1, MIR_new_int_op (ctx, 0)));
       break;
     }
+    case ST_REM:
+    case ST_DIM:
+      /* no code generation needed for comments or DIM statements */
+      break;
     }
   }
   /* ensure function returns 0 if no END */
