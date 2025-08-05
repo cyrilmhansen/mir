@@ -67,6 +67,11 @@ typedef enum {
   ST_END,
   ST_REM,
   ST_DIM,
+  ST_FOR,
+  ST_NEXT,
+  ST_GOSUB,
+  ST_RETURN,
+  ST_ON_GOSUB,
 } StmtKind;
 typedef enum { REL_NONE, REL_EQ, REL_NE, REL_LT, REL_LE, REL_GT, REL_GE } Relop;
 typedef struct {
@@ -78,7 +83,6 @@ typedef struct {
       Node *expr;
       int is_str;
     } let;
-    int target; /* GOTO */
     struct {
       Relop rel;
       Node *lhs;
@@ -93,6 +97,21 @@ typedef struct {
     struct {
       char *var;
     } get;
+    struct {
+      char *var;
+      Node *start;
+      Node *end;
+      Node *step;
+    } forto;
+    struct {
+      char *var;
+    } next;
+    int target; /* GOTO/GOSUB */
+    struct {
+      Node *expr;
+      int *targets;
+      size_t n_targets;
+    } on_gosub;
   } u;
 } Stmt;
 
@@ -327,6 +346,11 @@ static int parse_stmt (Stmt *out) {
     out->kind = ST_GOTO;
     out->u.target = parse_int ();
     return 1;
+  } else if (strncasecmp (cur, "GOSUB", 5) == 0) {
+    cur += 5;
+    out->kind = ST_GOSUB;
+    out->u.target = parse_int ();
+    return 1;
   } else if (strncasecmp (cur, "IF", 2) == 0) {
     cur += 2;
     Stmt s;
@@ -352,6 +376,58 @@ static int parse_stmt (Stmt *out) {
       return 1;
     }
     return 0;
+  } else if (strncasecmp (cur, "FOR", 3) == 0) {
+    cur += 3;
+    out->kind = ST_FOR;
+    out->u.forto.var = parse_id ();
+    skip_ws ();
+    if (*cur == '=') cur++;
+    out->u.forto.start = parse_expr ();
+    if (strncasecmp (cur, "TO", 2) != 0) return 0;
+    cur += 2;
+    out->u.forto.end = parse_expr ();
+    if (strncasecmp (cur, "STEP", 4) == 0) {
+      cur += 4;
+      out->u.forto.step = parse_expr ();
+    } else {
+      Node *one = new_node (N_NUM);
+      one->num = 1;
+      out->u.forto.step = one;
+    }
+    return 1;
+  } else if (strncasecmp (cur, "NEXT", 4) == 0) {
+    cur += 4;
+    out->kind = ST_NEXT;
+    out->u.next.var = NULL;
+    skip_ws ();
+    if (isalpha ((unsigned char) *cur)) out->u.next.var = parse_id ();
+    return 1;
+  } else if (strncasecmp (cur, "RETURN", 6) == 0) {
+    cur += 6;
+    out->kind = ST_RETURN;
+    return 1;
+  } else if (strncasecmp (cur, "ON", 2) == 0) {
+    cur += 2;
+    Node *e = parse_expr ();
+    if (strncasecmp (cur, "GOSUB", 5) != 0) return 0;
+    cur += 5;
+    out->kind = ST_ON_GOSUB;
+    out->u.on_gosub.expr = e;
+    out->u.on_gosub.targets = NULL;
+    out->u.on_gosub.n_targets = 0;
+    size_t cap = 0;
+    while (1) {
+      int t = parse_int ();
+      if (out->u.on_gosub.n_targets == cap) {
+        cap = cap ? cap * 2 : 4;
+        out->u.on_gosub.targets = realloc (out->u.on_gosub.targets, cap * sizeof (int));
+      }
+      out->u.on_gosub.targets[out->u.on_gosub.n_targets++] = t;
+      skip_ws ();
+      if (*cur != ',') break;
+      cur++;
+    }
+    return 1;
   } else if (strncasecmp (cur, "END", 3) == 0) {
     out->kind = ST_END;
     return 1;
@@ -525,6 +601,23 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   MIR_item_t func = MIR_new_func (ctx, "main", 1, &res_t, 0);
   VarVec vars = {0};
 
+  /* return stack for GOSUB/RETURN */
+  MIR_reg_t ret_stack = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, "ret_stack");
+  MIR_reg_t ret_sp = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, "ret_sp");
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_ALLOCA, MIR_new_reg_op (ctx, ret_stack),
+                                 MIR_new_int_op (ctx, 1024)));
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, ret_sp),
+                                 MIR_new_int_op (ctx, 0)));
+
+  typedef struct {
+    MIR_reg_t var, end, step;
+    MIR_label_t start_label, end_label;
+  } LoopInfo;
+  LoopInfo *loop_stack = NULL;
+  size_t loop_len = 0, loop_cap = 0;
+
   /* create labels for lines */
   size_t n = prog->len;
   MIR_label_t *labels = malloc (sizeof (MIR_label_t) * n);
@@ -565,6 +658,22 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                          MIR_new_insn (ctx, MIR_JMP,
                                        MIR_new_label_op (ctx,
                                                          find_label (prog, labels, s->u.target))));
+        break;
+      }
+      case ST_GOSUB: {
+        MIR_label_t ret = MIR_new_label (ctx);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_MOV,
+                                       MIR_new_mem_op (ctx, MIR_T_P, 0, ret_stack, ret_sp, 1),
+                                       MIR_new_label_op (ctx, ret)));
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_ADD, MIR_new_reg_op (ctx, ret_sp),
+                                       MIR_new_reg_op (ctx, ret_sp), MIR_new_int_op (ctx, 8)));
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_JMP,
+                                       MIR_new_label_op (ctx,
+                                                         find_label (prog, labels, s->u.target))));
+        MIR_append_insn (ctx, func, ret);
         break;
       }
       case ST_IF: {
@@ -643,6 +752,107 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                          MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, get_proto),
                                             MIR_new_ref_op (ctx, get_import),
                                             MIR_new_reg_op (ctx, v)));
+        break;
+      }
+      case ST_FOR: {
+        MIR_reg_t var = get_var (&vars, ctx, func, s->u.forto.var);
+        MIR_reg_t start = gen_expr (ctx, func, &vars, s->u.forto.start);
+        MIR_reg_t end = gen_expr (ctx, func, &vars, s->u.forto.end);
+        MIR_reg_t step = gen_expr (ctx, func, &vars, s->u.forto.step);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, var),
+                                       MIR_new_reg_op (ctx, start)));
+        MIR_label_t pos = MIR_new_label (ctx);
+        MIR_label_t body = MIR_new_label (ctx);
+        MIR_label_t loop_end = MIR_new_label (ctx);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_DBGE, MIR_new_label_op (ctx, pos),
+                                       MIR_new_reg_op (ctx, step), MIR_new_double_op (ctx, 0.0)));
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_DBLT, MIR_new_label_op (ctx, loop_end),
+                                       MIR_new_reg_op (ctx, var), MIR_new_reg_op (ctx, end)));
+        MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, body)));
+        MIR_append_insn (ctx, func, pos);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_DBGT, MIR_new_label_op (ctx, loop_end),
+                                       MIR_new_reg_op (ctx, var), MIR_new_reg_op (ctx, end)));
+        MIR_append_insn (ctx, func, body);
+        if (loop_len == loop_cap) {
+          loop_cap = loop_cap ? 2 * loop_cap : 4;
+          loop_stack = realloc (loop_stack, loop_cap * sizeof (LoopInfo));
+        }
+        loop_stack[loop_len++] = (LoopInfo) {var, end, step, body, loop_end};
+        break;
+      }
+      case ST_NEXT: {
+        if (loop_len == 0) break;
+        LoopInfo info = loop_stack[--loop_len];
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_DADD, MIR_new_reg_op (ctx, info.var),
+                                       MIR_new_reg_op (ctx, info.var),
+                                       MIR_new_reg_op (ctx, info.step)));
+        MIR_label_t pos = MIR_new_label (ctx);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_DBGE, MIR_new_label_op (ctx, pos),
+                                       MIR_new_reg_op (ctx, info.step),
+                                       MIR_new_double_op (ctx, 0.0)));
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_DBLT, MIR_new_label_op (ctx, info.end_label),
+                                       MIR_new_reg_op (ctx, info.var),
+                                       MIR_new_reg_op (ctx, info.end)));
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, info.start_label)));
+        MIR_append_insn (ctx, func, pos);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_DBGT, MIR_new_label_op (ctx, info.end_label),
+                                       MIR_new_reg_op (ctx, info.var),
+                                       MIR_new_reg_op (ctx, info.end)));
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, info.start_label)));
+        MIR_append_insn (ctx, func, info.end_label);
+        break;
+      }
+      case ST_RETURN: {
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_SUB, MIR_new_reg_op (ctx, ret_sp),
+                                       MIR_new_reg_op (ctx, ret_sp), MIR_new_int_op (ctx, 8)));
+        MIR_reg_t addr = MIR_new_func_reg (ctx, func->u.func, MIR_T_P, "$ret");
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, addr),
+                                       MIR_new_mem_op (ctx, MIR_T_P, 0, ret_stack, ret_sp, 1)));
+        MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMPI, MIR_new_reg_op (ctx, addr)));
+        break;
+      }
+      case ST_ON_GOSUB: {
+        MIR_reg_t expr = gen_expr (ctx, func, &vars, s->u.on_gosub.expr);
+        char buf[32];
+        sprintf (buf, "$t%d", tmp_id++);
+        MIR_reg_t idx = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, idx),
+                                       MIR_new_reg_op (ctx, expr)));
+        MIR_label_t after = MIR_new_label (ctx);
+        for (size_t k = 0; k < s->u.on_gosub.n_targets; k++) {
+          MIR_label_t next = k + 1 < s->u.on_gosub.n_targets ? MIR_new_label (ctx) : after;
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_BNE, MIR_new_label_op (ctx, next),
+                                         MIR_new_reg_op (ctx, idx),
+                                         MIR_new_int_op (ctx, (int) k + 1)));
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_MOV,
+                                         MIR_new_mem_op (ctx, MIR_T_P, 0, ret_stack, ret_sp, 1),
+                                         MIR_new_label_op (ctx, after)));
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_ADD, MIR_new_reg_op (ctx, ret_sp),
+                                         MIR_new_reg_op (ctx, ret_sp), MIR_new_int_op (ctx, 8)));
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_JMP,
+                                         MIR_new_label_op (ctx,
+                                                           find_label (prog, labels,
+                                                                       s->u.on_gosub.targets[k]))));
+          if (k + 1 < s->u.on_gosub.n_targets) MIR_append_insn (ctx, func, next);
+        }
+        MIR_append_insn (ctx, func, after);
         break;
       }
       case ST_END: {
