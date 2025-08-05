@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 double basic_input (void) {
   double x = 0.0;
@@ -8,9 +9,9 @@ double basic_input (void) {
   return x;
 }
 
-void basic_print (double x) { printf ("%g\n", x); }
+void basic_print (double x) { printf ("%g", x); }
 
-void basic_print_str (const char *s) { puts (s); }
+void basic_print_str (const char *s) { fputs (s, stdout); }
 
 char *basic_input_str (void) {
   char buf[256];
@@ -30,6 +31,7 @@ char *basic_get (void) {
 }
 
 int basic_strcmp (const char *a, const char *b) { return strcmp (a, b); }
+
 
 typedef struct BasicData {
   int is_str;
@@ -52,3 +54,17 @@ char *basic_read_str (void) {
 }
 
 void basic_restore (void) { basic_data_pos = 0; }
+
+void basic_home (void) { printf ("\x1b[2J\x1b[H"); }
+
+void basic_vtab (double n) { printf ("\x1b[%d;H", (int) n); }
+
+double basic_rnd (double n) {
+  static int seeded = 0;
+  if (!seeded) {
+    srand ((unsigned) time (NULL));
+    seeded = 1;
+  }
+  return ((double) rand () / RAND_MAX) * n;
+}
+
