@@ -61,7 +61,6 @@ static Node *new_node (NodeKind k) {
 /* Added ST_REM for comment lines, ST_DIM for array declarations, and ST_CLEAR to reset state. */
 typedef enum {
   ST_PRINT,
-  ST_PRINTS,
   ST_LET,
   ST_GOTO,
   ST_IF,
@@ -81,7 +80,11 @@ typedef enum { REL_NONE, REL_EQ, REL_NE, REL_LT, REL_LE, REL_GT, REL_GE } Relop;
 typedef struct {
   StmtKind kind;
   union {
-    Node *expr; /* PRINT/PRINTS */
+    struct {
+      Node **items;
+      size_t n;
+      int no_nl;
+    } print;
     struct {
       Node *var;
       Node *expr;
@@ -359,14 +362,10 @@ static int parse_stmt (Stmt *out) {
     return 1;
   } else if (strncasecmp (cur, "PRINT", 5) == 0) {
     cur += 5;
-    skip_ws ();
-    Node *e = parse_expr ();
-    if (e != NULL && e->is_str) {
-      out->kind = ST_PRINTS;
-    } else {
-      out->kind = ST_PRINT;
-    }
-    out->u.expr = e;
+    out->kind = ST_PRINT;
+    out->u.print.items = NULL;
+    out->u.print.n = 0;
+    out->u.print.no_nl = 0;
     return 1;
   } else if (strncasecmp (cur, "INPUT", 5) == 0) {
     cur += 5;
@@ -506,6 +505,34 @@ static int parse_line (char *line, Line *out) {
   while (1) {
     Stmt s;
     if (!parse_stmt (&s)) return 0;
+    if (s.kind == ST_PRINT) {
+      size_t cap = 0;
+      s.u.print.items = NULL;
+      s.u.print.n = 0;
+      s.u.print.no_nl = 0;
+      while (1) {
+        skip_ws ();
+        if (*cur == ':' || *cur == '\0') break;
+        Node *e = parse_expr ();
+        if (s.u.print.n == cap) {
+          cap = cap ? cap * 2 : 4;
+          s.u.print.items = realloc (s.u.print.items, cap * sizeof (Node *));
+        }
+        s.u.print.items[s.u.print.n++] = e;
+        skip_ws ();
+        if (*cur == ';' || *cur == ',') {
+          cur++;
+          skip_ws ();
+          if (*cur == ':' || *cur == '\0') {
+            s.u.print.no_nl = 1;
+            break;
+          }
+          continue;
+        }
+        break;
+      }
+      skip_ws ();
+    }
     vec_push (&out->stmts, s);
     if (s.kind == ST_REM) break;
     skip_ws ();
@@ -764,19 +791,21 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       Stmt *s = &ln->stmts.data[j];
       switch (s->kind) {
       case ST_PRINT: {
-        MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.expr);
-        MIR_append_insn (ctx, func,
-                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, print_proto),
-                                            MIR_new_ref_op (ctx, print_import),
-                                            MIR_new_reg_op (ctx, r)));
-        break;
-      }
-      case ST_PRINTS: {
-        MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.expr);
-        MIR_append_insn (ctx, func,
-                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, prints_proto),
-                                            MIR_new_ref_op (ctx, prints_import),
-                                            MIR_new_reg_op (ctx, r)));
+        for (size_t k = 0; k < s->u.print.n; k++) {
+          Node *e = s->u.print.items[k];
+          MIR_reg_t r = gen_expr (ctx, func, &vars, e);
+          MIR_item_t proto = e->is_str ? prints_proto : print_proto;
+          MIR_item_t import = e->is_str ? prints_import : print_import;
+          MIR_append_insn (ctx, func,
+                           MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, proto),
+                                              MIR_new_ref_op (ctx, import),
+                                              MIR_new_reg_op (ctx, r)));
+        }
+        if (!s->u.print.no_nl)
+          MIR_append_insn (ctx, func,
+                           MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, prints_proto),
+                                              MIR_new_ref_op (ctx, prints_import),
+                                              MIR_new_str_op (ctx, (MIR_str_t) {2, "\n"})));
         break;
       }
       case ST_LET: {
