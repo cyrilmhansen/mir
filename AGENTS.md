@@ -11,3 +11,4 @@
   - `-j` to execute with the JIT generator.
   - `-S` or `-c` to emit MIR text (`.mir`) and binary (`.bmir`) files.
   - `-o <path>` to set the base name for generated MIR files.
+  - The compiler now understands `REM` comments and ignores `DIM` statements.
