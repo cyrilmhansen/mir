@@ -15,21 +15,29 @@
 extern void basic_print (double);
 extern void basic_print_str (const char *);
 extern double basic_input (void);
+extern char *basic_input_str (void);
+extern char *basic_get (void);
+extern int basic_strcmp (const char *, const char *);
 
 static void *resolve (const char *name) {
   if (!strcmp (name, "basic_print")) return basic_print;
   if (!strcmp (name, "basic_print_str")) return basic_print_str;
   if (!strcmp (name, "basic_input")) return basic_input;
+  if (!strcmp (name, "basic_input_str")) return basic_input_str;
+  if (!strcmp (name, "basic_get")) return basic_get;
+  if (!strcmp (name, "basic_strcmp")) return basic_strcmp;
   return NULL;
 }
 
 /* AST for expressions */
-typedef enum { N_NUM, N_VAR, N_BIN, N_NEG } NodeKind;
+typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_STR } NodeKind;
 typedef struct Node Node;
 struct Node {
   NodeKind kind;
+  int is_str;
   double num;
   char *var;
+  char *str;
   char op;
   Node *left, *right;
 };
@@ -37,8 +45,10 @@ struct Node {
 static Node *new_node (NodeKind k) {
   Node *n = malloc (sizeof (Node));
   n->kind = k;
+  n->is_str = 0;
   n->num = 0;
   n->var = NULL;
+  n->str = NULL;
   n->op = 0;
   n->left = n->right = NULL;
   return n;
@@ -53,6 +63,7 @@ typedef enum {
   ST_GOTO,
   ST_IF,
   ST_INPUT,
+  ST_GET,
   ST_END,
   ST_REM,
   ST_DIM,
@@ -61,11 +72,11 @@ typedef enum { REL_NONE, REL_EQ, REL_NE, REL_LT, REL_LE, REL_GT, REL_GE } Relop;
 typedef struct {
   StmtKind kind;
   union {
-    Node *expr; /* PRINT */
-    char *str;  /* PRINTS */
+    Node *expr; /* PRINT/PRINTS */
     struct {
       char *var;
       Node *expr;
+      int is_str;
     } let;
     int target; /* GOTO */
     struct {
@@ -75,7 +86,13 @@ typedef struct {
       Node *expr;
       int target;
     } iff;
-    char *var; /* INPUT */
+    struct {
+      char *var;
+      int is_str;
+    } input;
+    struct {
+      char *var;
+    } get;
   } u;
 } Stmt;
 
@@ -130,6 +147,10 @@ static char *parse_id (void) {
     buf[i++] = toupper ((unsigned char) *cur);
     cur++;
   }
+  if (*cur == '$') {
+    buf[i++] = '$';
+    cur++;
+  }
   buf[i] = 0;
   return strdup (buf);
 }
@@ -177,9 +198,16 @@ static Node *parse_factor (void) {
     n->num = parse_number ();
     return n;
   }
+  if (*cur == '"') {
+    Node *n = new_node (N_STR);
+    n->is_str = 1;
+    n->str = parse_string ();
+    return n;
+  }
   if (isalpha ((unsigned char) *cur)) {
     Node *n = new_node (N_VAR);
     n->var = parse_id ();
+    n->is_str = n->var[strlen (n->var) - 1] == '$';
     return n;
   }
   return NULL;
@@ -263,18 +291,24 @@ static int parse_stmt (Stmt *out) {
   } else if (strncasecmp (cur, "PRINT", 5) == 0) {
     cur += 5;
     skip_ws ();
-    if (*cur == '"') {
+    Node *e = parse_expr ();
+    if (e != NULL && e->is_str) {
       out->kind = ST_PRINTS;
-      out->u.str = parse_string ();
     } else {
       out->kind = ST_PRINT;
-      out->u.expr = parse_expr ();
     }
+    out->u.expr = e;
     return 1;
   } else if (strncasecmp (cur, "INPUT", 5) == 0) {
     cur += 5;
     out->kind = ST_INPUT;
-    out->u.var = parse_id ();
+    out->u.input.var = parse_id ();
+    out->u.input.is_str = out->u.input.var[strlen (out->u.input.var) - 1] == '$';
+    return 1;
+  } else if (strncasecmp (cur, "GET", 3) == 0) {
+    cur += 3;
+    out->kind = ST_GET;
+    out->u.get.var = parse_id ();
     return 1;
   } else if (strncasecmp (cur, "LET", 3) == 0) {
     cur += 3;
@@ -286,6 +320,7 @@ static int parse_stmt (Stmt *out) {
     out->kind = ST_LET;
     out->u.let.var = v;
     out->u.let.expr = e;
+    out->u.let.is_str = v[strlen (v) - 1] == '$';
     return 1;
   } else if (strncasecmp (cur, "GOTO", 4) == 0) {
     cur += 4;
@@ -329,6 +364,7 @@ static int parse_stmt (Stmt *out) {
       out->kind = ST_LET;
       out->u.let.var = v;
       out->u.let.expr = e;
+      out->u.let.is_str = v[strlen (v) - 1] == '$';
       return 1;
     }
   }
@@ -360,12 +396,14 @@ static int parse_line (char *line, Line *out) {
 typedef struct {
   char *name;
   MIR_reg_t reg;
+  int is_str;
 } Var;
 typedef struct {
   Var *data;
   size_t len, cap;
 } VarVec;
 static MIR_reg_t get_var (VarVec *vars, MIR_context_t ctx, MIR_item_t func, const char *name) {
+  int is_str = name[strlen (name) - 1] == '$';
   for (size_t i = 0; i < vars->len; i++)
     if (strcmp (vars->data[i].name, name) == 0) return vars->data[i].reg;
   if (vars->len == vars->cap) {
@@ -373,13 +411,30 @@ static MIR_reg_t get_var (VarVec *vars, MIR_context_t ctx, MIR_item_t func, cons
     vars->data = realloc (vars->data, vars->cap * sizeof (Var));
   }
   vars->data[vars->len].name = strdup (name);
-  vars->data[vars->len].reg = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, name);
+  vars->data[vars->len].is_str = is_str;
+  MIR_type_t t = is_str ? MIR_T_I64 : MIR_T_D;
+  vars->data[vars->len].reg = MIR_new_func_reg (ctx, func->u.func, t, name);
   return vars->data[vars->len++].reg;
 }
 
 /* Expression code generation */
 static int tmp_id = 0;
 static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Node *n) {
+  if (n->is_str) {
+    if (n->kind == N_STR) {
+      char buf[32];
+      sprintf (buf, "$t%d", tmp_id++);
+      MIR_reg_t r = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+      MIR_append_insn (ctx, func,
+                       MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, r),
+                                     MIR_new_str_op (ctx,
+                                                     (MIR_str_t) {strlen (n->str) + 1, n->str})));
+      return r;
+    } else if (n->kind == N_VAR) {
+      return get_var (vars, ctx, func, n->var);
+    }
+    return 0;
+  }
   if (n->kind == N_NUM) {
     char buf[32];
     sprintf (buf, "$t%d", tmp_id++);
@@ -457,6 +512,15 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   MIR_type_t d = MIR_T_D;
   MIR_item_t input_proto = MIR_new_proto (ctx, "basic_input_p", 1, &d, 0);
   MIR_item_t input_import = MIR_new_import (ctx, "basic_input");
+  MIR_type_t p = MIR_T_P;
+  MIR_item_t input_str_proto = MIR_new_proto (ctx, "basic_input_str_p", 1, &p, 0);
+  MIR_item_t input_str_import = MIR_new_import (ctx, "basic_input_str");
+  MIR_item_t get_proto = MIR_new_proto (ctx, "basic_get_p", 1, &p, 0);
+  MIR_item_t get_import = MIR_new_import (ctx, "basic_get");
+  MIR_type_t i64 = MIR_T_I64;
+  MIR_item_t strcmp_proto
+    = MIR_new_proto (ctx, "basic_strcmp_p", 1, &i64, 2, MIR_T_P, "a", MIR_T_P, "b");
+  MIR_item_t strcmp_import = MIR_new_import (ctx, "basic_strcmp");
   MIR_type_t res_t = MIR_T_I64;
   MIR_item_t func = MIR_new_func (ctx, "main", 1, &res_t, 0);
   VarVec vars = {0};
@@ -481,19 +545,19 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
         break;
       }
       case ST_PRINTS: {
+        MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.expr);
         MIR_append_insn (ctx, func,
                          MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, prints_proto),
                                             MIR_new_ref_op (ctx, prints_import),
-                                            MIR_new_str_op (ctx, (MIR_str_t) {strlen (s->u.str) + 1,
-                                                                              s->u.str})));
+                                            MIR_new_reg_op (ctx, r)));
         break;
       }
       case ST_LET: {
         MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.let.expr);
         MIR_reg_t v = get_var (&vars, ctx, func, s->u.let.var);
+        MIR_insn_code_t mov = s->u.let.is_str ? MIR_MOV : MIR_DMOV;
         MIR_append_insn (ctx, func,
-                         MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, v),
-                                       MIR_new_reg_op (ctx, r)));
+                         MIR_new_insn (ctx, mov, MIR_new_reg_op (ctx, v), MIR_new_reg_op (ctx, r)));
         break;
       }
       case ST_GOTO: {
@@ -511,6 +575,32 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                                          MIR_new_label_op (ctx, find_label (prog, labels,
                                                                             s->u.iff.target)),
                                          MIR_new_reg_op (ctx, r), MIR_new_double_op (ctx, 0.0)));
+        } else if (s->u.iff.lhs->is_str) {
+          MIR_reg_t l = gen_expr (ctx, func, &vars, s->u.iff.lhs);
+          MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.iff.rhs);
+          char buf[32];
+          sprintf (buf, "$t%d", tmp_id++);
+          MIR_reg_t cmp = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+          MIR_append_insn (ctx, func,
+                           MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, strcmp_proto),
+                                              MIR_new_ref_op (ctx, strcmp_import),
+                                              MIR_new_reg_op (ctx, cmp), MIR_new_reg_op (ctx, l),
+                                              MIR_new_reg_op (ctx, r)));
+          MIR_insn_code_t code = MIR_BEQ;
+          switch (s->u.iff.rel) {
+          case REL_EQ: code = MIR_BEQ; break;
+          case REL_NE: code = MIR_BNE; break;
+          case REL_LT: code = MIR_BLT; break;
+          case REL_LE: code = MIR_BLE; break;
+          case REL_GT: code = MIR_BGT; break;
+          case REL_GE: code = MIR_BGE; break;
+          default: code = MIR_BEQ; break;
+          }
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, code,
+                                         MIR_new_label_op (ctx, find_label (prog, labels,
+                                                                            s->u.iff.target)),
+                                         MIR_new_reg_op (ctx, cmp), MIR_new_int_op (ctx, 0)));
         } else {
           MIR_reg_t l = gen_expr (ctx, func, &vars, s->u.iff.lhs);
           MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.iff.rhs);
@@ -533,10 +623,25 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
         break;
       }
       case ST_INPUT: {
-        MIR_reg_t v = get_var (&vars, ctx, func, s->u.var);
+        MIR_reg_t v = get_var (&vars, ctx, func, s->u.input.var);
+        if (s->u.input.is_str) {
+          MIR_append_insn (ctx, func,
+                           MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, input_str_proto),
+                                              MIR_new_ref_op (ctx, input_str_import),
+                                              MIR_new_reg_op (ctx, v)));
+        } else {
+          MIR_append_insn (ctx, func,
+                           MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, input_proto),
+                                              MIR_new_ref_op (ctx, input_import),
+                                              MIR_new_reg_op (ctx, v)));
+        }
+        break;
+      }
+      case ST_GET: {
+        MIR_reg_t v = get_var (&vars, ctx, func, s->u.get.var);
         MIR_append_insn (ctx, func,
-                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, input_proto),
-                                            MIR_new_ref_op (ctx, input_import),
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, get_proto),
+                                            MIR_new_ref_op (ctx, get_import),
                                             MIR_new_reg_op (ctx, v)));
         break;
       }
