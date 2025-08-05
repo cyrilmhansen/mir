@@ -18,6 +18,9 @@ extern double basic_input (void);
 extern char *basic_input_str (void);
 extern char *basic_get (void);
 extern int basic_strcmp (const char *, const char *);
+extern void basic_home (void);
+extern void basic_vtab (double);
+extern double basic_rnd (double);
 
 static void *resolve (const char *name) {
   if (!strcmp (name, "basic_print")) return basic_print;
@@ -26,13 +29,19 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_input_str")) return basic_input_str;
   if (!strcmp (name, "basic_get")) return basic_get;
   if (!strcmp (name, "basic_strcmp")) return basic_strcmp;
+  if (!strcmp (name, "basic_home")) return basic_home;
+  if (!strcmp (name, "basic_vtab")) return basic_vtab;
+  if (!strcmp (name, "basic_rnd")) return basic_rnd;
   if (!strcmp (name, "calloc")) return calloc;
   if (!strcmp (name, "memset")) return memset;
   return NULL;
 }
 
+/* Runtime call prototypes for expressions */
+static MIR_item_t rnd_proto, rnd_import;
+
 /* AST for expressions */
-typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_STR } NodeKind;
+typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_STR, N_CALL } NodeKind;
 typedef struct Node Node;
 struct Node {
   NodeKind kind;
@@ -68,6 +77,8 @@ typedef enum {
   ST_INPUT,
   ST_GET,
   ST_CLEAR,
+  ST_HOME,
+  ST_VTAB,
   ST_END,
   ST_REM,
   ST_DIM,
@@ -81,7 +92,7 @@ typedef enum { REL_NONE, REL_EQ, REL_NE, REL_LT, REL_LE, REL_GT, REL_GE } Relop;
 typedef struct {
   StmtKind kind;
   union {
-    Node *expr; /* PRINT/PRINTS */
+    Node *expr; /* PRINT/PRINTS/VTAB */
     struct {
       Node *var;
       Node *expr;
@@ -234,17 +245,31 @@ static Node *parse_factor (void) {
     return n;
   }
   if (isalpha ((unsigned char) *cur)) {
-    Node *n = new_node (N_VAR);
-    n->var = parse_id ();
-    n->is_str = n->var[strlen (n->var) - 1] == '$';
+    char *id = parse_id ();
     skip_ws ();
     if (*cur == '(') {
       cur++;
-      n->index = parse_expr ();
+      Node *arg = parse_expr ();
       skip_ws ();
       if (*cur == ')') cur++;
+      if (strcasecmp (id, "RND") == 0) {
+        Node *n = new_node (N_CALL);
+        n->var = id;
+        n->left = arg;
+        return n;
+      } else {
+        Node *n = new_node (N_VAR);
+        n->var = id;
+        n->is_str = id[strlen (id) - 1] == '$';
+        n->index = arg;
+        return n;
+      }
+    } else {
+      Node *n = new_node (N_VAR);
+      n->var = id;
+      n->is_str = id[strlen (id) - 1] == '$';
+      return n;
     }
-    return n;
   }
   return NULL;
 }
@@ -378,6 +403,16 @@ static int parse_stmt (Stmt *out) {
     cur += 3;
     out->kind = ST_GET;
     out->u.get.var = parse_id ();
+    return 1;
+  } else if (strncasecmp (cur, "HOME", 4) == 0) {
+    cur += 4;
+    out->kind = ST_HOME;
+    return 1;
+  } else if (strncasecmp (cur, "VTAB", 4) == 0) {
+    cur += 4;
+    skip_ws ();
+    out->kind = ST_VTAB;
+    out->u.expr = parse_expr ();
     return 1;
   } else if (strncasecmp (cur, "LET", 3) == 0) {
     cur += 3;
@@ -658,6 +693,16 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                      MIR_new_insn (ctx, MIR_DNEG, MIR_new_reg_op (ctx, r),
                                    MIR_new_reg_op (ctx, v)));
     return r;
+  } else if (n->kind == N_CALL) {
+    MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+    char buf[32];
+    sprintf (buf, "$t%d", tmp_id++);
+    MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
+    MIR_append_insn (ctx, func,
+                     MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, rnd_proto),
+                                        MIR_new_ref_op (ctx, rnd_import), MIR_new_reg_op (ctx, res),
+                                        MIR_new_reg_op (ctx, arg)));
+    return res;
   } else {
     MIR_reg_t l = gen_expr (ctx, func, vars, n->left);
     MIR_reg_t r = gen_expr (ctx, func, vars, n->right);
@@ -721,6 +766,12 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   MIR_item_t input_str_import = MIR_new_import (ctx, "basic_input_str");
   MIR_item_t get_proto = MIR_new_proto (ctx, "basic_get_p", 1, &p, 0);
   MIR_item_t get_import = MIR_new_import (ctx, "basic_get");
+  MIR_item_t home_proto = MIR_new_proto (ctx, "basic_home_p", 0, NULL, 0);
+  MIR_item_t home_import = MIR_new_import (ctx, "basic_home");
+  MIR_item_t vtab_proto = MIR_new_proto (ctx, "basic_vtab_p", 0, NULL, 1, MIR_T_D, "n");
+  MIR_item_t vtab_import = MIR_new_import (ctx, "basic_vtab");
+  rnd_proto = MIR_new_proto (ctx, "basic_rnd_p", 1, &d, 1, MIR_T_D, "n");
+  rnd_import = MIR_new_import (ctx, "basic_rnd");
   MIR_item_t calloc_proto
     = MIR_new_proto (ctx, "calloc_p", 1, &p, 2, MIR_T_I64, "n", MIR_T_I64, "sz");
   MIR_item_t calloc_import = MIR_new_import (ctx, "calloc");
@@ -914,6 +965,20 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                          MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, get_proto),
                                             MIR_new_ref_op (ctx, get_import),
                                             MIR_new_reg_op (ctx, v)));
+        break;
+      }
+      case ST_HOME: {
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, home_proto),
+                                            MIR_new_ref_op (ctx, home_import)));
+        break;
+      }
+      case ST_VTAB: {
+        MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.expr);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, vtab_proto),
+                                            MIR_new_ref_op (ctx, vtab_import),
+                                            MIR_new_reg_op (ctx, r)));
         break;
       }
       case ST_CLEAR: {
