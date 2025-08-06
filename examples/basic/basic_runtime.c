@@ -368,27 +368,54 @@ static int current_hcolor = 37;
 
 void basic_hcolor (double c) { current_hcolor = 30 + ((int) c & 7); }
 
-void basic_hplot (double x, double y) {
-  printf ("\x1b[%dm\x1b[%d;%dH*\x1b[0m", current_hcolor, (int) y, (int) x);
+/* 1x1 PNGs for standard 8 terminal colors, base64-encoded.  */
+static const char *kitty_color_png[8] = {
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYGAAAAAEAAH2FzhVAAAAAElFTkSuQmCC",
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNg+M8AAAICAQB7CYF4AAAAAElFTkSuQmCC",
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4/58BAAT/Af9dfQKHAAAAAElFTkSuQmCC",
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYPgPAAEDAQAIicLsAAAAAElFTkSuQmCC",
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z/AfAAQAAf8iCjrwAAAAAElFTkSuQmCC",
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNg+P8fAAMBAf+2EqLVAAAAAElFTkSuQmCC",
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC",
+};
+
+static void basic_kitty_plot (double x, double y) {
+  int ix = (int) x, iy = (int) y;
+  int color = (current_hcolor - 30) & 7;
+  const char *png = kitty_color_png[color];
+  printf (
+    "\x1b[%d;%dH\x1b]1337;File=inline=1;width=1;height=1;preserveAspectRatio=0:%s\x07\x1b[%d;%dH",
+    iy, ix, png, iy, ix + 1);
   fflush (stdout);
-  last_hplot_x = x;
-  last_hplot_y = y;
 }
 
-void basic_hplot_to (double x0, double y0, double x1, double y1) {
+static void basic_kitty_line (double x0, double y0, double x1, double y1) {
   double dx = x1 - x0, dy = y1 - y0;
   int steps = fabs (dx) > fabs (dy) ? fabs (dx) : fabs (dy);
   double xi = steps ? dx / steps : 0.0;
   double yi = steps ? dy / steps : 0.0;
   for (int i = 0; i <= steps; i++) {
-    basic_hplot (x0 + xi * i, y0 + yi * i);
+    basic_kitty_plot (x0 + xi * i, y0 + yi * i);
   }
+}
+
+void basic_hplot (double x, double y) {
+  basic_kitty_plot (x, y);
+  last_hplot_x = x;
+  last_hplot_y = y;
+}
+
+void basic_hplot_to (double x0, double y0, double x1, double y1) {
+  basic_kitty_line (x0, y0, x1, y1);
   last_hplot_x = x1;
   last_hplot_y = y1;
 }
 
 void basic_hplot_to_current (double x1, double y1) {
-  basic_hplot_to (last_hplot_x, last_hplot_y, x1, y1);
+  basic_kitty_line (last_hplot_x, last_hplot_y, x1, y1);
+  last_hplot_x = x1;
+  last_hplot_y = y1;
 }
 
 void basic_beep (void) {

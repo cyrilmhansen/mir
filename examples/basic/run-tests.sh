@@ -22,7 +22,7 @@ run_test() {
 	diff "$exp" "$out"
 }
 
-for t in hello relop adder guess string strfuncs instr; do
+for t in hello relop adder guess string strfuncs instr graphics readhplot; do
 	echo "Running $t"
 	run_test "$t"
 	echo "$t OK"
