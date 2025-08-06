@@ -50,7 +50,6 @@ extern double basic_int (double);
 extern double basic_timer (void);
 extern char *basic_input_chr (double);
 
-
 static void *resolve (const char *name) {
   if (!strcmp (name, "basic_print")) return basic_print;
   if (!strcmp (name, "basic_print_str")) return basic_print_str;
@@ -159,6 +158,7 @@ typedef enum {
   ST_NEXT,
   ST_GOSUB,
   ST_RETURN,
+  ST_ON_GOTO,
   ST_ON_GOSUB,
 } StmtKind;
 typedef enum { REL_NONE, REL_EQ, REL_NE, REL_LT, REL_LE, REL_GT, REL_GE } Relop;
@@ -214,6 +214,11 @@ typedef struct {
       Node *col;
     } locate;
     int target; /* GOTO/GOSUB */
+    struct {
+      Node *expr;
+      int *targets;
+      size_t n_targets;
+    } on_goto;
     struct {
       Node *expr;
       int *targets;
@@ -675,20 +680,35 @@ static int parse_stmt (Stmt *out) {
   } else if (strncasecmp (cur, "ON", 2) == 0) {
     cur += 2;
     Node *e = parse_expr ();
-    if (strncasecmp (cur, "GOSUB", 5) != 0) return 0;
-    cur += 5;
-    out->kind = ST_ON_GOSUB;
-    out->u.on_gosub.expr = e;
-    out->u.on_gosub.targets = NULL;
-    out->u.on_gosub.n_targets = 0;
+    int **targets = NULL;
+    size_t *n_targets = NULL;
+    if (strncasecmp (cur, "GOSUB", 5) == 0) {
+      cur += 5;
+      out->kind = ST_ON_GOSUB;
+      out->u.on_gosub.expr = e;
+      out->u.on_gosub.targets = NULL;
+      out->u.on_gosub.n_targets = 0;
+      targets = &out->u.on_gosub.targets;
+      n_targets = &out->u.on_gosub.n_targets;
+    } else if (strncasecmp (cur, "GOTO", 4) == 0) {
+      cur += 4;
+      out->kind = ST_ON_GOTO;
+      out->u.on_goto.expr = e;
+      out->u.on_goto.targets = NULL;
+      out->u.on_goto.n_targets = 0;
+      targets = &out->u.on_goto.targets;
+      n_targets = &out->u.on_goto.n_targets;
+    } else {
+      return 0;
+    }
     size_t cap = 0;
     while (1) {
       int t = parse_int ();
-      if (out->u.on_gosub.n_targets == cap) {
+      if (*n_targets == cap) {
         cap = cap ? cap * 2 : 4;
-        out->u.on_gosub.targets = realloc (out->u.on_gosub.targets, cap * sizeof (int));
+        *targets = realloc (*targets, cap * sizeof (int));
       }
-      out->u.on_gosub.targets[out->u.on_gosub.n_targets++] = t;
+      (*targets)[(*n_targets)++] = t;
       skip_ws ();
       if (*cur != ',') break;
       cur++;
@@ -1463,6 +1483,31 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                          MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, addr),
                                        MIR_new_mem_op (ctx, MIR_T_P, 0, ret_stack, ret_sp, 1)));
         MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMPI, MIR_new_reg_op (ctx, addr)));
+        break;
+      }
+      case ST_ON_GOTO: {
+        MIR_reg_t expr = gen_expr (ctx, func, &vars, s->u.on_goto.expr);
+        char buf[32];
+        sprintf (buf, "$t%d", tmp_id++);
+        MIR_reg_t idx = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, idx),
+                                       MIR_new_reg_op (ctx, expr)));
+        MIR_label_t after = MIR_new_label (ctx);
+        for (size_t k = 0; k < s->u.on_goto.n_targets; k++) {
+          MIR_label_t next = k + 1 < s->u.on_goto.n_targets ? MIR_new_label (ctx) : after;
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_BNE, MIR_new_label_op (ctx, next),
+                                         MIR_new_reg_op (ctx, idx),
+                                         MIR_new_int_op (ctx, (int) k + 1)));
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_JMP,
+                                         MIR_new_label_op (ctx,
+                                                           find_label (prog, labels,
+                                                                       s->u.on_goto.targets[k]))));
+          if (k + 1 < s->u.on_goto.n_targets) MIR_append_insn (ctx, func, next);
+        }
+        MIR_append_insn (ctx, func, after);
         break;
       }
       case ST_ON_GOSUB: {
