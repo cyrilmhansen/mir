@@ -43,6 +43,12 @@ extern void basic_color (double);
 extern void basic_key_off (void);
 extern void basic_locate (double, double);
 extern void basic_htab (double);
+extern void basic_text (void);
+extern void basic_inverse (void);
+extern void basic_normal (void);
+extern void basic_hgr2 (void);
+extern void basic_hcolor (double);
+extern void basic_hplot (double, double);
 
 extern char *basic_chr (double);
 extern char *basic_string (double, const char *);
@@ -75,6 +81,12 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_locate")) return basic_locate;
   if (!strcmp (name, "basic_htab")) return basic_htab;
   if (!strcmp (name, "basic_tab")) return basic_htab;
+  if (!strcmp (name, "basic_text")) return basic_text;
+  if (!strcmp (name, "basic_inverse")) return basic_inverse;
+  if (!strcmp (name, "basic_normal")) return basic_normal;
+  if (!strcmp (name, "basic_hgr2")) return basic_hgr2;
+  if (!strcmp (name, "basic_hcolor")) return basic_hcolor;
+  if (!strcmp (name, "basic_hplot")) return basic_hplot;
 
   if (!strcmp (name, "basic_chr")) return basic_chr;
   if (!strcmp (name, "basic_string")) return basic_string;
@@ -99,7 +111,9 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   input_str_proto, input_str_import, get_proto, get_import, read_proto, read_import, read_str_proto,
   read_str_import, restore_proto, restore_import, screen_proto, screen_import, cls_proto,
   cls_import, color_proto, color_import, keyoff_proto, keyoff_import, locate_proto, locate_import,
-  htab_proto, htab_import, home_proto, poke_proto, poke_import, home_import, vtab_proto, vtab_import, calloc_proto,
+  htab_proto, htab_import, home_proto, poke_proto, poke_import, home_import, vtab_proto,
+  vtab_import, text_proto, text_import, inverse_proto, inverse_import, normal_proto, normal_import,
+  hgr2_proto, hgr2_import, hcolor_proto, hcolor_import, hplot_proto, hplot_import, calloc_proto,
   calloc_import, memset_proto, memset_import, strcmp_proto, strcmp_import;
 
 /* AST for expressions */
@@ -166,6 +180,12 @@ typedef enum {
   ST_POKE,
   ST_HOME,
   ST_VTAB,
+  ST_TEXT,
+  ST_INVERSE,
+  ST_NORMAL,
+  ST_HGR2,
+  ST_HCOLOR,
+  ST_HPLOT,
   ST_END,
   ST_REM,
   ST_DIM,
@@ -183,7 +203,7 @@ typedef struct Stmt Stmt;
 struct Stmt {
   StmtKind kind;
   union {
-    Node *expr; /* PRINT/VTAB/HTAB/SCREEN/COLOR/WHILE */
+    Node *expr; /* PRINT/VTAB/HTAB/SCREEN/COLOR/WHILE/HCOLOR */
     struct {
       Node **items;
       size_t n;
@@ -228,6 +248,10 @@ struct Stmt {
       Node *row;
       Node *col;
     } locate;
+    struct {
+      Node *x;
+      Node *y;
+    } hplot;
     struct {
       Node *addr;
       Node *value;
@@ -386,8 +410,7 @@ static Node *parse_factor (void) {
     if (strcasecmp (id, "RND") == 0 || strcasecmp (id, "CHR$") == 0
         || strcasecmp (id, "STRING$") == 0 || strcasecmp (id, "INT") == 0
         || strcasecmp (id, "TIMER") == 0 || strcasecmp (id, "INPUT$") == 0
-        || strcasecmp (id, "PEEK") == 0) || strcasecmp (id, "SPC") == 0)
-     {
+        || strcasecmp (id, "PEEK") == 0 || strcasecmp (id, "SPC") == 0) {
       Node *n = new_node (N_CALL);
       n->var = id;
       n->left = arg1;
@@ -712,6 +735,38 @@ static int parse_stmt (Stmt *out) {
     skip_ws ();
     out->kind = ST_VTAB;
     out->u.expr = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "TEXT", 4) == 0) {
+    cur += 4;
+    out->kind = ST_TEXT;
+    return 1;
+  } else if (strncasecmp (cur, "INVERSE", 7) == 0) {
+    cur += 7;
+    out->kind = ST_INVERSE;
+    return 1;
+  } else if (strncasecmp (cur, "NORMAL", 6) == 0) {
+    cur += 6;
+    out->kind = ST_NORMAL;
+    return 1;
+  } else if (strncasecmp (cur, "HGR2", 4) == 0) {
+    cur += 4;
+    out->kind = ST_HGR2;
+    return 1;
+  } else if (strncasecmp (cur, "HCOLOR=", 7) == 0) {
+    cur += 7;
+    skip_ws ();
+    out->kind = ST_HCOLOR;
+    out->u.expr = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "HPLOT", 5) == 0) {
+    cur += 5;
+    skip_ws ();
+    out->kind = ST_HPLOT;
+    out->u.hplot.x = parse_expr ();
+    skip_ws ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.hplot.y = parse_expr ();
     return 1;
   } else if (strncasecmp (cur, "LET", 3) == 0) {
     cur += 3;
@@ -1305,6 +1360,18 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   htab_import = MIR_new_import (ctx, "basic_htab");
   poke_proto = MIR_new_proto (ctx, "basic_poke_p", 0, NULL, 2, MIR_T_D, "addr", MIR_T_D, "value");
   poke_import = MIR_new_import (ctx, "basic_poke");
+  text_proto = MIR_new_proto (ctx, "basic_text_p", 0, NULL, 0);
+  text_import = MIR_new_import (ctx, "basic_text");
+  inverse_proto = MIR_new_proto (ctx, "basic_inverse_p", 0, NULL, 0);
+  inverse_import = MIR_new_import (ctx, "basic_inverse");
+  normal_proto = MIR_new_proto (ctx, "basic_normal_p", 0, NULL, 0);
+  normal_import = MIR_new_import (ctx, "basic_normal");
+  hgr2_proto = MIR_new_proto (ctx, "basic_hgr2_p", 0, NULL, 0);
+  hgr2_import = MIR_new_import (ctx, "basic_hgr2");
+  hcolor_proto = MIR_new_proto (ctx, "basic_hcolor_p", 0, NULL, 1, MIR_T_D, "c");
+  hcolor_import = MIR_new_import (ctx, "basic_hcolor");
+  hplot_proto = MIR_new_proto (ctx, "basic_hplot_p", 0, NULL, 2, MIR_T_D, "x", MIR_T_D, "y");
+  hplot_import = MIR_new_import (ctx, "basic_hplot");
   rnd_proto = MIR_new_proto (ctx, "basic_rnd_p", 1, &d, 1, MIR_T_D, "n");
   rnd_import = MIR_new_import (ctx, "basic_rnd");
   chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, MIR_T_D, "n");
@@ -1646,6 +1713,47 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                          MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, vtab_proto),
                                             MIR_new_ref_op (ctx, vtab_import),
                                             MIR_new_reg_op (ctx, r)));
+        break;
+      }
+      case ST_TEXT: {
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, text_proto),
+                                            MIR_new_ref_op (ctx, text_import)));
+        break;
+      }
+      case ST_INVERSE: {
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, inverse_proto),
+                                            MIR_new_ref_op (ctx, inverse_import)));
+        break;
+      }
+      case ST_NORMAL: {
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, normal_proto),
+                                            MIR_new_ref_op (ctx, normal_import)));
+        break;
+      }
+      case ST_HGR2: {
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, hgr2_proto),
+                                            MIR_new_ref_op (ctx, hgr2_import)));
+        break;
+      }
+      case ST_HCOLOR: {
+        MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.expr);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, hcolor_proto),
+                                            MIR_new_ref_op (ctx, hcolor_import),
+                                            MIR_new_reg_op (ctx, r)));
+        break;
+      }
+      case ST_HPLOT: {
+        MIR_reg_t x = gen_expr (ctx, func, &vars, s->u.hplot.x);
+        MIR_reg_t y = gen_expr (ctx, func, &vars, s->u.hplot.y);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, hplot_proto),
+                                            MIR_new_ref_op (ctx, hplot_import),
+                                            MIR_new_reg_op (ctx, x), MIR_new_reg_op (ctx, y)));
         break;
       }
       case ST_CLEAR: {
