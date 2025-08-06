@@ -14,6 +14,7 @@
 - `examples/basic/basicc.c` accepts:
   - `-j` to execute with the JIT generator.
   - `-S` or `-c` to emit MIR text (`.mir`) and binary (`.bmir`) files.
+  - `-r` to emit only a binary (`.bmir`) file for use with `mir-bin-run`.
   - `-b` to build a standalone executable.
   - `-l` to reduce linked libraries when building executables.
   - `-o <path>` to set the base name for generated files.

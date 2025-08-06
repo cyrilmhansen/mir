@@ -435,3 +435,5 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE)
 	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/hello-lean.out
 	$(BUILD_DIR)/basic/kitty_test$(EXE) > $(BUILD_DIR)/basic/kitty_test.out
 	diff $(SRC_DIR)/examples/basic/kitty/kitty_test.out $(BUILD_DIR)/basic/kitty_test.out
+	$(BUILD_DIR)/basic/basicc$(EXE) -r -o $(BUILD_DIR)/basic/hello $(SRC_DIR)/examples/basic/hello.bas
+	test -f $(BUILD_DIR)/basic/hello.bmir
