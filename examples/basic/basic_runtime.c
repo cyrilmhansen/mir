@@ -372,6 +372,16 @@ void basic_hplot (double x, double y) {
   fflush (stdout);
 }
 
+void basic_hplot_to (double x0, double y0, double x1, double y1) {
+  double dx = x1 - x0, dy = y1 - y0;
+  int steps = fabs (dx) > fabs (dy) ? fabs (dx) : fabs (dy);
+  double xi = steps ? dx / steps : 0.0;
+  double yi = steps ? dy / steps : 0.0;
+  for (int i = 0; i <= steps; i++) {
+    basic_hplot (x0 + xi * i, y0 + yi * i);
+  }
+}
+
 void basic_beep (void) {
   fputc ('\a', stdout);
   fflush (stdout);

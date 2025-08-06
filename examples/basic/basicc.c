@@ -65,6 +65,7 @@ extern void basic_normal (void);
 extern void basic_hgr2 (void);
 extern void basic_hcolor (double);
 extern void basic_hplot (double, double);
+extern void basic_hplot_to (double, double, double, double);
 
 extern char *basic_chr (double);
 extern char *basic_string (double, const char *);
@@ -161,6 +162,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_hgr2")) return basic_hgr2;
   if (!strcmp (name, "basic_hcolor")) return basic_hcolor;
   if (!strcmp (name, "basic_hplot")) return basic_hplot;
+  if (!strcmp (name, "basic_hplot_to")) return basic_hplot_to;
 
   if (!strcmp (name, "basic_chr")) return basic_chr;
   if (!strcmp (name, "basic_string")) return basic_string;
@@ -211,13 +213,13 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   locate_proto, locate_import, htab_proto, htab_import, home_proto, poke_proto, poke_import,
   home_import, vtab_proto, vtab_import, text_proto, text_import, inverse_proto, inverse_import,
   normal_proto, normal_import, hgr2_proto, hgr2_import, hcolor_proto, hcolor_import, hplot_proto,
-  hplot_import, calloc_proto, calloc_import, memset_proto, memset_import, strcmp_proto,
-  strcmp_import, open_proto, open_import, close_proto, close_import, printh_proto, printh_import,
-  prinths_proto, prinths_import, input_hash_proto, input_hash_import, input_hash_str_proto,
-  input_hash_str_import, get_hash_proto, get_hash_import, put_hash_proto, put_hash_import,
-  randomize_proto, randomize_import, stop_proto, stop_import, on_error_proto, on_error_import,
-  set_line_proto, set_line_import, get_line_proto, get_line_import, beep_proto, beep_import,
-  sound_proto, sound_import;
+  hplot_import, hplotto_proto, hplotto_import, calloc_proto, calloc_import, memset_proto,
+  memset_import, strcmp_proto, strcmp_import, open_proto, open_import, close_proto, close_import,
+  printh_proto, printh_import, prinths_proto, prinths_import, input_hash_proto, input_hash_import,
+  input_hash_str_proto, input_hash_str_import, get_hash_proto, get_hash_import, put_hash_proto,
+  put_hash_import, randomize_proto, randomize_import, stop_proto, stop_import, on_error_proto,
+  on_error_import, set_line_proto, set_line_import, get_line_proto, get_line_import, beep_proto,
+  beep_import, sound_proto, sound_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL } NodeKind;
@@ -427,8 +429,9 @@ struct Stmt {
       Node *col;
     } locate;
     struct {
-      Node *x;
-      Node *y;
+      Node **xs;
+      Node **ys;
+      size_t n;
     } hplot;
     struct {
       Node *freq;
@@ -1147,11 +1150,29 @@ static int parse_stmt (Stmt *out) {
     cur += 5;
     skip_ws ();
     out->kind = ST_HPLOT;
-    out->u.hplot.x = parse_expr ();
-    skip_ws ();
-    if (*cur != ',') return 0;
-    cur++;
-    out->u.hplot.y = parse_expr ();
+    size_t cap = 0;
+    out->u.hplot.n = 0;
+    out->u.hplot.xs = out->u.hplot.ys = NULL;
+    while (1) {
+      if (out->u.hplot.n >= cap) {
+        cap = cap ? cap * 2 : 4;
+        out->u.hplot.xs = realloc (out->u.hplot.xs, cap * sizeof (Node *));
+        out->u.hplot.ys = realloc (out->u.hplot.ys, cap * sizeof (Node *));
+      }
+      out->u.hplot.xs[out->u.hplot.n] = parse_expr ();
+      skip_ws ();
+      if (*cur != ',') return 0;
+      cur++;
+      out->u.hplot.ys[out->u.hplot.n] = parse_expr ();
+      out->u.hplot.n++;
+      skip_ws ();
+      if (strncasecmp (cur, "TO", 2) == 0) {
+        cur += 2;
+        skip_ws ();
+      } else {
+        break;
+      }
+    }
     return 1;
   } else if (strncasecmp (cur, "LET", 3) == 0) {
     cur += 3;
@@ -2112,6 +2133,9 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   hcolor_import = MIR_new_import (ctx, "basic_hcolor");
   hplot_proto = MIR_new_proto (ctx, "basic_hplot_p", 0, NULL, 2, MIR_T_D, "x", MIR_T_D, "y");
   hplot_import = MIR_new_import (ctx, "basic_hplot");
+  hplotto_proto = MIR_new_proto (ctx, "basic_hplot_to_p", 0, NULL, 4, MIR_T_D, "x0", MIR_T_D, "y0",
+                                 MIR_T_D, "x1", MIR_T_D, "y1");
+  hplotto_import = MIR_new_import (ctx, "basic_hplot_to");
   beep_proto = MIR_new_proto (ctx, "basic_beep_p", 0, NULL, 0);
   beep_import = MIR_new_import (ctx, "basic_beep");
   sound_proto = MIR_new_proto (ctx, "basic_sound_p", 0, NULL, 2, MIR_T_D, "f", MIR_T_D, "d");
@@ -2724,12 +2748,26 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
         break;
       }
       case ST_HPLOT: {
-        MIR_reg_t x = gen_expr (ctx, func, &vars, s->u.hplot.x);
-        MIR_reg_t y = gen_expr (ctx, func, &vars, s->u.hplot.y);
-        MIR_append_insn (ctx, func,
-                         MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, hplot_proto),
-                                            MIR_new_ref_op (ctx, hplot_import),
-                                            MIR_new_reg_op (ctx, x), MIR_new_reg_op (ctx, y)));
+        MIR_reg_t prev_x = 0, prev_y = 0;
+        for (size_t i = 0; i < s->u.hplot.n; i++) {
+          MIR_reg_t x = gen_expr (ctx, func, &vars, s->u.hplot.xs[i]);
+          MIR_reg_t y = gen_expr (ctx, func, &vars, s->u.hplot.ys[i]);
+          if (i == 0) {
+            MIR_append_insn (ctx, func,
+                             MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, hplot_proto),
+                                                MIR_new_ref_op (ctx, hplot_import),
+                                                MIR_new_reg_op (ctx, x), MIR_new_reg_op (ctx, y)));
+          } else {
+            MIR_append_insn (ctx, func,
+                             MIR_new_call_insn (ctx, 6, MIR_new_ref_op (ctx, hplotto_proto),
+                                                MIR_new_ref_op (ctx, hplotto_import),
+                                                MIR_new_reg_op (ctx, prev_x),
+                                                MIR_new_reg_op (ctx, prev_y),
+                                                MIR_new_reg_op (ctx, x), MIR_new_reg_op (ctx, y)));
+          }
+          prev_x = x;
+          prev_y = y;
+        }
         break;
       }
       case ST_CLEAR: {
