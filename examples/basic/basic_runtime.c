@@ -82,6 +82,24 @@ double basic_rnd (double n) {
   return ((double) rand () / RAND_MAX) * n;
 }
 
+double basic_abs (double x) { return fabs (x); }
+
+double basic_sgn (double x) { return x > 0 ? 1.0 : x < 0 ? -1.0 : 0.0; }
+
+double basic_sqr (double x) { return sqrt (x); }
+
+double basic_sin (double x) { return sin (x); }
+
+double basic_cos (double x) { return cos (x); }
+
+double basic_tan (double x) { return tan (x); }
+
+double basic_atn (double x) { return atan (x); }
+
+double basic_log (double x) { return log (x); }
+
+double basic_exp (double x) { return exp (x); }
+
 char *basic_chr (double n) {
   char *s = malloc (2);
   s[0] = (char) ((int) n);
