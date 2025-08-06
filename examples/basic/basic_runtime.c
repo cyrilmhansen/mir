@@ -3,6 +3,7 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
+#include <stdint.h>
 
 double basic_input (void) {
   double x = 0.0;
@@ -111,4 +112,20 @@ char *basic_input_chr (double n) {
   }
   res[i] = '\0';
   return res;
+}
+
+#define BASIC_MEM_SIZE 65536
+static uint8_t basic_memory[BASIC_MEM_SIZE];
+
+double basic_peek (double addr) {
+  int a = (int) addr;
+  if (a < 0 || a >= BASIC_MEM_SIZE) return 0.0;
+  return (double) basic_memory[a];
+}
+
+void basic_poke (double addr, double value) {
+  int a = (int) addr;
+  int v = (int) value & 0xff;
+  if (a < 0 || a >= BASIC_MEM_SIZE) return;
+  basic_memory[a] = (uint8_t) v;
 }
