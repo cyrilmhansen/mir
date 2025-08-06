@@ -17,7 +17,11 @@ extern void basic_print_str (const char *);
 extern double basic_input (void);
 extern char *basic_input_str (void);
 extern char *basic_get (void);
+
 extern char *basic_inkey (void);
+
+extern void basic_put (const char *);
+
 extern int basic_strcmp (const char *, const char *);
 
 extern double basic_read (void);
@@ -85,8 +89,19 @@ extern void basic_print_hash_str (double, const char *);
 extern double basic_input_hash (double);
 extern char *basic_input_hash_str (double);
 extern char *basic_get_hash (double);
+extern void basic_put_hash (double, const char *);
+extern double basic_eof (double);
 
 extern void basic_stop (void);
+
+extern void basic_set_error_handler (double);
+extern double basic_get_error_handler (void);
+extern void basic_set_line (double);
+extern double basic_get_line (void);
+
+extern void basic_beep (void);
+extern void basic_sound (double, double);
+
 
 static int array_base = 0;
 
@@ -96,7 +111,11 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_input")) return basic_input;
   if (!strcmp (name, "basic_input_str")) return basic_input_str;
   if (!strcmp (name, "basic_get")) return basic_get;
+
   if (!strcmp (name, "basic_inkey")) return basic_inkey;
+
+  if (!strcmp (name, "basic_put")) return basic_put;
+
   if (!strcmp (name, "basic_strcmp")) return basic_strcmp;
   if (!strcmp (name, "basic_open")) return basic_open;
   if (!strcmp (name, "basic_close")) return basic_close;
@@ -105,6 +124,8 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_input_hash")) return basic_input_hash;
   if (!strcmp (name, "basic_input_hash_str")) return basic_input_hash_str;
   if (!strcmp (name, "basic_get_hash")) return basic_get_hash;
+  if (!strcmp (name, "basic_put_hash")) return basic_put_hash;
+  if (!strcmp (name, "basic_eof")) return basic_eof;
 
   if (!strcmp (name, "basic_read")) return basic_read;
   if (!strcmp (name, "basic_read_str")) return basic_read_str;
@@ -156,6 +177,14 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_poke")) return basic_poke;
   if (!strcmp (name, "basic_stop")) return basic_stop;
 
+  if (!strcmp (name, "basic_set_error_handler")) return basic_set_error_handler;
+  if (!strcmp (name, "basic_get_error_handler")) return basic_get_error_handler;
+  if (!strcmp (name, "basic_set_line")) return basic_set_line;
+  if (!strcmp (name, "basic_get_line")) return basic_get_line;
+
+  if (!strcmp (name, "basic_beep")) return basic_beep;
+  if (!strcmp (name, "basic_sound")) return basic_sound;
+
   if (!strcmp (name, "calloc")) return calloc;
   if (!strcmp (name, "memset")) return memset;
   return NULL;
@@ -163,9 +192,10 @@ static void *resolve (const char *name) {
 
 /* Runtime call prototypes for expressions */
 static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, string_import,
-  int_proto, int_import, timer_proto, timer_import, input_chr_proto, input_chr_import, inkey_proto,
-  inkey_import, peek_proto, peek_import, abs_proto, abs_import, sgn_proto, sgn_import, sqr_proto,
-  sqr_import, sin_proto, sin_import, cos_proto, cos_import, tan_proto, tan_import, atn_proto,
+  int_proto, int_import, timer_proto, timer_import, input_chr_proto, input_chr_import, peek_proto,
+  peek_import, eof_proto, eof_import, abs_proto, abs_import, sgn_proto, sgn_import, inkey_proto,
+  inkey_import,sqr_proto,  sqr_import, sin_proto, sin_import, cos_proto, cos_import,
+  tan_proto, tan_import, atn_proto,
   atn_import, log_proto, log_import, exp_proto, exp_import, left_proto, left_import, right_proto,
   right_import, mid_proto, mid_import, len_proto, len_import, val_proto, val_import, str_proto,
   str_import, asc_proto, asc_import, pos_proto, pos_import, instr_proto, instr_import;
@@ -181,7 +211,9 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   calloc_import, memset_proto, memset_import, strcmp_proto, strcmp_import, open_proto, open_import,
   close_proto, close_import, printh_proto, printh_import, prinths_proto, prinths_import,
   input_hash_proto, input_hash_import, input_hash_str_proto, input_hash_str_import, get_hash_proto,
-  get_hash_import, randomize_proto, randomize_import, stop_proto, stop_import;
+  get_hash_import, randomize_proto, randomize_import, stop_proto, stop_import,  on_error_proto,
+  on_error_import, set_line_proto, set_line_import, get_line_proto, get_line_import, beep_import, sound_proto,
+  sound_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL } NodeKind;
@@ -266,11 +298,13 @@ typedef enum {
   ST_IF,
   ST_INPUT,
   ST_GET,
+  ST_PUT,
   ST_OPEN,
   ST_CLOSE,
   ST_PRINT_HASH,
   ST_INPUT_HASH,
   ST_GET_HASH,
+  ST_PUT_HASH,
   ST_DEF,
   ST_DATA,
   ST_READ,
@@ -285,6 +319,8 @@ typedef enum {
   ST_POKE,
   ST_HOME,
   ST_VTAB,
+  ST_BEEP,
+  ST_SOUND,
   ST_RANDOMIZE,
   ST_TEXT,
   ST_INVERSE,
@@ -304,6 +340,8 @@ typedef enum {
   ST_RETURN,
   ST_ON_GOTO,
   ST_ON_GOSUB,
+  ST_ON_ERROR,
+  ST_RESUME,
 } StmtKind;
 typedef enum { REL_NONE, REL_EQ, REL_NE, REL_LT, REL_LE, REL_GT, REL_GE } Relop;
 typedef struct Stmt Stmt;
@@ -333,6 +371,9 @@ struct Stmt {
       char *var;
     } get;
     struct {
+      Node *expr;
+    } put;
+    struct {
       Node *num;
       Node *path;
     } open;
@@ -354,6 +395,10 @@ struct Stmt {
       Node *num;
       char *var;
     } gethash;
+    struct {
+      Node *num;
+      Node *expr;
+    } puthash;
     struct {
       Node **vars;
       size_t n;
@@ -382,10 +427,14 @@ struct Stmt {
       Node *y;
     } hplot;
     struct {
+      Node *freq;
+      Node *dur;
+    } sound;
+    struct {
       Node *addr;
       Node *value;
     } poke;
-    int target; /* GOTO/GOSUB */
+    int target; /* GOTO/GOSUB/ON_ERROR */
     struct {
       Node *expr;
       int *targets;
@@ -396,6 +445,10 @@ struct Stmt {
       int *targets;
       size_t n_targets;
     } on_gosub;
+    struct {
+      int line;
+      int has_line;
+    } resume;
   } u;
 };
 
@@ -551,7 +604,8 @@ static Node *parse_factor (void) {
     if (strcasecmp (id, "RND") == 0 || strcasecmp (id, "CHR$") == 0
         || strcasecmp (id, "STRING$") == 0 || strcasecmp (id, "INT") == 0
         || strcasecmp (id, "TIMER") == 0 || strcasecmp (id, "INPUT$") == 0
-        || strcasecmp (id, "PEEK") == 0 || strcasecmp (id, "SPC") == 0
+        || strcasecmp (id, "PEEK") == 0 || strcasecmp (id, "EOF") == 0
+        || strcasecmp (id, "SPC") == 0
 
         || strcasecmp (id, "POS") == 0 || strcasecmp (id, "ABS") == 0 || strcasecmp (id, "SGN") == 0
         || strcasecmp (id, "SQR") == 0 || strcasecmp (id, "SIN") == 0 || strcasecmp (id, "COS") == 0
@@ -569,6 +623,7 @@ static Node *parse_factor (void) {
         || strcasecmp (id, "VAL") == 0 || strcasecmp (id, "STR$") == 0
         || strcasecmp (id, "ASC") == 0 || strcasecmp (id, "INSTR") == 0
         || strcasecmp (id, "INKEY$") == 0) {
+        || strcasecmp (id, "ASC") == 0 || strcasecmp (id, "INSTR") == 0) {
       Node *n = new_node (N_CALL);
       n->var = id;
       n->left = arg1;
@@ -871,6 +926,21 @@ static int parse_stmt (Stmt *out) {
     out->kind = ST_GET;
     out->u.get.var = parse_id ();
     return 1;
+  } else if (strncasecmp (cur, "PUT#", 4) == 0) {
+    cur += 4;
+    skip_ws ();
+    out->kind = ST_PUT_HASH;
+    out->u.puthash.num = parse_expr ();
+    skip_ws ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.puthash.expr = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "PUT", 3) == 0) {
+    cur += 3;
+    out->kind = ST_PUT;
+    out->u.put.expr = parse_expr ();
+    return 1;
 
   } else if (strncasecmp (cur, "DEF", 3) == 0) {
     cur += 3;
@@ -1016,6 +1086,20 @@ static int parse_stmt (Stmt *out) {
     out->kind = ST_VTAB;
     out->u.expr = parse_expr ();
     return 1;
+  } else if (strncasecmp (cur, "BEEP", 4) == 0) {
+    cur += 4;
+    out->kind = ST_BEEP;
+    return 1;
+  } else if (strncasecmp (cur, "SOUND", 5) == 0) {
+    cur += 5;
+    skip_ws ();
+    out->kind = ST_SOUND;
+    out->u.sound.freq = parse_expr ();
+    skip_ws ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.sound.dur = parse_expr ();
+    return 1;
   } else if (strncasecmp (cur, "RANDOMIZE", 9) == 0) {
     cur += 9;
     skip_ws ();
@@ -1138,6 +1222,16 @@ static int parse_stmt (Stmt *out) {
     return 1;
   } else if (strncasecmp (cur, "ON", 2) == 0) {
     cur += 2;
+    skip_ws ();
+    if (strncasecmp (cur, "ERROR", 5) == 0) {
+      cur += 5;
+      skip_ws ();
+      if (strncasecmp (cur, "GOTO", 4) != 0) return 0;
+      cur += 4;
+      out->kind = ST_ON_ERROR;
+      out->u.target = parse_int ();
+      return 1;
+    }
     Node *e = parse_expr ();
     int **targets = NULL;
     size_t *n_targets = NULL;
@@ -1178,6 +1272,18 @@ static int parse_stmt (Stmt *out) {
     return 1;
   } else if (strncasecmp (cur, "STOP", 4) == 0) {
     out->kind = ST_STOP;
+    return 1;
+  } else if (strncasecmp (cur, "RESUME", 6) == 0) {
+    cur += 6;
+    out->kind = ST_RESUME;
+    skip_ws ();
+    if (isdigit ((unsigned char) *cur)) {
+      out->u.resume.has_line = 1;
+      out->u.resume.line = parse_int ();
+    } else {
+      out->u.resume.has_line = 0;
+      out->u.resume.line = 0;
+    }
     return 1;
   } else if (isalpha ((unsigned char) *cur)) {
     Node *v = parse_factor ();
@@ -1577,6 +1683,12 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                        MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, peek_proto),
                                           MIR_new_ref_op (ctx, peek_import),
                                           MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "EOF") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, eof_proto),
+                                          MIR_new_ref_op (ctx, eof_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
     } else if (strcasecmp (n->var, "ABS") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
       MIR_append_insn (ctx, func,
@@ -1930,6 +2042,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   input_str_import = MIR_new_import (ctx, "basic_input_str");
   get_proto = MIR_new_proto (ctx, "basic_get_p", 1, &p, 0);
   get_import = MIR_new_import (ctx, "basic_get");
+  put_proto = MIR_new_proto (ctx, "basic_put_p", 0, NULL, 1, MIR_T_P, "s");
+  put_import = MIR_new_import (ctx, "basic_put");
   open_proto = MIR_new_proto (ctx, "basic_open_p", 0, NULL, 2, MIR_T_D, "n", MIR_T_P, "path");
   open_import = MIR_new_import (ctx, "basic_open");
   close_proto = MIR_new_proto (ctx, "basic_close_p", 0, NULL, 1, MIR_T_D, "n");
@@ -1945,6 +2059,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   input_hash_str_import = MIR_new_import (ctx, "basic_input_hash_str");
   get_hash_proto = MIR_new_proto (ctx, "basic_get_hash_p", 1, &p, 1, MIR_T_D, "n");
   get_hash_import = MIR_new_import (ctx, "basic_get_hash");
+  put_hash_proto = MIR_new_proto (ctx, "basic_put_hash_p", 0, NULL, 2, MIR_T_D, "n", MIR_T_P, "s");
+  put_hash_import = MIR_new_import (ctx, "basic_put_hash");
   home_proto = MIR_new_proto (ctx, "basic_home_p", 0, NULL, 0);
   home_import = MIR_new_import (ctx, "basic_home");
   vtab_proto = MIR_new_proto (ctx, "basic_vtab_p", 0, NULL, 1, MIR_T_D, "n");
@@ -1975,11 +2091,21 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   hcolor_import = MIR_new_import (ctx, "basic_hcolor");
   hplot_proto = MIR_new_proto (ctx, "basic_hplot_p", 0, NULL, 2, MIR_T_D, "x", MIR_T_D, "y");
   hplot_import = MIR_new_import (ctx, "basic_hplot");
+  beep_proto = MIR_new_proto (ctx, "basic_beep_p", 0, NULL, 0);
+  beep_import = MIR_new_import (ctx, "basic_beep");
+  sound_proto = MIR_new_proto (ctx, "basic_sound_p", 0, NULL, 2, MIR_T_D, "f", MIR_T_D, "d");
+  sound_import = MIR_new_import (ctx, "basic_sound");
   randomize_proto
     = MIR_new_proto (ctx, "basic_randomize_p", 0, NULL, 2, MIR_T_D, "n", MIR_T_D, "has_seed");
   randomize_import = MIR_new_import (ctx, "basic_randomize");
   stop_proto = MIR_new_proto (ctx, "basic_stop_p", 0, NULL, 0);
   stop_import = MIR_new_import (ctx, "basic_stop");
+  on_error_proto = MIR_new_proto (ctx, "basic_set_error_handler_p", 0, NULL, 1, MIR_T_D, "line");
+  on_error_import = MIR_new_import (ctx, "basic_set_error_handler");
+  set_line_proto = MIR_new_proto (ctx, "basic_set_line_p", 0, NULL, 1, MIR_T_D, "line");
+  set_line_import = MIR_new_import (ctx, "basic_set_line");
+  get_line_proto = MIR_new_proto (ctx, "basic_get_line_p", 1, &d, 0);
+  get_line_import = MIR_new_import (ctx, "basic_get_line");
   rnd_proto = MIR_new_proto (ctx, "basic_rnd_p", 1, &d, 1, MIR_T_D, "n");
   rnd_import = MIR_new_import (ctx, "basic_rnd");
   chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, MIR_T_D, "n");
@@ -1996,6 +2122,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   inkey_import = MIR_new_import (ctx, "basic_inkey");
   peek_proto = MIR_new_proto (ctx, "basic_peek_p", 1, &d, 1, MIR_T_D, "addr");
   peek_import = MIR_new_import (ctx, "basic_peek");
+  eof_proto = MIR_new_proto (ctx, "basic_eof_p", 1, &d, 1, MIR_T_D, "n");
+  eof_import = MIR_new_import (ctx, "basic_eof");
   pos_proto = MIR_new_proto (ctx, "basic_pos_p", 1, &d, 0);
   pos_import = MIR_new_import (ctx, "basic_pos");
 
@@ -2121,6 +2249,10 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   for (size_t i = 0; i < n; i++) {
     Line *ln = &prog->data[i];
     MIR_append_insn (ctx, func, labels[i]);
+    MIR_append_insn (ctx, func,
+                     MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, set_line_proto),
+                                        MIR_new_ref_op (ctx, set_line_import),
+                                        MIR_new_double_op (ctx, (double) ln->line)));
     for (size_t j = 0; j < ln->stmts.len; j++) {
       Stmt *s = &ln->stmts.data[j];
       switch (s->kind) {
@@ -2338,6 +2470,14 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                                             MIR_new_reg_op (ctx, v)));
         break;
       }
+      case ST_PUT: {
+        MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.put.expr);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, put_proto),
+                                            MIR_new_ref_op (ctx, put_import),
+                                            MIR_new_reg_op (ctx, r)));
+        break;
+      }
       case ST_GET_HASH: {
         MIR_reg_t fn = gen_expr (ctx, func, &vars, s->u.gethash.num);
         MIR_reg_t v = get_var (&vars, ctx, func, s->u.gethash.var);
@@ -2345,6 +2485,15 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                          MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, get_hash_proto),
                                             MIR_new_ref_op (ctx, get_hash_import),
                                             MIR_new_reg_op (ctx, v), MIR_new_reg_op (ctx, fn)));
+        break;
+      }
+      case ST_PUT_HASH: {
+        MIR_reg_t fn = gen_expr (ctx, func, &vars, s->u.puthash.num);
+        MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.puthash.expr);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, put_hash_proto),
+                                            MIR_new_ref_op (ctx, put_hash_import),
+                                            MIR_new_reg_op (ctx, fn), MIR_new_reg_op (ctx, r)));
         break;
       }
       case ST_DATA: {
@@ -2483,6 +2632,21 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                          MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, vtab_proto),
                                             MIR_new_ref_op (ctx, vtab_import),
                                             MIR_new_reg_op (ctx, r)));
+        break;
+      }
+      case ST_BEEP: {
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, beep_proto),
+                                            MIR_new_ref_op (ctx, beep_import)));
+        break;
+      }
+      case ST_SOUND: {
+        MIR_reg_t f = gen_expr (ctx, func, &vars, s->u.sound.freq);
+        MIR_reg_t d = gen_expr (ctx, func, &vars, s->u.sound.dur);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, sound_proto),
+                                            MIR_new_ref_op (ctx, sound_import),
+                                            MIR_new_reg_op (ctx, f), MIR_new_reg_op (ctx, d)));
         break;
       }
       case ST_RANDOMIZE: {
@@ -2726,6 +2890,47 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
           if (k + 1 < s->u.on_gosub.n_targets) MIR_append_insn (ctx, func, next);
         }
         MIR_append_insn (ctx, func, after);
+        break;
+      }
+      case ST_ON_ERROR: {
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, on_error_proto),
+                                            MIR_new_ref_op (ctx, on_error_import),
+                                            MIR_new_double_op (ctx, (double) s->u.target)));
+        break;
+      }
+      case ST_RESUME: {
+        if (s->u.resume.has_line) {
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_JMP,
+                                         MIR_new_label_op (ctx, find_label (prog, labels,
+                                                                            s->u.resume.line))));
+        } else {
+          char buf[32];
+          sprintf (buf, "$t%d", tmp_id++);
+          MIR_reg_t line = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
+          MIR_append_insn (ctx, func,
+                           MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, get_line_proto),
+                                              MIR_new_ref_op (ctx, get_line_import),
+                                              MIR_new_reg_op (ctx, line)));
+          sprintf (buf, "$t%d", tmp_id++);
+          MIR_reg_t idx = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, idx),
+                                         MIR_new_reg_op (ctx, line)));
+          MIR_label_t after = MIR_new_label (ctx);
+          for (size_t k = 0; k < n; k++) {
+            MIR_label_t next = k + 1 < n ? MIR_new_label (ctx) : after;
+            MIR_append_insn (ctx, func,
+                             MIR_new_insn (ctx, MIR_BNE, MIR_new_label_op (ctx, next),
+                                           MIR_new_reg_op (ctx, idx),
+                                           MIR_new_int_op (ctx, prog->data[k].line)));
+            MIR_append_insn (ctx, func,
+                             MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, labels[k])));
+            if (k + 1 < n) MIR_append_insn (ctx, func, next);
+          }
+          MIR_append_insn (ctx, func, after);
+        }
         break;
       }
       case ST_END: {

@@ -9,6 +9,16 @@
 
 static int seeded = 0;
 static int basic_pos_val = 1;
+static int basic_error_handler = 0;
+static int basic_line = 0;
+
+void basic_set_error_handler (double line) { basic_error_handler = (int) line; }
+
+double basic_get_error_handler (void) { return (double) basic_error_handler; }
+
+void basic_set_line (double line) { basic_line = (int) line; }
+
+double basic_get_line (void) { return (double) basic_line; }
 
 double basic_input (void) {
   double x = 0.0;
@@ -64,6 +74,12 @@ char *basic_inkey (void) {
   s[0] = 0;
   s[1] = '\0';
   return s;
+
+void basic_put (const char *s) {
+  int c = s != NULL && s[0] != '\0' ? (unsigned char) s[0] : 0;
+  basic_pos_val = c == '\n' ? 1 : basic_pos_val + 1;
+  fputc (c, stdout);
+
 }
 
 int basic_strcmp (const char *a, const char *b) { return strcmp (a, b); }
@@ -136,6 +152,19 @@ char *basic_get_hash (double n) {
   s[0] = (char) c;
   s[1] = '\0';
   return s;
+}
+
+void basic_put_hash (double n, const char *s) {
+  int idx = (int) n;
+  if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return;
+  int c = s != NULL && s[0] != '\0' ? (unsigned char) s[0] : 0;
+  fputc (c, basic_files[idx]);
+
+double basic_eof (double n) {
+  int idx = (int) n;
+  if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return -1.0;
+  return feof (basic_files[idx]) ? -1.0 : 0.0;
+
 }
 
 typedef struct BasicData {
@@ -327,6 +356,17 @@ void basic_hcolor (double c) { current_hcolor = 30 + ((int) c & 7); }
 void basic_hplot (double x, double y) {
   printf ("\x1b[%dm\x1b[%d;%dH*\x1b[0m", current_hcolor, (int) y, (int) x);
   fflush (stdout);
+}
+
+void basic_beep (void) {
+  fputc ('\a', stdout);
+  fflush (stdout);
+}
+
+void basic_sound (double f, double d) {
+  (void) f;
+  (void) d;
+  basic_beep ();
 }
 
 void basic_stop (void) {
