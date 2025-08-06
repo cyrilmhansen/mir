@@ -17,6 +17,7 @@ extern void basic_print_str (const char *);
 extern double basic_input (void);
 extern char *basic_input_str (void);
 extern char *basic_get (void);
+extern void basic_put (const char *);
 extern int basic_strcmp (const char *, const char *);
 
 extern double basic_read (void);
@@ -84,6 +85,7 @@ extern void basic_print_hash_str (double, const char *);
 extern double basic_input_hash (double);
 extern char *basic_input_hash_str (double);
 extern char *basic_get_hash (double);
+extern void basic_put_hash (double, const char *);
 extern double basic_eof (double);
 
 extern void basic_stop (void);
@@ -98,6 +100,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_input")) return basic_input;
   if (!strcmp (name, "basic_input_str")) return basic_input_str;
   if (!strcmp (name, "basic_get")) return basic_get;
+  if (!strcmp (name, "basic_put")) return basic_put;
   if (!strcmp (name, "basic_strcmp")) return basic_strcmp;
   if (!strcmp (name, "basic_open")) return basic_open;
   if (!strcmp (name, "basic_close")) return basic_close;
@@ -106,6 +109,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_input_hash")) return basic_input_hash;
   if (!strcmp (name, "basic_input_hash_str")) return basic_input_hash_str;
   if (!strcmp (name, "basic_get_hash")) return basic_get_hash;
+  if (!strcmp (name, "basic_put_hash")) return basic_put_hash;
   if (!strcmp (name, "basic_eof")) return basic_eof;
 
   if (!strcmp (name, "basic_read")) return basic_read;
@@ -176,17 +180,19 @@ static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, st
 
 /* Runtime call prototypes for statements */
 static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_proto, input_import,
-  input_str_proto, input_str_import, get_proto, get_import, read_proto, read_import, read_str_proto,
-  read_str_import, restore_proto, restore_import, screen_proto, screen_import, cls_proto,
-  cls_import, color_proto, color_import, keyoff_proto, keyoff_import, locate_proto, locate_import,
-  htab_proto, htab_import, home_proto, poke_proto, poke_import, home_import, vtab_proto,
-  vtab_import, text_proto, text_import, inverse_proto, inverse_import, normal_proto, normal_import,
-  hgr2_proto, hgr2_import, hcolor_proto, hcolor_import, hplot_proto, hplot_import, calloc_proto,
-  calloc_import, memset_proto, memset_import, strcmp_proto, strcmp_import, open_proto, open_import,
-  close_proto, close_import, printh_proto, printh_import, prinths_proto, prinths_import,
-  input_hash_proto, input_hash_import, input_hash_str_proto, input_hash_str_import, get_hash_proto,
-  get_hash_import, randomize_proto, randomize_import, beep_proto, beep_import, sound_proto,
-  sound_import, stop_proto, stop_import;
+  input_str_proto, input_str_import, get_proto, get_import, put_proto, put_import, read_proto,
+  read_import, read_str_proto, read_str_import, restore_proto, restore_import, screen_proto,
+  screen_import, cls_proto, cls_import, color_proto, color_import, keyoff_proto, keyoff_import,
+  locate_proto, locate_import, htab_proto, htab_import, home_proto, poke_proto, poke_import,
+  home_import, vtab_proto, vtab_import, text_proto, text_import, inverse_proto, inverse_import,
+  normal_proto, normal_import, hgr2_proto, hgr2_import, hcolor_proto, hcolor_import, hplot_proto,
+  hplot_import, calloc_proto, calloc_import, memset_proto, memset_import, strcmp_proto,
+  strcmp_import, open_proto, open_import, close_proto, close_import, printh_proto, printh_import,
+  prinths_proto, prinths_import, input_hash_proto, input_hash_import, input_hash_str_proto,
+  input_hash_str_import, get_hash_proto, get_hash_import, put_hash_proto, put_hash_import,
+  randomize_proto, randomize_import, stop_proto, stop_import, beep_proto, beep_import, sound_proto,
+  sound_import;
+
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL } NodeKind;
@@ -271,11 +277,13 @@ typedef enum {
   ST_IF,
   ST_INPUT,
   ST_GET,
+  ST_PUT,
   ST_OPEN,
   ST_CLOSE,
   ST_PRINT_HASH,
   ST_INPUT_HASH,
   ST_GET_HASH,
+  ST_PUT_HASH,
   ST_DEF,
   ST_DATA,
   ST_READ,
@@ -340,6 +348,9 @@ struct Stmt {
       char *var;
     } get;
     struct {
+      Node *expr;
+    } put;
+    struct {
       Node *num;
       Node *path;
     } open;
@@ -361,6 +372,10 @@ struct Stmt {
       Node *num;
       char *var;
     } gethash;
+    struct {
+      Node *num;
+      Node *expr;
+    } puthash;
     struct {
       Node **vars;
       size_t n;
@@ -880,6 +895,21 @@ static int parse_stmt (Stmt *out) {
     cur += 3;
     out->kind = ST_GET;
     out->u.get.var = parse_id ();
+    return 1;
+  } else if (strncasecmp (cur, "PUT#", 4) == 0) {
+    cur += 4;
+    skip_ws ();
+    out->kind = ST_PUT_HASH;
+    out->u.puthash.num = parse_expr ();
+    skip_ws ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.puthash.expr = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "PUT", 3) == 0) {
+    cur += 3;
+    out->kind = ST_PUT;
+    out->u.put.expr = parse_expr ();
     return 1;
 
   } else if (strncasecmp (cur, "DEF", 3) == 0) {
@@ -1955,6 +1985,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   input_str_import = MIR_new_import (ctx, "basic_input_str");
   get_proto = MIR_new_proto (ctx, "basic_get_p", 1, &p, 0);
   get_import = MIR_new_import (ctx, "basic_get");
+  put_proto = MIR_new_proto (ctx, "basic_put_p", 0, NULL, 1, MIR_T_P, "s");
+  put_import = MIR_new_import (ctx, "basic_put");
   open_proto = MIR_new_proto (ctx, "basic_open_p", 0, NULL, 2, MIR_T_D, "n", MIR_T_P, "path");
   open_import = MIR_new_import (ctx, "basic_open");
   close_proto = MIR_new_proto (ctx, "basic_close_p", 0, NULL, 1, MIR_T_D, "n");
@@ -1970,6 +2002,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   input_hash_str_import = MIR_new_import (ctx, "basic_input_hash_str");
   get_hash_proto = MIR_new_proto (ctx, "basic_get_hash_p", 1, &p, 1, MIR_T_D, "n");
   get_hash_import = MIR_new_import (ctx, "basic_get_hash");
+  put_hash_proto = MIR_new_proto (ctx, "basic_put_hash_p", 0, NULL, 2, MIR_T_D, "n", MIR_T_P, "s");
+  put_hash_import = MIR_new_import (ctx, "basic_put_hash");
   home_proto = MIR_new_proto (ctx, "basic_home_p", 0, NULL, 0);
   home_import = MIR_new_import (ctx, "basic_home");
   vtab_proto = MIR_new_proto (ctx, "basic_vtab_p", 0, NULL, 1, MIR_T_D, "n");
@@ -2367,6 +2401,14 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                                             MIR_new_reg_op (ctx, v)));
         break;
       }
+      case ST_PUT: {
+        MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.put.expr);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, put_proto),
+                                            MIR_new_ref_op (ctx, put_import),
+                                            MIR_new_reg_op (ctx, r)));
+        break;
+      }
       case ST_GET_HASH: {
         MIR_reg_t fn = gen_expr (ctx, func, &vars, s->u.gethash.num);
         MIR_reg_t v = get_var (&vars, ctx, func, s->u.gethash.var);
@@ -2374,6 +2416,15 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                          MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, get_hash_proto),
                                             MIR_new_ref_op (ctx, get_hash_import),
                                             MIR_new_reg_op (ctx, v), MIR_new_reg_op (ctx, fn)));
+        break;
+      }
+      case ST_PUT_HASH: {
+        MIR_reg_t fn = gen_expr (ctx, func, &vars, s->u.puthash.num);
+        MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.puthash.expr);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, put_hash_proto),
+                                            MIR_new_ref_op (ctx, put_hash_import),
+                                            MIR_new_reg_op (ctx, fn), MIR_new_reg_op (ctx, r)));
         break;
       }
       case ST_DATA: {
