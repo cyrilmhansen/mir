@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Run BASIC benchmarks in JIT and compiled modes.
-set -e
-ROOT="$(realpath "$(dirname "$0")/../../")"
-BUILD_DIR="$ROOT"
-BASICC="$BUILD_DIR/basic/basicc"
+set -eu
+
+ROOT="$(cd "$(dirname "$0")/../../" && pwd)"
+BASICC="$ROOT/basic/basicc"
 
 # Build basicc if necessary
 if [ ! -x "$BASICC" ]; then
-  make -C "$ROOT" "$BASICC"
+  (cd "$ROOT" && make basic/basicc)
 fi
 
 run_bench() {
@@ -15,10 +15,10 @@ run_bench() {
   local file="$ROOT/examples/basic/${name}.bas"
   echo "== ${name} =="
   echo "-- JIT --"
-  time -p "$BASICC" -j "$file" >/dev/null
+  (cd "$ROOT" && time -p "$BASICC" -j "$file" >/dev/null)
   echo "-- Compiled --"
-  time -p "$BASICC" -b -o "$BUILD_DIR/basic/${name}-bench" "$file" >/dev/null
-  time -p "$BUILD_DIR/basic/${name}-bench" >/dev/null
+  (cd "$ROOT" && time -p "$BASICC" -b -o "$ROOT/basic/${name}-bench" "$file" >/dev/null)
+  time -p "$ROOT/basic/${name}-bench" >/dev/null
 }
 
 run_bench sieve
