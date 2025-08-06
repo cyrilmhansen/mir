@@ -2,6 +2,7 @@
 110 HOME : INVERSE : PRINT SPC(41);: NORMAL : PRINT SPC(38);: INVERSE : PRINT "  ";: NORMAL : PRINT "  E.A.O.   GEOGRAPHIE CM2   FLEUVES   ";: INVERSE : PRINT "  ";: NORMAL : PRINT SPC(38);: INVERSE : PRINT SPC(41): NORMAL : PRINT
 120 CLAVIER = 49152:XBDSTB = 49168:TXTCLR = 49232:HISCR = 49237: VTAB 10: HTAB 1: PRINT " Voulez vous quelques explications ?": VTAB 12: HTAB 18: PRINT "< N >": VTAB 12: HTAB 20: GET W$
 121 RANDOMIZE 0
+122 RESTORE : DIM N(10) : N = 0 : N2 = 0 : FOR I = 0 TO 9 : N(I) = 0 : NEXT
 130 IF W$ < > "O" THEN 500
 140 VTAB 9: HTAB 1: PRINT "Apprenez le nom des fleuves de FRANCE etde leurs affluents en vous amusant. "
 150 PRINT SPC( 40): PRINT "Vous taperez au clavier le nom du cours d'eau qui clignote sur la carte."
