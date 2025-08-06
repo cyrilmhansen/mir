@@ -560,6 +560,159 @@ typedef struct {
   int is_while;
 } LoopInfo;
 
+static void free_node (Node *n);
+static void free_stmt (Stmt *s);
+static void free_stmt_vec (StmtVec *v);
+
+static void free_node (Node *n) {
+  if (n == NULL) return;
+  free_node (n->left);
+  free_node (n->right);
+  free_node (n->index);
+  free (n->var);
+  free (n->str);
+  free (n);
+}
+
+static void free_stmt_vec (StmtVec *v) {
+  for (size_t i = 0; i < v->len; i++) free_stmt (&v->data[i]);
+  free (v->data);
+  v->data = NULL;
+  v->len = v->cap = 0;
+}
+
+static void free_stmt (Stmt *s) {
+  switch (s->kind) {
+  case ST_PRINT:
+    for (size_t i = 0; i < s->u.print.n; i++) free_node (s->u.print.items[i]);
+    free (s->u.print.items);
+    break;
+  case ST_LET:
+    free_node (s->u.let.var);
+    free_node (s->u.let.expr);
+    break;
+  case ST_IF:
+    free_node (s->u.iff.cond);
+    free_stmt_vec (&s->u.iff.stmts);
+    break;
+  case ST_INPUT: free (s->u.input.var); break;
+  case ST_GET: free (s->u.get.var); break;
+  case ST_PUT: free_node (s->u.put.expr); break;
+  case ST_OPEN:
+    free_node (s->u.open.num);
+    free_node (s->u.open.path);
+    break;
+  case ST_CLOSE: free_node (s->u.close.num); break;
+  case ST_PRINT_HASH:
+    free_node (s->u.printhash.num);
+    for (size_t i = 0; i < s->u.printhash.n; i++) free_node (s->u.printhash.items[i]);
+    free (s->u.printhash.items);
+    break;
+  case ST_INPUT_HASH:
+    free_node (s->u.inputhash.num);
+    free (s->u.inputhash.var);
+    break;
+  case ST_GET_HASH:
+    free_node (s->u.gethash.num);
+    free (s->u.gethash.var);
+    break;
+  case ST_PUT_HASH:
+    free_node (s->u.puthash.num);
+    free_node (s->u.puthash.expr);
+    break;
+  case ST_READ:
+    for (size_t i = 0; i < s->u.read.n; i++) free_node (s->u.read.vars[i]);
+    free (s->u.read.vars);
+    break;
+  case ST_DIM:
+    for (size_t i = 0; i < s->u.dim.n; i++) free (s->u.dim.names[i]);
+    free (s->u.dim.names);
+    free (s->u.dim.sizes);
+    free (s->u.dim.is_str);
+    break;
+  case ST_FOR:
+    free (s->u.forto.var);
+    free_node (s->u.forto.start);
+    free_node (s->u.forto.end);
+    free_node (s->u.forto.step);
+    break;
+  case ST_NEXT: free (s->u.next.var); break;
+  case ST_LOCATE:
+    free_node (s->u.locate.row);
+    free_node (s->u.locate.col);
+    break;
+  case ST_MOVE:
+    free_node (s->u.move.x);
+    free_node (s->u.move.y);
+    break;
+  case ST_DRAW:
+    free_node (s->u.draw.x);
+    free_node (s->u.draw.y);
+    break;
+  case ST_LINE:
+    free_node (s->u.line.x0);
+    free_node (s->u.line.y0);
+    free_node (s->u.line.x1);
+    free_node (s->u.line.y1);
+    break;
+  case ST_CIRCLE:
+    free_node (s->u.circle.x);
+    free_node (s->u.circle.y);
+    free_node (s->u.circle.r);
+    break;
+  case ST_RECT:
+    free_node (s->u.rect.x0);
+    free_node (s->u.rect.y0);
+    free_node (s->u.rect.x1);
+    free_node (s->u.rect.y1);
+    break;
+  case ST_FILL:
+    free_node (s->u.fill.x0);
+    free_node (s->u.fill.y0);
+    free_node (s->u.fill.x1);
+    free_node (s->u.fill.y1);
+    break;
+  case ST_HPLOT:
+    for (size_t i = 0; i < s->u.hplot.n; i++) {
+      free_node (s->u.hplot.xs[i]);
+      free_node (s->u.hplot.ys[i]);
+    }
+    free (s->u.hplot.xs);
+    free (s->u.hplot.ys);
+    break;
+  case ST_SOUND:
+    free_node (s->u.sound.freq);
+    free_node (s->u.sound.dur);
+    break;
+  case ST_POKE:
+    free_node (s->u.poke.addr);
+    free_node (s->u.poke.value);
+    break;
+  case ST_ON_GOTO:
+    free_node (s->u.on_goto.expr);
+    free (s->u.on_goto.targets);
+    break;
+  case ST_ON_GOSUB:
+    free_node (s->u.on_gosub.expr);
+    free (s->u.on_gosub.targets);
+    break;
+  case ST_VTAB:
+  case ST_HTAB:
+  case ST_SCREEN:
+  case ST_COLOR:
+  case ST_WHILE:
+  case ST_HCOLOR:
+  case ST_RANDOMIZE:
+  case ST_MODE: free_node (s->u.expr); break;
+  default: break;
+  }
+}
+
+static void free_line (Line *l) {
+  free_stmt_vec (&l->stmts);
+  free (l->src);
+}
+
 static void stmt_vec_push (StmtVec *v, Stmt s) {
   if (v->len == v->cap) {
     v->cap = v->cap ? 2 * v->cap : 16;
@@ -568,45 +721,37 @@ static void stmt_vec_push (StmtVec *v, Stmt s) {
   v->data[v->len++] = s;
 }
 
-static void line_vec_push (LineVec *v, Line l) {
-  if (v->len == v->cap) {
-    v->cap = v->cap ? 2 * v->cap : 16;
-    v->data = realloc (v->data, v->cap * sizeof (Line));
-  }
-  v->data[v->len++] = l;
+static void line_vec_clear (LineVec *v) {
+  for (size_t i = 0; i < v->len; i++) free_line (&v->data[i]);
+  v->len = 0;
 }
 
-static void line_vec_insert (LineVec *v, Line l) {
-  if (v->len == v->cap) {
-    v->cap = v->cap ? 2 * v->cap : 16;
-    v->data = realloc (v->data, v->cap * sizeof (Line));
+static void insert_or_replace_line (LineVec *prog, Line l) {
+  if (prog->len == prog->cap) {
+    prog->cap = prog->cap ? 2 * prog->cap : 16;
+    prog->data = realloc (prog->data, prog->cap * sizeof (Line));
   }
   size_t i = 0;
-  while (i < v->len && v->data[i].line < l.line) i++;
-  if (i < v->len && v->data[i].line == l.line) {
-    free (v->data[i].src);
-    v->data[i] = l;
+  while (i < prog->len && prog->data[i].line < l.line) i++;
+  if (i < prog->len && prog->data[i].line == l.line) {
+    free_line (&prog->data[i]);
+    prog->data[i] = l;
   } else {
-    memmove (&v->data[i + 1], &v->data[i], (v->len - i) * sizeof (Line));
-    v->data[i] = l;
-    v->len++;
+    memmove (&prog->data[i + 1], &prog->data[i], (prog->len - i) * sizeof (Line));
+    prog->data[i] = l;
+    prog->len++;
   }
 }
 
-static void line_vec_delete (LineVec *v, int line) {
-  for (size_t i = 0; i < v->len; i++) {
-    if (v->data[i].line == line) {
-      free (v->data[i].src);
-      memmove (&v->data[i], &v->data[i + 1], (v->len - i - 1) * sizeof (Line));
-      v->len--;
+static void delete_line (LineVec *prog, int line_no) {
+  for (size_t i = 0; i < prog->len; i++) {
+    if (prog->data[i].line == line_no) {
+      free_line (&prog->data[i]);
+      memmove (&prog->data[i], &prog->data[i + 1], (prog->len - i - 1) * sizeof (Line));
+      prog->len--;
       return;
     }
   }
-}
-
-static void line_vec_clear (LineVec *v) {
-  for (size_t i = 0; i < v->len; i++) free (v->data[i].src);
-  v->len = 0;
 }
 
 /* Parsing utilities */
@@ -3708,11 +3853,11 @@ static void repl (void) {
       long num = strtol (p, &end, 10);
       while (isspace ((unsigned char) *end)) end++;
       if (*end == '\0') {
-        line_vec_delete (&prog, num);
+        delete_line (&prog, num);
       } else {
         Line l;
         if (parse_line (line, &l))
-          line_vec_insert (&prog, l);
+          insert_or_replace_line (&prog, l);
         else
           fprintf (stderr, "parse error: %s\n", line);
       }
