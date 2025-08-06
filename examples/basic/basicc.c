@@ -37,7 +37,6 @@ extern void basic_home (void);
 extern void basic_vtab (double);
 extern double basic_rnd (double);
 
-
 static void *resolve (const char *name) {
   if (!strcmp (name, "basic_print")) return basic_print;
   if (!strcmp (name, "basic_print_str")) return basic_print_str;
@@ -1159,6 +1158,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
         MIR_append_insn (ctx, func,
                          MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, restore_proto),
                                             MIR_new_ref_op (ctx, restore_import)));
+        break;
+      }
       case ST_HOME: {
         MIR_append_insn (ctx, func,
                          MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, home_proto),
