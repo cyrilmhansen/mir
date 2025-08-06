@@ -1,0 +1,8 @@
+5 REM default array size test
+10 FOR I=0 TO 10
+20 A(I)=I
+30 NEXT I
+40 FOR I=0 TO 10
+50 PRINT A(I)
+60 NEXT I
+70 END

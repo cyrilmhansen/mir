@@ -1695,6 +1695,7 @@ static LineVec *g_prog;
 static MIR_label_t *g_labels;
 static VarVec g_vars;
 static MIR_reg_t g_ret_stack, g_ret_sp, g_ret_addr;
+static MIR_insn_t g_var_init_anchor;
 static LoopInfo *g_loop_stack;
 static size_t g_loop_len, g_loop_cap;
 static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Node *n) {
@@ -3246,6 +3247,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   MIR_append_insn (ctx, func,
                    MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, ret_sp),
                                  MIR_new_int_op (ctx, 0)));
+  g_var_init_anchor = DLIST_TAIL (MIR_insn_t, func->u.func->insns);
 
   g_ret_stack = ret_stack;
   g_ret_sp = ret_sp;
@@ -3272,6 +3274,16 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       gen_stmt (&ln->stmts.data[j]);
     }
   }
+  for (size_t i = 0; i < g_vars.len; i++)
+    if (g_vars.data[i].is_array && g_vars.data[i].size == 0) {
+      g_vars.data[i].size = 11;
+      MIR_insn_t call = MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, calloc_proto),
+                                           MIR_new_ref_op (ctx, calloc_import),
+                                           MIR_new_reg_op (ctx, g_vars.data[i].reg),
+                                           MIR_new_int_op (ctx, 11), MIR_new_int_op (ctx, 8));
+      MIR_insert_insn_after (ctx, func, g_var_init_anchor, call);
+      g_var_init_anchor = call;
+    }
   /* ensure function returns 0 if no END */
   MIR_append_insn (ctx, func, MIR_new_ret_insn (ctx, 1, MIR_new_int_op (ctx, 0)));
   MIR_finish_func (ctx);
