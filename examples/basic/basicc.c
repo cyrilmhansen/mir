@@ -514,7 +514,7 @@ static Node *parse_factor (void) {
         || strcasecmp (id, "EXP") == 0 || strcasecmp (id, "LEFT$") == 0
         || strcasecmp (id, "RIGHT$") == 0 || strcasecmp (id, "MID$") == 0
         || strcasecmp (id, "LEN") == 0 || strcasecmp (id, "VAL") == 0
-        || strcasecmp (id, "STR$") == 0 || strcasecmp (id, "ASC") == 0) {
+        || strcasecmp (id, "STR$") == 0 || strcasecmp (id, "ASC") == 0 
 
         || strcasecmp (id, "ABS") == 0 || strcasecmp (id, "SGN") == 0 || strcasecmp (id, "SQR") == 0
         || strcasecmp (id, "SIN") == 0 || strcasecmp (id, "COS") == 0 || strcasecmp (id, "TAN") == 0
