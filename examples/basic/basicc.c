@@ -2302,10 +2302,7 @@ static void gen_stmt (Stmt *s) {
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_insn (g_ctx, MIR_DBEQ, MIR_new_label_op (g_ctx, skip),
                                    MIR_new_reg_op (g_ctx, r), MIR_new_double_op (g_ctx, 0.0)));
-    for (size_t k = 0; k < s->u.iff.stmts.len; k++) {
-      Stmt *bs = &s->u.iff.stmts.data[k];
-      gen_stmt (bs);
-    }
+    for (size_t k = 0; k < s->u.iff.stmts.len; k++) gen_stmt (&s->u.iff.stmts.data[k]);
     MIR_append_insn (g_ctx, g_func, skip);
     break;
   }
