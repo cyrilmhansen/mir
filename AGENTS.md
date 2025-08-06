@@ -1,8 +1,7 @@
 # MIR repository agent instructions
 
 ## Formatting
-- Use tabs for indentation in source files and verify this before submitting patches to avoid unnecessary token waste.
-- Run `clang-format -i` on any modified C source files before committing.
+- Don't care much about space / tabs use for indentation in source files. Just run `clang-format -i` on any modified C source files before committing.
 
 ## Testing
 - All new features must include accompanying unit tests; pull requests lacking
