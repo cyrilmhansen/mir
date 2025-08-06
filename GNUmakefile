@@ -424,6 +424,10 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
 	diff $(SRC_DIR)/examples/basic/while.out $(BUILD_DIR)/basic/while.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/not.bas > $(BUILD_DIR)/basic/not.out
 	diff $(SRC_DIR)/examples/basic/not.out $(BUILD_DIR)/basic/not.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/relop_compact.bas > $(BUILD_DIR)/basic/relop_compact.out
+	diff $(SRC_DIR)/examples/basic/relop_compact.out $(BUILD_DIR)/basic/relop_compact.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/relop_spaced.bas > $(BUILD_DIR)/basic/relop_spaced.out
+	diff $(SRC_DIR)/examples/basic/relop_spaced.out $(BUILD_DIR)/basic/relop_spaced.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/restore.bas > $(BUILD_DIR)/basic/restore.out
 	diff $(SRC_DIR)/examples/basic/restore.out $(BUILD_DIR)/basic/restore.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/math.bas > $(BUILD_DIR)/basic/math.out
@@ -489,6 +493,7 @@ clean-basic:
 	$(RM) $(BUILD_DIR)/basic/basicc$(EXE) \
 	$(BUILD_DIR)/basic/hello.out $(BUILD_DIR)/basic/adder.out $(BUILD_DIR)/basic/guess.out \
 	$(BUILD_DIR)/basic/string.out $(BUILD_DIR)/basic/strfuncs.out $(BUILD_DIR)/basic/array.out \
+	$(BUILD_DIR)/basic/relop_compact.out $(BUILD_DIR)/basic/relop_spaced.out \
 	$(BUILD_DIR)/basic/while.out $(BUILD_DIR)/basic/restore.out $(BUILD_DIR)/basic/math.out \
 	$(BUILD_DIR)/basic/stop.out $(BUILD_DIR)/basic/graphics.out $(BUILD_DIR)/basic/fileio.out \
 	$(BUILD_DIR)/basic/eof.out $(BUILD_DIR)/basic/periodic.out $(BUILD_DIR)/basic/sieve.out \

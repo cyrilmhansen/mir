@@ -793,25 +793,27 @@ static Relop parse_relop (void) {
     cur++;
     return REL_EQ;
   }
-  if (*cur == '<' && cur[1] == '>') {
-    cur += 2;
-    return REL_NE;
-  }
-  if (*cur == '<' && cur[1] == '=') {
-    cur += 2;
-    return REL_LE;
-  }
-  if (*cur == '>' && cur[1] == '=') {
-    cur += 2;
-    return REL_GE;
-  }
-  if (*cur == '<') {
+  if (*cur == '<' || *cur == '>') {
+    int c = *cur;
     cur++;
-    return REL_LT;
-  }
-  if (*cur == '>') {
-    cur++;
-    return REL_GT;
+    skip_ws ();
+    if (c == '<') {
+      if (*cur == '>') {
+        cur++;
+        return REL_NE;
+      }
+      if (*cur == '=') {
+        cur++;
+        return REL_LE;
+      }
+      return REL_LT;
+    } else {
+      if (*cur == '=') {
+        cur++;
+        return REL_GE;
+      }
+      return REL_GT;
+    }
   }
   return REL_NONE;
 }
