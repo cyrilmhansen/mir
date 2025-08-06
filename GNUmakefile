@@ -501,15 +501,9 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
 
 clean-basic:
 	$(RM) $(BUILD_DIR)/basic/basicc$(EXE) \
-		$(BUILD_DIR)/basic/hello.out $(BUILD_DIR)/basic/adder.out $(BUILD_DIR)/basic/guess.out \
-	$(BUILD_DIR)/basic/string.out $(BUILD_DIR)/basic/strfuncs.out $(BUILD_DIR)/basic/array.out \
-	$(BUILD_DIR)/basic/while.out $(BUILD_DIR)/basic/restore.out $(BUILD_DIR)/basic/math.out \
-	$(BUILD_DIR)/basic/stop.out $(BUILD_DIR)/basic/graphics.out $(BUILD_DIR)/basic/fileio.out \
-	$(BUILD_DIR)/basic/eof.out $(BUILD_DIR)/basic/periodic.out $(BUILD_DIR)/basic/sieve.out \
-	$(BUILD_DIR)/basic/fib.out $(BUILD_DIR)/basic/sieve-bench $(BUILD_DIR)/basic/fib-bench \
-	$(BUILD_DIR)/basic/hello.bmir $(BUILD_DIR)/basic/hello.mir \
-	$(BUILD_DIR)/basic/adder.bmir $(BUILD_DIR)/basic/adder.mir \
-$(BUILD_DIR)/basic/hello-bin $(BUILD_DIR)/basic/hello-bin.out $(BUILD_DIR)/basic/hello-bin.ctab
+		$(BUILD_DIR)/basic/*.out $(BUILD_DIR)/basic/*.bmir $(BUILD_DIR)/basic/*.mir \
+		$(BUILD_DIR)/basic/sieve-bench $(BUILD_DIR)/basic/fib-bench \
+		$(BUILD_DIR)/basic/hello-bin $(BUILD_DIR)/basic/hello-bin.out $(BUILD_DIR)/basic/hello-bin.ctab
 
 basic-bench: $(BUILD_DIR)/basic/basicc$(EXE)
 	$(SRC_DIR)/examples/basic/run-benchmarks.sh
