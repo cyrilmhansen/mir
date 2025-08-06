@@ -22,10 +22,10 @@ run_test() {
 	diff "$exp" "$out"
 }
 
-for t in hello relop adder guess string strfuncs instr gosub; do
-        echo "Running $t"
-        run_test "$t"
-        echo "$t OK"
+for t in hello relop adder guess string strfuncs instr gosub graphics readhplot; do
+	echo "Running $t"
+	run_test "$t"
+	echo "$t OK"
 done
 
 echo "Running fleuves (no explain)"
