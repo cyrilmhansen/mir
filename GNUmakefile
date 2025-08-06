@@ -422,6 +422,8 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
 	diff $(SRC_DIR)/examples/basic/instr.out $(BUILD_DIR)/basic/instr.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/array.bas > $(BUILD_DIR)/basic/array.out
 	diff $(SRC_DIR)/examples/basic/array.out $(BUILD_DIR)/basic/array.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/on.bas > $(BUILD_DIR)/basic/on.out
+	diff $(SRC_DIR)/examples/basic/on.out $(BUILD_DIR)/basic/on.out
 	        $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/while.bas > $(BUILD_DIR)/basic/while.out
 	        diff $(SRC_DIR)/examples/basic/while.out $(BUILD_DIR)/basic/while.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/ifcolons.bas > $(BUILD_DIR)/basic/ifcolons.out
