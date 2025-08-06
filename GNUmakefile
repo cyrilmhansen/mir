@@ -440,6 +440,9 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
 	diff $(SRC_DIR)/examples/basic/peekpoke.out $(BUILD_DIR)/basic/peekpoke.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/graphics.bas > $(BUILD_DIR)/basic/graphics.out
 	diff $(SRC_DIR)/examples/basic/graphics.out $(BUILD_DIR)/basic/graphics.out
+	$(BUILD_DIR)/basic/basicc$(EXE) examples/basic/readhplot.bas > examples/basic/readhplot.tmp
+	diff $(SRC_DIR)/examples/basic/readhplot.out $(SRC_DIR)/examples/basic/readhplot.tmp
+	rm $(SRC_DIR)/examples/basic/readhplot.tmp
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/fileio.bas > $(BUILD_DIR)/basic/fileio.out
 	diff $(SRC_DIR)/examples/basic/fileio.out $(BUILD_DIR)/basic/fileio.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/eof.bas > $(BUILD_DIR)/basic/eof.out
