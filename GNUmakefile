@@ -428,6 +428,8 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
 	diff $(SRC_DIR)/examples/basic/math.out $(BUILD_DIR)/basic/math.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/stop.bas > $(BUILD_DIR)/basic/stop.out
 	diff $(SRC_DIR)/examples/basic/stop.out $(BUILD_DIR)/basic/stop.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/pos.bas > $(BUILD_DIR)/basic/pos.out
+	diff $(SRC_DIR)/examples/basic/pos.out $(BUILD_DIR)/basic/pos.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/restore.bas > $(BUILD_DIR)/basic/restore.out
 	diff $(SRC_DIR)/examples/basic/restore.out $(BUILD_DIR)/basic/restore.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/graphics.bas > $(BUILD_DIR)/basic/graphics.out
@@ -533,7 +535,7 @@ clean-mir-interp-tests:
 .PHONY: gen-test8 gen-test9 gen-test10 gen-test11 gen-test12 gen-test13 gen-test14 gen-test15 gen-test16
 
 gen-test: gen-test-loop gen-test-sieve gen-test-get-thunk-addr gen-issue219-test gen-test1 gen-test2 gen-test3 gen-test4 gen-test5 gen-test6 gen-test7\
-          gen-test8 gen-test9 gen-test10 gen-test11 gen-test12 gen-test13 gen-test14 gen-test15 gen-test16
+	  gen-test8 gen-test9 gen-test10 gen-test11 gen-test12 gen-test13 gen-test14 gen-test15 gen-test16
 
 gen-test-loop: $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) $(SRC_DIR)/mir-tests/loop-sieve-gen.c | $(BUILD_DIR)/mir-tests
 	$(COMPILE_AND_LINK) -DTEST_GEN_LOOP -DTEST_GEN_DEBUG=1 $^ $(LDLIBS) $(EXEO)$(BUILD_DIR)/mir-tests/gen-loop-test$(EXE)
@@ -623,7 +625,7 @@ mir-bin-run-test: $(BUILD_DIR)/mir-bin-run$(EXE) $(BUILD_DIR)/c2m$(EXE)
 .PHONY: readme-example-test clean-readme-example-test
 
 readme-example-test: $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF)\
-                           $(SRC_DIR)/mir-tests/readme-example.c | $(BUILD_DIR)/mir-tests
+	                   $(SRC_DIR)/mir-tests/readme-example.c | $(BUILD_DIR)/mir-tests
 	$(COMPILE_AND_LINK) $^ $(LDLIBS) $(EXEO)$(BUILD_DIR)/mir-tests/readme-example-test$(EXE)
 	$(BUILD_DIR)/mir-tests/readme-example-test$(EXE)
 
@@ -811,7 +813,7 @@ gen-bench2: $(BUILD_DIR)/c2m # Ignore M1 MacOs as it needs another procedure to 
 	  echo +++++ Compiling and generating all code for c2m: +++++;\
 	  for i in 0 1 2 3;do \
 	    echo === Optimization level $$i:;\
-        echo 'int main () {return 0;}' > __a.c;\
+	echo 'int main () {return 0;}' > __a.c;\
 	    time $(BUILD_DIR)/c2m -O$$i -Dx86_64 -I$(SRC_DIR) $(SRC_DIR)/mir-gen.c $(SRC_DIR)/c2mir/c2mir.c\
 	                       $(SRC_DIR)/c2mir/c2mir-driver.c $(SRC_DIR)/mir.c -el -i -o __a.bmir < __a.c;\
 	    rm -f __a.c __a.bmir;\
