@@ -2308,12 +2308,17 @@ static void gen_stmt (Stmt *s) {
   }
   case ST_ON_GOTO: {
     MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.on_goto.expr);
+    char buf[32];
+    sprintf (buf, "$t%d", tmp_id++);
+    MIR_reg_t ri = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, ri),
+                                   MIR_new_reg_op (g_ctx, r)));
     for (size_t k = 0; k < s->u.on_goto.n_targets; k++) {
       MIR_label_t next = MIR_new_label (g_ctx);
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_insn (g_ctx, MIR_BNE, MIR_new_label_op (g_ctx, next),
-                                     MIR_new_reg_op (g_ctx, r),
-                                     MIR_new_double_op (g_ctx, (double) (k + 1))));
+                                     MIR_new_reg_op (g_ctx, ri), MIR_new_int_op (g_ctx, k + 1)));
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_insn (g_ctx, MIR_JMP,
                                      MIR_new_label_op (g_ctx,
@@ -2325,16 +2330,19 @@ static void gen_stmt (Stmt *s) {
   }
   case ST_ON_GOSUB: {
     MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.on_gosub.expr);
+    char buf[32];
+    sprintf (buf, "$t%d", tmp_id++);
+    MIR_reg_t ri = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, ri),
+                                   MIR_new_reg_op (g_ctx, r)));
     for (size_t k = 0; k < s->u.on_gosub.n_targets; k++) {
       MIR_label_t next = MIR_new_label (g_ctx);
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_insn (g_ctx, MIR_BNE, MIR_new_label_op (g_ctx, next),
-                                     MIR_new_reg_op (g_ctx, r),
-                                     MIR_new_double_op (g_ctx, (double) (k + 1))));
+                                     MIR_new_reg_op (g_ctx, ri), MIR_new_int_op (g_ctx, k + 1)));
       MIR_label_t ret = MIR_new_label (g_ctx);
       MIR_item_t ret_ref = MIR_new_lref_data (g_ctx, NULL, ret, NULL, 0);
-      char buf[32];
-      sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t tmp = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, tmp),
@@ -2356,6 +2364,73 @@ static void gen_stmt (Stmt *s) {
                                                                    s->u.on_gosub.targets[k]))));
       MIR_append_insn (g_ctx, g_func, ret);
       MIR_append_insn (g_ctx, g_func, next);
+    }
+    break;
+  }
+  case ST_HPLOT: {
+    char buf[32];
+    MIR_reg_t x0 = gen_expr (g_ctx, g_func, &g_vars, s->u.hplot.xs[0]);
+    sprintf (buf, "$t%d", tmp_id++);
+    MIR_reg_t x0i = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, x0i),
+                                   MIR_new_reg_op (g_ctx, x0)));
+    sprintf (buf, "$t%d", tmp_id++);
+    MIR_reg_t xprev = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_D, buf);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_insn (g_ctx, MIR_I2D, MIR_new_reg_op (g_ctx, xprev),
+                                   MIR_new_reg_op (g_ctx, x0i)));
+    MIR_reg_t y0 = gen_expr (g_ctx, g_func, &g_vars, s->u.hplot.ys[0]);
+    sprintf (buf, "$t%d", tmp_id++);
+    MIR_reg_t y0i = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, y0i),
+                                   MIR_new_reg_op (g_ctx, y0)));
+    sprintf (buf, "$t%d", tmp_id++);
+    MIR_reg_t yprev = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_D, buf);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_insn (g_ctx, MIR_I2D, MIR_new_reg_op (g_ctx, yprev),
+                                   MIR_new_reg_op (g_ctx, y0i)));
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, hplot_proto),
+                                        MIR_new_ref_op (g_ctx, hplot_import),
+                                        MIR_new_reg_op (g_ctx, xprev),
+                                        MIR_new_reg_op (g_ctx, yprev)));
+    for (size_t k = 1; k < s->u.hplot.n; k++) {
+      MIR_reg_t x = gen_expr (g_ctx, g_func, &g_vars, s->u.hplot.xs[k]);
+      sprintf (buf, "$t%d", tmp_id++);
+      MIR_reg_t xi = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, xi),
+                                     MIR_new_reg_op (g_ctx, x)));
+      sprintf (buf, "$t%d", tmp_id++);
+      MIR_reg_t xd = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_D, buf);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_I2D, MIR_new_reg_op (g_ctx, xd),
+                                     MIR_new_reg_op (g_ctx, xi)));
+      MIR_reg_t y = gen_expr (g_ctx, g_func, &g_vars, s->u.hplot.ys[k]);
+      sprintf (buf, "$t%d", tmp_id++);
+      MIR_reg_t yi = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, yi),
+                                     MIR_new_reg_op (g_ctx, y)));
+      sprintf (buf, "$t%d", tmp_id++);
+      MIR_reg_t yd = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_D, buf);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_I2D, MIR_new_reg_op (g_ctx, yd),
+                                     MIR_new_reg_op (g_ctx, yi)));
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_call_insn (g_ctx, 6, MIR_new_ref_op (g_ctx, hplotto_proto),
+                                          MIR_new_ref_op (g_ctx, hplotto_import),
+                                          MIR_new_reg_op (g_ctx, xprev),
+                                          MIR_new_reg_op (g_ctx, yprev), MIR_new_reg_op (g_ctx, xd),
+                                          MIR_new_reg_op (g_ctx, yd)));
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_DMOV, MIR_new_reg_op (g_ctx, xprev),
+                                     MIR_new_reg_op (g_ctx, xd)));
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_DMOV, MIR_new_reg_op (g_ctx, yprev),
+                                     MIR_new_reg_op (g_ctx, yd)));
     }
     break;
   }
