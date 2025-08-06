@@ -1,6 +1,6 @@
 5 REM Sieve of Eratosthenes benchmark
 10 S = 8190
-20 N = 100
+20 N = 2000
 30 DIM A(8190)
 40 FOR J = 1 TO N
 50  FOR I = 0 TO S - 1
