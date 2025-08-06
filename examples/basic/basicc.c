@@ -102,7 +102,6 @@ extern double basic_get_line (void);
 extern void basic_beep (void);
 extern void basic_sound (double, double);
 
-
 static int array_base = 0;
 
 static void *resolve (const char *name) {
@@ -194,26 +193,27 @@ static void *resolve (const char *name) {
 static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, string_import,
   int_proto, int_import, timer_proto, timer_import, input_chr_proto, input_chr_import, peek_proto,
   peek_import, eof_proto, eof_import, abs_proto, abs_import, sgn_proto, sgn_import, inkey_proto,
-  inkey_import,sqr_proto,  sqr_import, sin_proto, sin_import, cos_proto, cos_import,
-  tan_proto, tan_import, atn_proto,
-  atn_import, log_proto, log_import, exp_proto, exp_import, left_proto, left_import, right_proto,
-  right_import, mid_proto, mid_import, len_proto, len_import, val_proto, val_import, str_proto,
-  str_import, asc_proto, asc_import, pos_proto, pos_import, instr_proto, instr_import;
+  inkey_import, sqr_proto, sqr_import, sin_proto, sin_import, cos_proto, cos_import, tan_proto,
+  tan_import, atn_proto, atn_import, log_proto, log_import, exp_proto, exp_import, left_proto,
+  left_import, right_proto, right_import, mid_proto, mid_import, len_proto, len_import, val_proto,
+  val_import, str_proto, str_import, asc_proto, asc_import, pos_proto, pos_import, instr_proto,
+  instr_import;
 
 /* Runtime call prototypes for statements */
 static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_proto, input_import,
-  input_str_proto, input_str_import, get_proto, get_import, read_proto, read_import, read_str_proto,
-  read_str_import, restore_proto, restore_import, screen_proto, screen_import, cls_proto,
-  cls_import, color_proto, color_import, keyoff_proto, keyoff_import, locate_proto, locate_import,
-  htab_proto, htab_import, home_proto, poke_proto, poke_import, home_import, vtab_proto,
-  vtab_import, text_proto, text_import, inverse_proto, inverse_import, normal_proto, normal_import,
-  hgr2_proto, hgr2_import, hcolor_proto, hcolor_import, hplot_proto, hplot_import, calloc_proto,
-  calloc_import, memset_proto, memset_import, strcmp_proto, strcmp_import, open_proto, open_import,
-  close_proto, close_import, printh_proto, printh_import, prinths_proto, prinths_import,
-  input_hash_proto, input_hash_import, input_hash_str_proto, input_hash_str_import, get_hash_proto,
-  get_hash_import, randomize_proto, randomize_import, stop_proto, stop_import,  on_error_proto,
-  on_error_import, set_line_proto, set_line_import, get_line_proto, get_line_import, beep_import, sound_proto,
-  sound_import;
+  input_str_proto, input_str_import, get_proto, get_import, put_proto, put_import, read_proto,
+  read_import, read_str_proto, read_str_import, restore_proto, restore_import, screen_proto,
+  screen_import, cls_proto, cls_import, color_proto, color_import, keyoff_proto, keyoff_import,
+  locate_proto, locate_import, htab_proto, htab_import, home_proto, poke_proto, poke_import,
+  home_import, vtab_proto, vtab_import, text_proto, text_import, inverse_proto, inverse_import,
+  normal_proto, normal_import, hgr2_proto, hgr2_import, hcolor_proto, hcolor_import, hplot_proto,
+  hplot_import, calloc_proto, calloc_import, memset_proto, memset_import, strcmp_proto,
+  strcmp_import, open_proto, open_import, close_proto, close_import, printh_proto, printh_import,
+  prinths_proto, prinths_import, input_hash_proto, input_hash_import, input_hash_str_proto,
+  input_hash_str_import, get_hash_proto, get_hash_import, put_hash_proto, put_hash_import,
+  randomize_proto, randomize_import, stop_proto, stop_import, on_error_proto, on_error_import,
+  set_line_proto, set_line_import, get_line_proto, get_line_import, beep_proto, beep_import,
+  sound_proto, sound_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL } NodeKind;
@@ -623,7 +623,6 @@ static Node *parse_factor (void) {
         || strcasecmp (id, "VAL") == 0 || strcasecmp (id, "STR$") == 0
         || strcasecmp (id, "ASC") == 0 || strcasecmp (id, "INSTR") == 0
         || strcasecmp (id, "INKEY$") == 0) {
-        || strcasecmp (id, "ASC") == 0 || strcasecmp (id, "INSTR") == 0) {
       Node *n = new_node (N_CALL);
       n->var = id;
       n->left = arg1;
