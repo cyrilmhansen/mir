@@ -3097,6 +3097,9 @@ int main (int argc, char **argv) {
   LineVec prog = {0};
   char line[256];
   while (fgets (line, sizeof (line), f)) {
+    char *p = line;
+    while (isspace ((unsigned char) *p)) p++;
+    if (*p == '\0') continue;
     Line l;
     if (parse_line (line, &l))
       line_vec_push (&prog, l);
