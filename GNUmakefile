@@ -434,10 +434,16 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
 	diff $(SRC_DIR)/examples/basic/pos.out $(BUILD_DIR)/basic/pos.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/restore.bas > $(BUILD_DIR)/basic/restore.out
 	diff $(SRC_DIR)/examples/basic/restore.out $(BUILD_DIR)/basic/restore.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/peekpoke.bas > $(BUILD_DIR)/basic/peekpoke.out
+	diff $(SRC_DIR)/examples/basic/peekpoke.out $(BUILD_DIR)/basic/peekpoke.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/graphics.bas > $(BUILD_DIR)/basic/graphics.out
 	diff $(SRC_DIR)/examples/basic/graphics.out $(BUILD_DIR)/basic/graphics.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/fileio.bas > $(BUILD_DIR)/basic/fileio.out
 	diff $(SRC_DIR)/examples/basic/fileio.out $(BUILD_DIR)/basic/fileio.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/eof.bas > $(BUILD_DIR)/basic/eof.out
+	diff $(SRC_DIR)/examples/basic/eof.out $(BUILD_DIR)/basic/eof.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/beep.bas > $(BUILD_DIR)/basic/beep.out
+	diff $(SRC_DIR)/examples/basic/beep.out $(BUILD_DIR)/basic/beep.out
 
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/periodic.bas > $(BUILD_DIR)/basic/periodic.out
 	diff $(SRC_DIR)/examples/basic/periodic.out $(BUILD_DIR)/basic/periodic.out
@@ -475,8 +481,8 @@ clean-basic:
 	$(BUILD_DIR)/basic/hello.out $(BUILD_DIR)/basic/adder.out $(BUILD_DIR)/basic/guess.out \
 	$(BUILD_DIR)/basic/string.out $(BUILD_DIR)/basic/strfuncs.out $(BUILD_DIR)/basic/array.out \
 	$(BUILD_DIR)/basic/while.out $(BUILD_DIR)/basic/restore.out $(BUILD_DIR)/basic/math.out \
-	$(BUILD_DIR)/basic/stop.out $(BUILD_DIR)/basic/graphics.out $(BUILD_DIR)/basic/fileio.out \
-	$(BUILD_DIR)/basic/periodic.out \
+        $(BUILD_DIR)/basic/stop.out $(BUILD_DIR)/basic/graphics.out $(BUILD_DIR)/basic/fileio.out \
+        $(BUILD_DIR)/basic/eof.out $(BUILD_DIR)/basic/periodic.out \
 	$(BUILD_DIR)/basic/hello.bmir $(BUILD_DIR)/basic/hello.mir \
 	$(BUILD_DIR)/basic/adder.bmir $(BUILD_DIR)/basic/adder.mir \
 	$(BUILD_DIR)/basic/hello-bin $(BUILD_DIR)/basic/hello-bin.out $(BUILD_DIR)/basic/hello-bin.ctab
