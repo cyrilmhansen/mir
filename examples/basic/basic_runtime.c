@@ -130,3 +130,20 @@ void basic_poke (double addr, double value) {
   if (a < 0 || a >= BASIC_MEM_SIZE) return;
   basic_memory[a] = (uint8_t) v;
 }
+
+void basic_text (void) { printf ("\x1b[0m\x1b[2J\x1b[H"); }
+
+void basic_inverse (void) { printf ("\x1b[7m"); }
+
+void basic_normal (void) { printf ("\x1b[0m"); }
+
+void basic_hgr2 (void) { printf ("\x1b[2J\x1b[H"); }
+
+static int current_hcolor = 37;
+
+void basic_hcolor (double c) { current_hcolor = 30 + ((int) c & 7); }
+
+void basic_hplot (double x, double y) {
+  printf ("\x1b[%dm\x1b[%d;%dH*\x1b[0m", current_hcolor, (int) y, (int) x);
+  fflush (stdout);
+}
