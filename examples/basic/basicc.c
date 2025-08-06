@@ -1311,9 +1311,11 @@ static int parse_stmt (Stmt *out) {
     }
     return 1;
   } else if (strncasecmp (cur, "END", 3) == 0) {
+    cur += 3;
     out->kind = ST_END;
     return 1;
   } else if (strncasecmp (cur, "STOP", 4) == 0) {
+    cur += 4;
     out->kind = ST_STOP;
     return 1;
   } else if (strncasecmp (cur, "RESUME", 6) == 0) {
@@ -1346,68 +1348,68 @@ static int parse_stmt (Stmt *out) {
 
 /* Parse a single line into multiple statements */
 static int parse_line (char *line, Line *out) {
-  cur = line;
-  int line_no = parse_int ();
-  out->line = line_no;
-  out->stmts = (StmtVec) {0};
-  while (1) {
-    skip_ws ();
-    while (*cur == ':') {
-      cur++;
-      skip_ws ();
-    }
-    if (*cur == '\0') break;
-    Stmt s;
-    if (!parse_stmt (&s)) return 0;
-    if (s.kind == ST_PRINT || s.kind == ST_PRINT_HASH) {
-      size_t cap = 0;
-      if (s.kind == ST_PRINT) {
-        s.u.print.items = NULL;
-        s.u.print.n = 0;
-        s.u.print.no_nl = 0;
-      } else {
-        s.u.printhash.items = NULL;
-        s.u.printhash.n = 0;
-        s.u.printhash.no_nl = 0;
-      }
-      while (1) {
-        skip_ws ();
-        if (*cur == ':' || *cur == '\0') break;
-        Node *e = parse_expr ();
-        if (s.kind == ST_PRINT) {
-          if (s.u.print.n == cap) {
-            cap = cap ? cap * 2 : 4;
-            s.u.print.items = realloc (s.u.print.items, cap * sizeof (Node *));
-          }
-          s.u.print.items[s.u.print.n++] = e;
-        } else {
-          if (s.u.printhash.n == cap) {
-            cap = cap ? cap * 2 : 4;
-            s.u.printhash.items = realloc (s.u.printhash.items, cap * sizeof (Node *));
-          }
-          s.u.printhash.items[s.u.printhash.n++] = e;
-        }
-        skip_ws ();
-        if (*cur == ';' || *cur == ',') {
-          cur++;
-          skip_ws ();
-          if (*cur == ':' || *cur == '\0') {
-            if (s.kind == ST_PRINT)
-              s.u.print.no_nl = 1;
-            else
-              s.u.printhash.no_nl = 1;
-            break;
-          }
-          continue;
-        }
-        break;
-      }
-      skip_ws ();
-    }
-    stmt_vec_push (&out->stmts, s);
-    if (s.kind == ST_REM) break;
-  }
-  return 1;
+	cur = line;
+	int line_no = parse_int ();
+	out->line = line_no;
+	out->stmts = (StmtVec) {0};
+	while (1) {
+	Stmt s;
+	if (!parse_stmt (&s)) return 0;
+	if (s.kind == ST_PRINT || s.kind == ST_PRINT_HASH) {
+	size_t cap = 0;
+	if (s.kind == ST_PRINT) {
+	s.u.print.items = NULL;
+	s.u.print.n = 0;
+	s.u.print.no_nl = 0;
+	} else {
+	s.u.printhash.items = NULL;
+	s.u.printhash.n = 0;
+	s.u.printhash.no_nl = 0;
+	}
+	while (1) {
+	skip_ws ();
+	if (*cur == ':' || *cur == '\0') break;
+	Node *e = parse_expr ();
+	if (s.kind == ST_PRINT) {
+	if (s.u.print.n == cap) {
+	cap = cap ? cap * 2 : 4;
+	s.u.print.items = realloc (s.u.print.items, cap * sizeof (Node *));
+	}
+	s.u.print.items[s.u.print.n++] = e;
+	} else {
+	if (s.u.printhash.n == cap) {
+	cap = cap ? cap * 2 : 4;
+	s.u.printhash.items = realloc (s.u.printhash.items, cap * sizeof (Node *));
+	}
+	s.u.printhash.items[s.u.printhash.n++] = e;
+	}
+	skip_ws ();
+	if (*cur == ';' || *cur == ',') {
+	cur++;
+	skip_ws ();
+	if (*cur == ':' || *cur == '\0') {
+	if (s.kind == ST_PRINT)
+	s.u.print.no_nl = 1;
+	else
+	s.u.printhash.no_nl = 1;
+	break;
+	}
+	continue;
+	}
+	break;
+	}
+	skip_ws ();
+	}
+	stmt_vec_push (&out->stmts, s);
+	if (s.kind == ST_REM) break;
+	skip_ws ();
+	if (*cur == ':') {
+	cur++;
+	continue;
+	}
+	break;
+	}
+	return 1;
 }
 
 /* Variable mapping */

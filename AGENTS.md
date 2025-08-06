@@ -34,3 +34,8 @@
 - Graphics output from BASIC samples uses the Kitty terminal protocol. View
   `.out` files in a Kitty-capable terminal or with `kitty +kitten icat`.
 
+## Postmortem
+- `basic/basicc` entered an infinite loop when parsing programs ending with `END` or `STOP`.
+- The cursor in `parse_stmt` was not advanced for these keywords, causing the loop in `parse_line` to never progress.
+- Advancing the cursor for `END`/`STOP` and restoring a colon check after each statement resolves the issue.
+
