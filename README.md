@@ -439,3 +439,10 @@ The executable is "configurable" with environment variables:
   * Currently MIR works on x86_64, aarch64, ppc64le, s390x, riscv64 Linux and x86_64/aarch64 (Apple M1) MacOS
   * [HOW-TO-PORT-MIR.md](https://github.com/vnmakarov/mir/blob/master/HOW-TO-PORT-MIR.md) outlines process of porting MIR
     * On my estimation an experienced developer can port MIR (including `c2m`) to another target for 1-2 months
+
+## BASIC example tests
+Run `make basic-test` to exercise the BASIC compiler samples. Many programs
+such as `hello.bas`, `relop.bas`, `adder.bas`, `string.bas`, `strfuncs.bas`,
+`instr.bas`, `array.bas`, `while.bas`, and `not.bas` currently pass. Some
+samples like `on.bas`, `ifcolons.bas`, and `ifmulti.bas` do not yet produce
+the expected output and will cause the test run to fail.
