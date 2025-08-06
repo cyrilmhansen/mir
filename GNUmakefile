@@ -447,7 +447,7 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) 
 	diff $(SRC_DIR)/examples/basic/funcproc.out $(BUILD_DIR)/basic/funcproc.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/array_default.bas > $(BUILD_DIR)/basic/array_default.out
 	diff $(SRC_DIR)/examples/basic/array_default.out $(BUILD_DIR)/basic/array_default.out
-	printf '10 PRINT "HI"\nRUN\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl.out
+	printf '10 PRINT "HI"\nLIST\nRUN\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl.out
 	diff $(SRC_DIR)/examples/basic/repl.out $(BUILD_DIR)/basic/repl.out
 	printf '10 PRINT "HELLO"\nSAVE $(BUILD_DIR)/basic/repl-save$(EXE)\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl-save.log
 	test -f $(BUILD_DIR)/basic/repl-save$(EXE)

@@ -754,6 +754,10 @@ static void delete_line (LineVec *prog, int line_no) {
   }
 }
 
+static void list_program (LineVec *prog) {
+  for (size_t i = 0; i < prog->len; i++) printf ("%s\n", prog->data[i].src);
+}
+
 /* Parsing utilities */
 static char *cur;
 static void skip_ws (void) {
@@ -3917,7 +3921,7 @@ static void repl (void) {
       continue;
     }
     if (strcasecmp (p, "LIST") == 0) {
-      for (size_t i = 0; i < prog.len; i++) printf ("%s\n", prog.data[i].src);
+      list_program (&prog);
       continue;
     }
     if (strcasecmp (p, "NEW") == 0) {
