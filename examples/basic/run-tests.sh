@@ -33,10 +33,10 @@ for t in hello relop adder guess string strfuncs instr gosub graphics readhplot 
 done
 
 echo "Running fleuves (no explain)"
-"$BASICC" "$ROOT/examples/basic/fleuves.bas" < "$ROOT/examples/basic/fleuves.in" >/dev/null || true
+timeout 10 "$BASICC" "$ROOT/examples/basic/fleuves.bas" < "$ROOT/examples/basic/fleuves.in" >/dev/null
 echo "fleuves (no explain) done"
 
 echo "Running fleuves (with explain)"
-"$BASICC" "$ROOT/examples/basic/fleuves.bas" < "$ROOT/examples/basic/fleuves_explain.in" >/dev/null || true
+timeout 10 "$BASICC" "$ROOT/examples/basic/fleuves.bas" < "$ROOT/examples/basic/fleuves_explain.in" >/dev/null
 echo "fleuves (with explain) done"
 
