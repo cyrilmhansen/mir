@@ -677,6 +677,7 @@ static int parse_stmt (Stmt *out) {
   } else if (strncasecmp (cur, "RESTORE", 7) == 0) {
     cur += 7;
     out->kind = ST_RESTORE;
+    return 1;
   } else if (strncasecmp (cur, "SCREEN", 6) == 0) {
     cur += 6;
     skip_ws ();
