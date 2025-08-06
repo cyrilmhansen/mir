@@ -28,3 +28,7 @@ for t in hello relop adder guess string strfuncs instr; do
 	echo "$t OK"
 done
 
+echo "Running fleuves"
+"$BASICC" -S "$ROOT/examples/basic/fleuves.bas" >/dev/null
+echo "fleuves OK"
+
