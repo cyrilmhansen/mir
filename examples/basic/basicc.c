@@ -1225,6 +1225,51 @@ static int parse_stmt (Stmt *out) {
         bs.u.target = parse_int ();
       } else {
         if (!parse_stmt (&bs)) return 0;
+        if (bs.kind == ST_PRINT || bs.kind == ST_PRINT_HASH) {
+          size_t cap = 0;
+          if (bs.kind == ST_PRINT) {
+            bs.u.print.items = NULL;
+            bs.u.print.n = 0;
+            bs.u.print.no_nl = 0;
+          } else {
+            bs.u.printhash.items = NULL;
+            bs.u.printhash.n = 0;
+            bs.u.printhash.no_nl = 0;
+          }
+          while (1) {
+            skip_ws ();
+            if (*cur == ':' || *cur == '\0') break;
+            Node *e = parse_expr ();
+            if (bs.kind == ST_PRINT) {
+              if (bs.u.print.n == cap) {
+                cap = cap ? cap * 2 : 4;
+                bs.u.print.items = realloc (bs.u.print.items, cap * sizeof (Node *));
+              }
+              bs.u.print.items[bs.u.print.n++] = e;
+            } else {
+              if (bs.u.printhash.n == cap) {
+                cap = cap ? cap * 2 : 4;
+                bs.u.printhash.items = realloc (bs.u.printhash.items, cap * sizeof (Node *));
+              }
+              bs.u.printhash.items[bs.u.printhash.n++] = e;
+            }
+            skip_ws ();
+            if (*cur == ';' || *cur == ',') {
+              cur++;
+              skip_ws ();
+              if (*cur == ':' || *cur == '\0') {
+                if (bs.kind == ST_PRINT)
+                  bs.u.print.no_nl = 1;
+                else
+                  bs.u.printhash.no_nl = 1;
+                break;
+              }
+              continue;
+            }
+            break;
+          }
+          skip_ws ();
+        }
       }
       stmt_vec_push (&s.u.iff.stmts, bs);
       skip_ws ();
@@ -2228,6 +2273,15 @@ static void gen_stmt (Stmt *s) {
                                         MIR_new_reg_op (g_ctx, fn), MIR_new_reg_op (g_ctx, r)));
     break;
   }
+  case ST_POKE: {
+    MIR_reg_t addr = gen_expr (g_ctx, g_func, &g_vars, s->u.poke.addr);
+    MIR_reg_t val = gen_expr (g_ctx, g_func, &g_vars, s->u.poke.value);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, poke_proto),
+                                        MIR_new_ref_op (g_ctx, poke_import),
+                                        MIR_new_reg_op (g_ctx, addr), MIR_new_reg_op (g_ctx, val)));
+    break;
+  }
   case ST_READ: {
     for (size_t k = 0; k < s->u.read.n; k++) {
       Node *v = s->u.read.vars[k];
@@ -2284,6 +2338,12 @@ static void gen_stmt (Stmt *s) {
                                        MIR_new_reg_op (g_ctx, dst), MIR_new_reg_op (g_ctx, res)));
       }
     }
+    break;
+  }
+  case ST_RESTORE: {
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, restore_proto),
+                                        MIR_new_ref_op (g_ctx, restore_import)));
     break;
   }
   case ST_OPEN: {
@@ -2444,6 +2504,21 @@ static void gen_stmt (Stmt *s) {
                                    MIR_new_label_op (g_ctx,
                                                      find_label (g_prog, g_labels, s->u.target))));
     MIR_append_insn (g_ctx, g_func, ret);
+    break;
+  }
+  case ST_RETURN: {
+    char buf[32];
+    sprintf (buf, "$t%d", tmp_id++);
+    MIR_reg_t addr = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, g_ret_sp),
+                                   MIR_new_reg_op (g_ctx, g_ret_sp), MIR_new_int_op (g_ctx, 8)));
+    MIR_append_insn (g_ctx, g_func,
+
+
+                     MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, addr),
+                                   MIR_new_mem_op (g_ctx, MIR_T_P, 0, g_ret_stack, g_ret_sp, 1)));
+    MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMPI, MIR_new_reg_op (g_ctx, addr)));
     break;
   }
   case ST_IF: {

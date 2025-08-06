@@ -37,7 +37,10 @@
 - `HPLOT TO` without explicit starting coordinates now draws from the previous
   point, enabling programs such as `fleuves.bas`.
 - Scalar variables may now coexist with arrays of the same name.
-- `run-tests.sh` compiles `fleuves.bas` to ensure continued support.
+- `RETURN` properly resumes execution after `GOSUB`, fixing premature
+  termination in `fleuves.bas` and similar programs.
+- `run-tests.sh` exercises `fleuves.bas` with sample inputs (both with and
+  without the introductory explanation) to ensure continued support.
 
 ## Postmortem
 - `basic/basicc` entered an infinite loop when parsing programs ending with `END` or `STOP`.

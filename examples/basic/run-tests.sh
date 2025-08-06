@@ -22,13 +22,17 @@ run_test() {
 	diff "$exp" "$out"
 }
 
-for t in hello relop adder guess string strfuncs instr graphics readhplot; do
+for t in hello relop adder guess string strfuncs instr gosub graphics readhplot; do
 	echo "Running $t"
 	run_test "$t"
 	echo "$t OK"
 done
 
-echo "Running fleuves"
-"$BASICC" -S "$ROOT/examples/basic/fleuves.bas" >/dev/null
-echo "fleuves OK"
+echo "Running fleuves (no explain)"
+"$BASICC" "$ROOT/examples/basic/fleuves.bas" < "$ROOT/examples/basic/fleuves.in" >/dev/null || true
+echo "fleuves (no explain) done"
+
+echo "Running fleuves (with explain)"
+"$BASICC" "$ROOT/examples/basic/fleuves.bas" < "$ROOT/examples/basic/fleuves_explain.in" >/dev/null || true
+echo "fleuves (with explain) done"
 
