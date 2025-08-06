@@ -1,6 +1,6 @@
 5 REM Fibonacci benchmark
 10 N = 35
-20 ITER = 1000
+20 ITER = 20000
 30 FOR J = 1 TO ITER
 40  A = 0
 50  B = 1
