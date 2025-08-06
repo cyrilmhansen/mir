@@ -1268,6 +1268,7 @@ static int parse_stmt (Stmt *out) {
             }
             break;
           }
+          skip_ws ();
         }
       }
       stmt_vec_push (&s.u.iff.stmts, bs);
@@ -2513,6 +2514,8 @@ static void gen_stmt (Stmt *s) {
                      MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, g_ret_sp),
                                    MIR_new_reg_op (g_ctx, g_ret_sp), MIR_new_int_op (g_ctx, 8)));
     MIR_append_insn (g_ctx, g_func,
+
+
                      MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, addr),
                                    MIR_new_mem_op (g_ctx, MIR_T_P, 0, g_ret_stack, g_ret_sp, 1)));
     MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMPI, MIR_new_reg_op (g_ctx, addr)));
