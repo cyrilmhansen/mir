@@ -4,6 +4,8 @@
 #include <time.h>
 #include <math.h>
 #include <stdint.h>
+#include <sys/select.h>
+#include <unistd.h>
 
 static int seeded = 0;
 static int basic_pos_val = 1;
@@ -55,10 +57,29 @@ char *basic_get (void) {
   return s;
 }
 
+char *basic_inkey (void) {
+  struct timeval tv = {0, 0};
+  fd_set fds;
+  FD_ZERO (&fds);
+  FD_SET (0, &fds);
+  if (select (1, &fds, NULL, NULL, &tv) > 0) {
+    int c = getchar ();
+    if (c == EOF) c = 0;
+    char *s = malloc (2);
+    s[0] = (char) c;
+    s[1] = '\0';
+    return s;
+  }
+  char *s = malloc (2);
+  s[0] = 0;
+  s[1] = '\0';
+  return s;
+
 void basic_put (const char *s) {
   int c = s != NULL && s[0] != '\0' ? (unsigned char) s[0] : 0;
   basic_pos_val = c == '\n' ? 1 : basic_pos_val + 1;
   fputc (c, stdout);
+
 }
 
 int basic_strcmp (const char *a, const char *b) { return strcmp (a, b); }
