@@ -3012,7 +3012,7 @@ static void gen_stmt (Stmt *s) {
   }
 }
 
-static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p,
+static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p, int reduce_libs,
                          const char *out_name, const char *src_name) {
   MIR_context_t ctx = MIR_init ();
   MIR_module_t module = MIR_new_module (ctx, "BASIC");
@@ -3328,15 +3328,17 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       const char *cc = getenv ("CC");
       if (cc == NULL) cc = "cc";
       const char *src_dir = BASIC_SRC_DIR;
-      size_t size
-        = strlen (cc) + strlen (src_dir) * 5 + strlen (ctab_name) + strlen (exe_name) + 200;
+      const char *extra_cflags
+        = reduce_libs ? " -ffunction-sections -fdata-sections -Wl,--gc-sections" : "";
+      size_t size = strlen (cc) + strlen (src_dir) * 5 + strlen (ctab_name) + strlen (exe_name)
+                    + strlen (extra_cflags) + 200;
       char *cmd = malloc (size);
       snprintf (cmd, size,
                 "%s -I\"%s\" -DCTAB_INCLUDE_STRING=\\\"%s\\\" \"%s/mir-bin-driver.c\" "
                 "\"%s/examples/basic/basic_runtime.c\" \"%s/mir.c\" \"%s/mir-gen.c\" -rdynamic -lm "
-                "-ldl -o "
+                "-ldl%s -o "
                 "\"%s\"",
-                cc, src_dir, ctab_name, src_dir, src_dir, src_dir, src_dir, exe_name);
+                cc, src_dir, ctab_name, src_dir, src_dir, src_dir, src_dir, extra_cflags, exe_name);
       if (system (cmd) != 0) perror (cmd);
       free (cmd);
     } else {
@@ -3366,7 +3368,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
 
 int main (int argc, char **argv) {
   if (kitty_graphics_available ()) show_kitty_banner ();
-  int jit = 0, asm_p = 0, obj_p = 0, bin_p = 0;
+  int jit = 0, asm_p = 0, obj_p = 0, bin_p = 0, reduce_libs = 0;
   const char *fname = NULL, *out_name = NULL;
   for (int i = 1; i < argc; i++) {
     if (strcmp (argv[i], "-j") == 0) {
@@ -3377,6 +3379,8 @@ int main (int argc, char **argv) {
       asm_p = obj_p = 1;
     } else if (strcmp (argv[i], "-b") == 0) {
       bin_p = 1;
+    } else if (strcmp (argv[i], "-l") == 0) {
+      reduce_libs = 1;
     } else if (strcmp (argv[i], "-o") == 0 && i + 1 < argc) {
       out_name = argv[++i];
     } else {
@@ -3384,7 +3388,7 @@ int main (int argc, char **argv) {
     }
   }
   if (!fname) {
-    fprintf (stderr, "usage: %s [-j] [-S|-c] [-b] [-o output] file.bas\n", argv[0]);
+    fprintf (stderr, "usage: %s [-j] [-S|-c] [-b] [-l] [-o output] file.bas\n", argv[0]);
     return 1;
   }
   FILE *f = fopen (fname, "r");
@@ -3405,6 +3409,6 @@ int main (int argc, char **argv) {
       fprintf (stderr, "parse error: %s\n", line);
   }
   fclose (f);
-  gen_program (&prog, jit, asm_p, obj_p, bin_p, out_name, fname);
+  gen_program (&prog, jit, asm_p, obj_p, bin_p, reduce_libs, out_name, fname);
   return 0;
 }

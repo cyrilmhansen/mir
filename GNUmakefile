@@ -407,9 +407,9 @@ $(BUILD_DIR)/basic/basicc$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-ge
 	$(COMPILE_AND_LINK) -DBASIC_SRC_DIR=\"$(SRC_DIR)\" $^ -lm $(EXEO)$@
 
 $(BUILD_DIR)/basic/kitty_test$(EXE): \
-        $(SRC_DIR)/examples/basic/kitty/kitty_test.c \
-        $(SRC_DIR)/examples/basic/kitty/kitty.c \
-        $(SRC_DIR)/examples/basic/kitty/lodepng.c
+$(SRC_DIR)/examples/basic/kitty/kitty_test.c \
+$(SRC_DIR)/examples/basic/kitty/kitty.c \
+$(SRC_DIR)/examples/basic/kitty/lodepng.c
 	mkdir -p $(BUILD_DIR)/basic
 	$(COMPILE_AND_LINK) $^ -lm $(EXEO)$@
 
@@ -428,5 +428,8 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE)
 	diff $(SRC_DIR)/examples/basic/instr.out $(BUILD_DIR)/basic/instr.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/array_default.bas > $(BUILD_DIR)/basic/array_default.out
 	diff $(SRC_DIR)/examples/basic/array_default.out $(BUILD_DIR)/basic/array_default.out
+	$(BUILD_DIR)/basic/basicc$(EXE) -b -l -o $(BUILD_DIR)/basic/hello-lean $(SRC_DIR)/examples/basic/hello.bas
+	$(BUILD_DIR)/basic/hello-lean$(EXE) > $(BUILD_DIR)/basic/hello-lean.out
+	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/hello-lean.out
 	$(BUILD_DIR)/basic/kitty_test$(EXE) > $(BUILD_DIR)/basic/kitty_test.out
 	diff $(SRC_DIR)/examples/basic/kitty/kitty_test.out $(BUILD_DIR)/basic/kitty_test.out
