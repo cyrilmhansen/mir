@@ -420,6 +420,8 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
 	diff $(SRC_DIR)/examples/basic/array.out $(BUILD_DIR)/basic/array.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/while.bas > $(BUILD_DIR)/basic/while.out
 	diff $(SRC_DIR)/examples/basic/while.out $(BUILD_DIR)/basic/while.out
+	        $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/restore.bas > $(BUILD_DIR)/basic/restore.out
+	        diff $(SRC_DIR)/examples/basic/restore.out $(BUILD_DIR)/basic/restore.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/math.bas > $(BUILD_DIR)/basic/math.out
 	diff $(SRC_DIR)/examples/basic/math.out $(BUILD_DIR)/basic/math.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/stop.bas > $(BUILD_DIR)/basic/stop.out
@@ -428,11 +430,13 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
 	diff $(SRC_DIR)/examples/basic/restore.out $(BUILD_DIR)/basic/restore.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/graphics.bas > $(BUILD_DIR)/basic/graphics.out
 	diff $(SRC_DIR)/examples/basic/graphics.out $(BUILD_DIR)/basic/graphics.out
-	$(BUILD_DIR)/basic/basicc$(EXE) -S -o $(BUILD_DIR)/basic/hello $(SRC_DIR)/examples/basic/hello.bas
-	test -s $(BUILD_DIR)/basic/hello.mir
-	test -s $(BUILD_DIR)/basic/hello.bmir
-	printf '2\n3\n' | $(BUILD_DIR)/basic/basicc$(EXE) -c -o $(BUILD_DIR)/basic/adder $(SRC_DIR)/examples/basic/adder.bas
-	test -s $(BUILD_DIR)/basic/adder.mir
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/fileio.bas > $(BUILD_DIR)/basic/fileio.out
+	diff $(SRC_DIR)/examples/basic/fileio.out $(BUILD_DIR)/basic/fileio.out
+	        $(BUILD_DIR)/basic/basicc$(EXE) -S -o $(BUILD_DIR)/basic/hello $(SRC_DIR)/examples/basic/hello.bas
+		test -s $(BUILD_DIR)/basic/hello.mir
+		test -s $(BUILD_DIR)/basic/hello.bmir
+		printf '2\n3\n' | $(BUILD_DIR)/basic/basicc$(EXE) -c -o $(BUILD_DIR)/basic/adder $(SRC_DIR)/examples/basic/adder.bas
+		test -s $(BUILD_DIR)/basic/adder.mir
 	test -s $(BUILD_DIR)/basic/adder.bmir
 	$(BUILD_DIR)/basic/basicc$(EXE) -b -o $(BUILD_DIR)/basic/hello-bin $(SRC_DIR)/examples/basic/hello.bas
 	$(BUILD_DIR)/basic/hello-bin > $(BUILD_DIR)/basic/hello-bin.out
