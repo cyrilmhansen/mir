@@ -29,6 +29,7 @@
   - integer arithmetic: division (`\\`) and modulo (`MOD`).
   - input with `INPUT` and single-character `GET`.
   - state reset via `CLEAR`.
+  - multi-way branching with `ON...GOTO` and `ON...GOSUB`.
 
 - Graphics output from BASIC samples uses the Kitty terminal protocol. View
   `.out` files in a Kitty-capable terminal or with `kitty +kitten icat`.
