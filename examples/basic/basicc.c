@@ -36,6 +36,7 @@ extern size_t basic_data_pos;
 extern void basic_home (void);
 extern void basic_vtab (double);
 extern double basic_rnd (double);
+extern void basic_randomize (double, double);
 extern double basic_abs (double);
 extern double basic_sgn (double);
 extern double basic_sqr (double);
@@ -105,6 +106,7 @@ static void *resolve (const char *name) {
 
   if (!strcmp (name, "basic_home")) return basic_home;
   if (!strcmp (name, "basic_vtab")) return basic_vtab;
+  if (!strcmp (name, "basic_randomize")) return basic_randomize;
   if (!strcmp (name, "basic_rnd")) return basic_rnd;
   if (!strcmp (name, "basic_abs")) return basic_abs;
   if (!strcmp (name, "basic_sgn")) return basic_sgn;
@@ -171,7 +173,7 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   calloc_import, memset_proto, memset_import, strcmp_proto, strcmp_import, open_proto, open_import,
   close_proto, close_import, printh_proto, printh_import, prinths_proto, prinths_import,
   input_hash_proto, input_hash_import, input_hash_str_proto, input_hash_str_import, get_hash_proto,
-  get_hash_import, stop_proto, stop_import;
+  get_hash_import, randomize_proto, randomize_import, stop_proto, stop_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_STR, N_CALL } NodeKind;
@@ -242,6 +244,7 @@ typedef enum {
   ST_POKE,
   ST_HOME,
   ST_VTAB,
+  ST_RANDOMIZE,
   ST_TEXT,
   ST_INVERSE,
   ST_NORMAL,
@@ -266,7 +269,7 @@ typedef struct Stmt Stmt;
 struct Stmt {
   StmtKind kind;
   union {
-    Node *expr; /* PRINT/VTAB/HTAB/SCREEN/COLOR/WHILE/HCOLOR */
+    Node *expr; /* PRINT/VTAB/HTAB/SCREEN/COLOR/WHILE/HCOLOR/RANDOMIZE */
     struct {
       Node **items;
       size_t n;
@@ -885,6 +888,16 @@ static int parse_stmt (Stmt *out) {
     skip_ws ();
     out->kind = ST_VTAB;
     out->u.expr = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "RANDOMIZE", 9) == 0) {
+    cur += 9;
+    skip_ws ();
+    out->kind = ST_RANDOMIZE;
+    if (*cur == '\0' || *cur == ':') {
+      out->u.expr = NULL;
+    } else {
+      out->u.expr = parse_expr ();
+    }
     return 1;
   } else if (strncasecmp (cur, "TEXT", 4) == 0) {
     cur += 4;
@@ -1666,6 +1679,9 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   hcolor_import = MIR_new_import (ctx, "basic_hcolor");
   hplot_proto = MIR_new_proto (ctx, "basic_hplot_p", 0, NULL, 2, MIR_T_D, "x", MIR_T_D, "y");
   hplot_import = MIR_new_import (ctx, "basic_hplot");
+  randomize_proto
+    = MIR_new_proto (ctx, "basic_randomize_p", 0, NULL, 2, MIR_T_D, "n", MIR_T_D, "has_seed");
+  randomize_import = MIR_new_import (ctx, "basic_randomize");
   stop_proto = MIR_new_proto (ctx, "basic_stop_p", 0, NULL, 0);
   stop_import = MIR_new_import (ctx, "basic_stop");
   rnd_proto = MIR_new_proto (ctx, "basic_rnd_p", 1, &d, 1, MIR_T_D, "n");
@@ -2107,6 +2123,23 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                          MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, vtab_proto),
                                             MIR_new_ref_op (ctx, vtab_import),
                                             MIR_new_reg_op (ctx, r)));
+        break;
+      }
+      case ST_RANDOMIZE: {
+        if (s->u.expr) {
+          MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.expr);
+          MIR_append_insn (ctx, func,
+                           MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, randomize_proto),
+                                              MIR_new_ref_op (ctx, randomize_import),
+                                              MIR_new_reg_op (ctx, r),
+                                              MIR_new_double_op (ctx, 1.0)));
+        } else {
+          MIR_append_insn (ctx, func,
+                           MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, randomize_proto),
+                                              MIR_new_ref_op (ctx, randomize_import),
+                                              MIR_new_double_op (ctx, 0.0),
+                                              MIR_new_double_op (ctx, 0.0)));
+        }
         break;
       }
       case ST_TEXT: {

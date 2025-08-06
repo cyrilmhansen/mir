@@ -432,6 +432,8 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
 	diff $(SRC_DIR)/examples/basic/graphics.out $(BUILD_DIR)/basic/graphics.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/fileio.bas > $(BUILD_DIR)/basic/fileio.out
 	diff $(SRC_DIR)/examples/basic/fileio.out $(BUILD_DIR)/basic/fileio.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/random.bas > $(BUILD_DIR)/basic/random.out
+	diff $(SRC_DIR)/examples/basic/random.out $(BUILD_DIR)/basic/random.out
 	        $(BUILD_DIR)/basic/basicc$(EXE) -S -o $(BUILD_DIR)/basic/hello $(SRC_DIR)/examples/basic/hello.bas
 		test -s $(BUILD_DIR)/basic/hello.mir
 		test -s $(BUILD_DIR)/basic/hello.bmir

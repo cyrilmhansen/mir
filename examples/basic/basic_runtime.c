@@ -5,6 +5,8 @@
 #include <math.h>
 #include <stdint.h>
 
+static int seeded = 0;
+
 double basic_input (void) {
   double x = 0.0;
   if (scanf ("%lf", &x) != 1) return 0.0;
@@ -143,8 +145,16 @@ void basic_locate (double r, double c) { printf ("\x1b[%d;%dH", (int) r, (int) c
 void basic_htab (double n) { printf ("\x1b[%dG", (int) n); }
 void basic_tab (double n) { basic_htab (n); }
 
+void basic_randomize (double n, double has_seed) {
+  if (has_seed != 0.0) {
+    srand ((unsigned) n);
+  } else {
+    srand ((unsigned) time (NULL));
+  }
+  seeded = 1;
+}
+
 double basic_rnd (double n) {
-  static int seeded = 0;
   if (!seeded) {
     srand ((unsigned) time (NULL));
     seeded = 1;
