@@ -50,7 +50,6 @@ extern double basic_int (double);
 extern double basic_timer (void);
 extern char *basic_input_chr (double);
 
-
 static void *resolve (const char *name) {
   if (!strcmp (name, "basic_print")) return basic_print;
   if (!strcmp (name, "basic_print_str")) return basic_print_str;
@@ -302,6 +301,9 @@ static char *parse_string (void) {
 /* Expression parser */
 static Node *parse_factor (void);
 static Node *parse_term (void);
+static Node *parse_add (void);
+static Node *parse_and (void);
+static Node *parse_or (void);
 static Node *parse_expr (void);
 
 static Node *parse_factor (void) {
@@ -393,7 +395,7 @@ static Node *parse_term (void) {
   return n;
 }
 
-static Node *parse_expr (void) {
+static Node *parse_add (void) {
   Node *n = parse_term ();
   while (1) {
     skip_ws ();
@@ -409,6 +411,44 @@ static Node *parse_expr (void) {
   }
   return n;
 }
+
+static Node *parse_and (void) {
+  Node *n = parse_add ();
+  while (1) {
+    skip_ws ();
+    if (strncasecmp (cur, "AND", 3) != 0 || isalnum ((unsigned char) cur[3]) || cur[3] == '_'
+        || cur[3] == '$')
+      break;
+    cur += 3;
+    Node *r = parse_add ();
+    Node *nn = new_node (N_BIN);
+    nn->op = '&';
+    nn->left = n;
+    nn->right = r;
+    n = nn;
+  }
+  return n;
+}
+
+static Node *parse_or (void) {
+  Node *n = parse_and ();
+  while (1) {
+    skip_ws ();
+    if (strncasecmp (cur, "OR", 2) != 0 || isalnum ((unsigned char) cur[2]) || cur[2] == '_'
+        || cur[2] == '$')
+      break;
+    cur += 2;
+    Node *r = parse_and ();
+    Node *nn = new_node (N_BIN);
+    nn->op = '|';
+    nn->left = n;
+    nn->right = r;
+    n = nn;
+  }
+  return n;
+}
+
+static Node *parse_expr (void) { return parse_or (); }
 
 static Relop parse_relop (void) {
   skip_ws ();
@@ -950,6 +990,54 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                           MIR_new_ref_op (ctx, timer_import),
                                           MIR_new_reg_op (ctx, res)));
     }
+    return res;
+  } else if (n->op == '&') {
+    MIR_reg_t l = gen_expr (ctx, func, vars, n->left);
+    char buf[32];
+    sprintf (buf, "$t%d", tmp_id++);
+    MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
+    MIR_label_t false_lab = MIR_new_label (ctx);
+    MIR_label_t end_lab = MIR_new_label (ctx);
+    MIR_append_insn (ctx, func,
+                     MIR_new_insn (ctx, MIR_DBEQ, MIR_new_label_op (ctx, false_lab),
+                                   MIR_new_reg_op (ctx, l), MIR_new_double_op (ctx, 0.0)));
+    MIR_reg_t r = gen_expr (ctx, func, vars, n->right);
+    MIR_append_insn (ctx, func,
+                     MIR_new_insn (ctx, MIR_DBEQ, MIR_new_label_op (ctx, false_lab),
+                                   MIR_new_reg_op (ctx, r), MIR_new_double_op (ctx, 0.0)));
+    MIR_append_insn (ctx, func,
+                     MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, res),
+                                   MIR_new_double_op (ctx, 1.0)));
+    MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, end_lab)));
+    MIR_append_insn (ctx, func, false_lab);
+    MIR_append_insn (ctx, func,
+                     MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, res),
+                                   MIR_new_double_op (ctx, 0.0)));
+    MIR_append_insn (ctx, func, end_lab);
+    return res;
+  } else if (n->op == '|') {
+    MIR_reg_t l = gen_expr (ctx, func, vars, n->left);
+    char buf[32];
+    sprintf (buf, "$t%d", tmp_id++);
+    MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
+    MIR_label_t true_lab = MIR_new_label (ctx);
+    MIR_label_t end_lab = MIR_new_label (ctx);
+    MIR_append_insn (ctx, func,
+                     MIR_new_insn (ctx, MIR_DBNE, MIR_new_label_op (ctx, true_lab),
+                                   MIR_new_reg_op (ctx, l), MIR_new_double_op (ctx, 0.0)));
+    MIR_reg_t r = gen_expr (ctx, func, vars, n->right);
+    MIR_append_insn (ctx, func,
+                     MIR_new_insn (ctx, MIR_DBNE, MIR_new_label_op (ctx, true_lab),
+                                   MIR_new_reg_op (ctx, r), MIR_new_double_op (ctx, 0.0)));
+    MIR_append_insn (ctx, func,
+                     MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, res),
+                                   MIR_new_double_op (ctx, 0.0)));
+    MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, end_lab)));
+    MIR_append_insn (ctx, func, true_lab);
+    MIR_append_insn (ctx, func,
+                     MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, res),
+                                   MIR_new_double_op (ctx, 1.0)));
+    MIR_append_insn (ctx, func, end_lab);
     return res;
   } else {
     MIR_reg_t l = gen_expr (ctx, func, vars, n->left);
