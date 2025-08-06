@@ -17,6 +17,7 @@ extern void basic_print_str (const char *);
 extern double basic_input (void);
 extern char *basic_input_str (void);
 extern char *basic_get (void);
+extern char *basic_inkey (void);
 extern int basic_strcmp (const char *, const char *);
 
 extern double basic_read (void);
@@ -95,6 +96,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_input")) return basic_input;
   if (!strcmp (name, "basic_input_str")) return basic_input_str;
   if (!strcmp (name, "basic_get")) return basic_get;
+  if (!strcmp (name, "basic_inkey")) return basic_inkey;
   if (!strcmp (name, "basic_strcmp")) return basic_strcmp;
   if (!strcmp (name, "basic_open")) return basic_open;
   if (!strcmp (name, "basic_close")) return basic_close;
@@ -161,12 +163,12 @@ static void *resolve (const char *name) {
 
 /* Runtime call prototypes for expressions */
 static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, string_import,
-  int_proto, int_import, timer_proto, timer_import, input_chr_proto, input_chr_import, peek_proto,
-  peek_import, abs_proto, abs_import, sgn_proto, sgn_import, sqr_proto, sqr_import, sin_proto,
-  sin_import, cos_proto, cos_import, tan_proto, tan_import, atn_proto, atn_import, log_proto,
-  log_import, exp_proto, exp_import, left_proto, left_import, right_proto, right_import, mid_proto,
-  mid_import, len_proto, len_import, val_proto, val_import, str_proto, str_import, asc_proto,
-  asc_import, pos_proto, pos_import, instr_proto, instr_import;
+  int_proto, int_import, timer_proto, timer_import, input_chr_proto, input_chr_import, inkey_proto,
+  inkey_import, peek_proto, peek_import, abs_proto, abs_import, sgn_proto, sgn_import, sqr_proto,
+  sqr_import, sin_proto, sin_import, cos_proto, cos_import, tan_proto, tan_import, atn_proto,
+  atn_import, log_proto, log_import, exp_proto, exp_import, left_proto, left_import, right_proto,
+  right_import, mid_proto, mid_import, len_proto, len_import, val_proto, val_import, str_proto,
+  str_import, asc_proto, asc_import, pos_proto, pos_import, instr_proto, instr_import;
 
 /* Runtime call prototypes for statements */
 static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_proto, input_import,
@@ -557,7 +559,7 @@ static Node *parse_factor (void) {
         || strcasecmp (id, "EXP") == 0 || strcasecmp (id, "LEFT$") == 0
         || strcasecmp (id, "RIGHT$") == 0 || strcasecmp (id, "MID$") == 0
         || strcasecmp (id, "LEN") == 0 || strcasecmp (id, "VAL") == 0
-        || strcasecmp (id, "STR$") == 0 || strcasecmp (id, "ASC") == 0 
+        || strcasecmp (id, "STR$") == 0 || strcasecmp (id, "ASC") == 0
 
         || strcasecmp (id, "ABS") == 0 || strcasecmp (id, "SGN") == 0 || strcasecmp (id, "SQR") == 0
         || strcasecmp (id, "SIN") == 0 || strcasecmp (id, "COS") == 0 || strcasecmp (id, "TAN") == 0
@@ -565,8 +567,8 @@ static Node *parse_factor (void) {
         || strcasecmp (id, "LEFT$") == 0 || strcasecmp (id, "RIGHT$") == 0
         || strcasecmp (id, "MID$") == 0 || strcasecmp (id, "LEN") == 0
         || strcasecmp (id, "VAL") == 0 || strcasecmp (id, "STR$") == 0
-        || strcasecmp (id, "ASC") == 0 || strcasecmp (id, "INSTR") == 0) {
-
+        || strcasecmp (id, "ASC") == 0 || strcasecmp (id, "INSTR") == 0
+        || strcasecmp (id, "INKEY$") == 0) {
       Node *n = new_node (N_CALL);
       n->var = id;
       n->left = arg1;
@@ -575,7 +577,8 @@ static Node *parse_factor (void) {
       if (strcasecmp (id, "CHR$") == 0 || strcasecmp (id, "STRING$") == 0
           || strcasecmp (id, "INPUT$") == 0 || strcasecmp (id, "SPC") == 0
           || strcasecmp (id, "LEFT$") == 0 || strcasecmp (id, "RIGHT$") == 0
-          || strcasecmp (id, "MID$") == 0 || strcasecmp (id, "STR$") == 0)
+          || strcasecmp (id, "MID$") == 0 || strcasecmp (id, "STR$") == 0
+          || strcasecmp (id, "INKEY$") == 0)
         n->is_str = 1;
       return n;
     } else if (strncasecmp (id, "FN", 2) == 0) {
@@ -1391,6 +1394,11 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                          MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, input_chr_proto),
                                             MIR_new_ref_op (ctx, input_chr_import),
                                             MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      } else if (strcasecmp (n->var, "INKEY$") == 0) {
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, inkey_proto),
+                                            MIR_new_ref_op (ctx, inkey_import),
+                                            MIR_new_reg_op (ctx, res)));
       } else if (strcasecmp (n->var, "LEFT$") == 0) {
         MIR_reg_t s = gen_expr (ctx, func, vars, n->left);
         MIR_reg_t cnt = gen_expr (ctx, func, vars, n->right);
@@ -1641,8 +1649,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                        MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, asc_proto),
                                           MIR_new_ref_op (ctx, asc_import),
                                           MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
-      
-      
+
     } else if (strcasecmp (n->var, "POS") == 0) {
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, pos_proto),
@@ -1657,7 +1664,6 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                           MIR_new_ref_op (ctx, instr_import),
                                           MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, s),
                                           MIR_new_reg_op (ctx, sub)));
-      
 
     } else if (strncmp (n->var, "FN", 2) == 0) {
       MIR_op_t args[3];
@@ -1703,7 +1709,6 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
         break;
       }
 
-
     } else if (strcasecmp (n->var, "POS") == 0) {
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, pos_proto),
@@ -1718,7 +1723,6 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                           MIR_new_ref_op (ctx, instr_import),
                                           MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, s),
                                           MIR_new_reg_op (ctx, sub)));
-      
     }
     return res;
   } else if (n->op == '&') {
@@ -1988,6 +1992,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   timer_import = MIR_new_import (ctx, "basic_timer");
   input_chr_proto = MIR_new_proto (ctx, "basic_input_chr_p", 1, &p, 1, MIR_T_D, "n");
   input_chr_import = MIR_new_import (ctx, "basic_input_chr");
+  inkey_proto = MIR_new_proto (ctx, "basic_inkey_p", 1, &p, 0);
+  inkey_import = MIR_new_import (ctx, "basic_inkey");
   peek_proto = MIR_new_proto (ctx, "basic_peek_p", 1, &d, 1, MIR_T_D, "addr");
   peek_import = MIR_new_import (ctx, "basic_peek");
   pos_proto = MIR_new_proto (ctx, "basic_pos_p", 1, &d, 0);
