@@ -147,3 +147,8 @@ void basic_hplot (double x, double y) {
   printf ("\x1b[%dm\x1b[%d;%dH*\x1b[0m", current_hcolor, (int) y, (int) x);
   fflush (stdout);
 }
+
+void basic_stop (void) {
+  fflush (stdout);
+  exit (0);
+}
