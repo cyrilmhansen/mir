@@ -87,6 +87,8 @@ extern char *basic_get_hash (double);
 extern double basic_eof (double);
 
 extern void basic_stop (void);
+extern void basic_beep (void);
+extern void basic_sound (double, double);
 
 static int array_base = 0;
 
@@ -155,6 +157,8 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_peek")) return basic_peek;
   if (!strcmp (name, "basic_poke")) return basic_poke;
   if (!strcmp (name, "basic_stop")) return basic_stop;
+  if (!strcmp (name, "basic_beep")) return basic_beep;
+  if (!strcmp (name, "basic_sound")) return basic_sound;
 
   if (!strcmp (name, "calloc")) return calloc;
   if (!strcmp (name, "memset")) return memset;
@@ -181,7 +185,8 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   calloc_import, memset_proto, memset_import, strcmp_proto, strcmp_import, open_proto, open_import,
   close_proto, close_import, printh_proto, printh_import, prinths_proto, prinths_import,
   input_hash_proto, input_hash_import, input_hash_str_proto, input_hash_str_import, get_hash_proto,
-  get_hash_import, randomize_proto, randomize_import, stop_proto, stop_import;
+  get_hash_import, randomize_proto, randomize_import, beep_proto, beep_import, sound_proto,
+  sound_import, stop_proto, stop_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL } NodeKind;
@@ -285,6 +290,8 @@ typedef enum {
   ST_POKE,
   ST_HOME,
   ST_VTAB,
+  ST_BEEP,
+  ST_SOUND,
   ST_RANDOMIZE,
   ST_TEXT,
   ST_INVERSE,
@@ -381,6 +388,10 @@ struct Stmt {
       Node *x;
       Node *y;
     } hplot;
+    struct {
+      Node *freq;
+      Node *dur;
+    } sound;
     struct {
       Node *addr;
       Node *value;
@@ -1014,6 +1025,20 @@ static int parse_stmt (Stmt *out) {
     skip_ws ();
     out->kind = ST_VTAB;
     out->u.expr = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "BEEP", 4) == 0) {
+    cur += 4;
+    out->kind = ST_BEEP;
+    return 1;
+  } else if (strncasecmp (cur, "SOUND", 5) == 0) {
+    cur += 5;
+    skip_ws ();
+    out->kind = ST_SOUND;
+    out->u.sound.freq = parse_expr ();
+    skip_ws ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.sound.dur = parse_expr ();
     return 1;
   } else if (strncasecmp (cur, "RANDOMIZE", 9) == 0) {
     cur += 9;
@@ -1975,6 +2000,10 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   hcolor_import = MIR_new_import (ctx, "basic_hcolor");
   hplot_proto = MIR_new_proto (ctx, "basic_hplot_p", 0, NULL, 2, MIR_T_D, "x", MIR_T_D, "y");
   hplot_import = MIR_new_import (ctx, "basic_hplot");
+  beep_proto = MIR_new_proto (ctx, "basic_beep_p", 0, NULL, 0);
+  beep_import = MIR_new_import (ctx, "basic_beep");
+  sound_proto = MIR_new_proto (ctx, "basic_sound_p", 0, NULL, 2, MIR_T_D, "f", MIR_T_D, "d");
+  sound_import = MIR_new_import (ctx, "basic_sound");
   randomize_proto
     = MIR_new_proto (ctx, "basic_randomize_p", 0, NULL, 2, MIR_T_D, "n", MIR_T_D, "has_seed");
   randomize_import = MIR_new_import (ctx, "basic_randomize");
@@ -2483,6 +2512,21 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                          MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, vtab_proto),
                                             MIR_new_ref_op (ctx, vtab_import),
                                             MIR_new_reg_op (ctx, r)));
+        break;
+      }
+      case ST_BEEP: {
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, beep_proto),
+                                            MIR_new_ref_op (ctx, beep_import)));
+        break;
+      }
+      case ST_SOUND: {
+        MIR_reg_t f = gen_expr (ctx, func, &vars, s->u.sound.freq);
+        MIR_reg_t d = gen_expr (ctx, func, &vars, s->u.sound.dur);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, sound_proto),
+                                            MIR_new_ref_op (ctx, sound_import),
+                                            MIR_new_reg_op (ctx, f), MIR_new_reg_op (ctx, d)));
         break;
       }
       case ST_RANDOMIZE: {

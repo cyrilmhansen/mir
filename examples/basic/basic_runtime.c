@@ -314,6 +314,17 @@ void basic_hplot (double x, double y) {
   fflush (stdout);
 }
 
+void basic_beep (void) {
+  fputc ('\a', stdout);
+  fflush (stdout);
+}
+
+void basic_sound (double f, double d) {
+  (void) f;
+  (void) d;
+  basic_beep ();
+}
+
 void basic_stop (void) {
   fflush (stdout);
   exit (0);
