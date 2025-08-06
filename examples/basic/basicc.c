@@ -386,7 +386,7 @@ static Node *parse_factor (void) {
     if (strcasecmp (id, "RND") == 0 || strcasecmp (id, "CHR$") == 0
         || strcasecmp (id, "STRING$") == 0 || strcasecmp (id, "INT") == 0
         || strcasecmp (id, "TIMER") == 0 || strcasecmp (id, "INPUT$") == 0
-        || strcasecmp (id, "PEEK") == 0) || strcasecmp (id, "SPC") == 0)
+        || strcasecmp (id, "PEEK") == 0 || strcasecmp (id, "SPC") == 0)
      {
       Node *n = new_node (N_CALL);
       n->var = id;
