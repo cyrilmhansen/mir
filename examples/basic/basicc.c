@@ -2927,16 +2927,15 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                          MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, idx),
                                        MIR_new_reg_op (ctx, expr)));
         MIR_label_t after = MIR_new_label (ctx);
+        MIR_item_t after_ref = MIR_new_lref_data (ctx, NULL, after, NULL, 0);
+        sprintf (buf, "$t%d", tmp_id++);
+        MIR_reg_t tmp = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
         for (size_t k = 0; k < s->u.on_gosub.n_targets; k++) {
           MIR_label_t next = k + 1 < s->u.on_gosub.n_targets ? MIR_new_label (ctx) : after;
           MIR_append_insn (ctx, func,
                            MIR_new_insn (ctx, MIR_BNE, MIR_new_label_op (ctx, next),
                                          MIR_new_reg_op (ctx, idx),
                                          MIR_new_int_op (ctx, (int) k + 1)));
-          MIR_item_t after_ref = MIR_new_lref_data (ctx, NULL, after, NULL, 0);
-          char buf[32];
-          sprintf (buf, "$t%d", tmp_id++);
-          MIR_reg_t tmp = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
           MIR_append_insn (ctx, func,
                            MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, tmp),
                                          MIR_new_ref_op (ctx, after_ref)));
