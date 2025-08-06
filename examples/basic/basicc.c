@@ -3427,7 +3427,7 @@ static void repl (void) {
       continue;
     }
     if (strcasecmp (p, "RUN") == 0) {
-      gen_program (&prog, 0, 0, 0, 0, NULL, "(repl)");
+      gen_program (&prog, 0, 0, 0, 0, 0, NULL, "(repl)");
       continue;
     }
     if (strcasecmp (p, "LIST") == 0) {
