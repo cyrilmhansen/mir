@@ -152,6 +152,24 @@ double basic_rnd (double n) {
   return ((double) rand () / RAND_MAX) * n;
 }
 
+double basic_abs (double x) { return fabs (x); }
+
+double basic_sgn (double x) { return x > 0 ? 1.0 : x < 0 ? -1.0 : 0.0; }
+
+double basic_sqr (double x) { return sqrt (x); }
+
+double basic_sin (double x) { return sin (x); }
+
+double basic_cos (double x) { return cos (x); }
+
+double basic_tan (double x) { return tan (x); }
+
+double basic_atn (double x) { return atan (x); }
+
+double basic_log (double x) { return log (x); }
+
+double basic_exp (double x) { return exp (x); }
+
 char *basic_chr (double n) {
   char *s = malloc (2);
   s[0] = (char) ((int) n);
@@ -166,6 +184,51 @@ char *basic_string (double n, const char *s) {
   for (int i = 0; i < len; i++) res[i] = ch;
   res[len] = '\0';
   return res;
+}
+
+char *basic_left (const char *s, double n) {
+  size_t len = strlen (s);
+  size_t cnt = (size_t) n;
+  if (cnt > len) cnt = len;
+  char *res = malloc (cnt + 1);
+  memcpy (res, s, cnt);
+  res[cnt] = '\0';
+  return res;
+}
+
+char *basic_right (const char *s, double n) {
+  size_t len = strlen (s);
+  size_t cnt = (size_t) n;
+  if (cnt > len) cnt = len;
+  return strdup (s + len - cnt);
+}
+
+char *basic_mid (const char *s, double start_d, double len_d) {
+  size_t len = strlen (s);
+  size_t start = (size_t) start_d;
+  if (start < 1) start = 1;
+  start--;
+  if (start >= len) return strdup ("");
+  size_t cnt = len_d < 0 ? len - start : (size_t) len_d;
+  if (start + cnt > len) cnt = len - start;
+  char *res = malloc (cnt + 1);
+  memcpy (res, s + start, cnt);
+  res[cnt] = '\0';
+  return res;
+}
+
+double basic_len (const char *s) { return (double) strlen (s); }
+
+double basic_val (const char *s) { return strtod (s, NULL); }
+
+char *basic_str (double n) {
+  char buf[32];
+  snprintf (buf, sizeof (buf), "%g", n);
+  return strdup (buf);
+}
+
+double basic_asc (const char *s) {
+  return s == NULL || s[0] == '\0' ? 0.0 : (double) (unsigned char) s[0];
 }
 
 double basic_int (double x) { return floor (x); }
@@ -216,4 +279,9 @@ void basic_hcolor (double c) { current_hcolor = 30 + ((int) c & 7); }
 void basic_hplot (double x, double y) {
   printf ("\x1b[%dm\x1b[%d;%dH*\x1b[0m", current_hcolor, (int) y, (int) x);
   fflush (stdout);
+}
+
+void basic_stop (void) {
+  fflush (stdout);
+  exit (0);
 }
