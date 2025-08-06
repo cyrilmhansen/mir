@@ -295,38 +295,6 @@ static void data_vec_push (DataVec *v, BasicData d) {
   v->data[v->len++] = d;
 }
 
-typedef struct {
-  char *name;
-  char **params;
-  int *is_str;
-  size_t n;
-  Node *body;
-  int is_str_ret;
-  MIR_item_t item;
-  MIR_item_t proto;
-} FuncDef;
-
-typedef struct {
-  FuncDef *data;
-  size_t len, cap;
-} FuncVec;
-
-static FuncVec func_defs;
-
-static void func_vec_push (FuncVec *v, FuncDef f) {
-  if (v->len == v->cap) {
-    v->cap = v->cap ? 2 * v->cap : 4;
-    v->data = realloc (v->data, v->cap * sizeof (FuncDef));
-  }
-  v->data[v->len++] = f;
-}
-
-static FuncDef *find_func (const char *name) {
-  for (size_t i = 0; i < func_defs.len; i++)
-    if (strcmp (func_defs.data[i].name, name) == 0) return &func_defs.data[i];
-  return NULL;
-}
-
 /* Statement representation */
 /* Added ST_REM for comment lines, ST_DIM for array declarations, ST_CLEAR to reset state, and
    data-related statements. */
@@ -388,6 +356,7 @@ typedef enum {
   ST_ON_GOSUB,
   ST_ON_ERROR,
   ST_RESUME,
+  ST_CALL,
 } StmtKind;
 typedef enum { REL_NONE, REL_EQ, REL_NE, REL_LT, REL_LE, REL_GT, REL_GE } Relop;
 typedef struct Stmt Stmt;
@@ -532,8 +501,46 @@ struct Stmt {
       int line;
       int has_line;
     } resume;
+    struct {
+      char *name;
+      Node *arg1, *arg2, *arg3;
+    } call;
   } u;
 };
+
+typedef struct {
+  char *name;
+  char **params;
+  int *is_str;
+  size_t n;
+  Node *body;
+  StmtVec body_stmts;
+  int is_str_ret;
+  int is_proc;
+  MIR_item_t item;
+  MIR_item_t proto;
+} FuncDef;
+
+typedef struct {
+  FuncDef *data;
+  size_t len, cap;
+} FuncVec;
+
+static FuncVec func_defs;
+
+static void func_vec_push (FuncVec *v, FuncDef f) {
+  if (v->len == v->cap) {
+    v->cap = v->cap ? 2 * v->cap : 4;
+    v->data = realloc (v->data, v->cap * sizeof (FuncDef));
+  }
+  v->data[v->len++] = f;
+}
+
+static FuncDef *find_func (const char *name) {
+  for (size_t i = 0; i < func_defs.len; i++)
+    if (strcmp (func_defs.data[i].name, name) == 0) return &func_defs.data[i];
+  return NULL;
+}
 
 /* Program line containing multiple statements */
 typedef struct {
@@ -762,6 +769,15 @@ static Node *parse_factor (void) {
       n->right = arg2;
       n->index = arg3;
       n->is_str = id[strlen (id) - 1] == '$';
+      return n;
+    } else if (find_func (id) != NULL) {
+      Node *n = new_node (N_CALL);
+      n->var = id;
+      n->left = arg1;
+      n->right = arg2;
+      n->index = arg3;
+      FuncDef *fd = find_func (id);
+      n->is_str = fd->is_str_ret;
       return n;
     }
     if (arg1 != NULL) {
@@ -1102,7 +1118,7 @@ static int parse_stmt (Stmt *out) {
     if (*cur != '=') return 0;
     cur++;
     Node *body = parse_expr ();
-    FuncDef fd = {fname, params, is_str, n, body, f_is_str, NULL};
+    FuncDef fd = {fname, params, is_str, n, body, (StmtVec) {0}, f_is_str, 0, NULL, NULL};
     func_vec_push (&func_defs, fd);
     out->kind = ST_DEF;
     return 1;
@@ -1578,18 +1594,109 @@ static int parse_stmt (Stmt *out) {
       out->u.resume.line = 0;
     }
     return 1;
-  } else if (isalpha ((unsigned char) *cur)) {
-    Node *v = parse_factor ();
+  } else if (strncasecmp (cur, "CALL", 4) == 0) {
+    cur += 4;
     skip_ws ();
-    if (*cur == '=') {
+    char *name = parse_id ();
+    Node *arg1 = NULL, *arg2 = NULL, *arg3 = NULL;
+    skip_ws ();
+    if (*cur == '(') {
+      cur++;
+      skip_ws ();
+      if (*cur != ')') {
+        arg1 = parse_expr ();
+        skip_ws ();
+        if (*cur == ',') {
+          cur++;
+          arg2 = parse_expr ();
+          skip_ws ();
+          if (*cur == ',') {
+            cur++;
+            arg3 = parse_expr ();
+            skip_ws ();
+          }
+        }
+      }
+      if (*cur == ')') cur++;
+    } else if (*cur != ':' && *cur != '\0') {
+      arg1 = parse_expr ();
+      skip_ws ();
+      if (*cur == ',') {
+        cur++;
+        arg2 = parse_expr ();
+        skip_ws ();
+        if (*cur == ',') {
+          cur++;
+          arg3 = parse_expr ();
+          skip_ws ();
+        }
+      }
+    }
+    out->kind = ST_CALL;
+    out->u.call.name = name;
+    out->u.call.arg1 = arg1;
+    out->u.call.arg2 = arg2;
+    out->u.call.arg3 = arg3;
+    return 1;
+  } else if (isalpha ((unsigned char) *cur)) {
+    char *name = parse_id ();
+    Node *arg1 = NULL, *arg2 = NULL, *arg3 = NULL;
+    skip_ws ();
+    int had_paren = 0;
+    if (*cur == '(') {
+      had_paren = 1;
+      cur++;
+      skip_ws ();
+      if (*cur != ')') {
+        arg1 = parse_expr ();
+        skip_ws ();
+        if (*cur == ',') {
+          cur++;
+          arg2 = parse_expr ();
+          skip_ws ();
+          if (*cur == ',') {
+            cur++;
+            arg3 = parse_expr ();
+            skip_ws ();
+          }
+        }
+      }
+      if (*cur == ')') cur++;
+      skip_ws ();
+    }
+    if (*cur == '=' && (!had_paren || (had_paren && arg2 == NULL && arg3 == NULL))) {
       cur++;
       Node *e = parse_expr ();
+      Node *v = new_node (N_VAR);
+      v->var = name;
+      v->is_str = name[strlen (name) - 1] == '$';
+      v->index = arg1;
       out->kind = ST_LET;
       out->u.let.var = v;
       out->u.let.expr = e;
       out->u.let.is_str = v->is_str;
       return 1;
     }
+    if (!had_paren && *cur != ':' && *cur != '\0') {
+      arg1 = parse_expr ();
+      skip_ws ();
+      if (*cur == ',') {
+        cur++;
+        arg2 = parse_expr ();
+        skip_ws ();
+        if (*cur == ',') {
+          cur++;
+          arg3 = parse_expr ();
+          skip_ws ();
+        }
+      }
+    }
+    out->kind = ST_CALL;
+    out->u.call.name = name;
+    out->u.call.arg1 = arg1;
+    out->u.call.arg2 = arg2;
+    out->u.call.arg3 = arg3;
+    return 1;
   }
   return 0;
 }
@@ -1669,6 +1776,59 @@ static int parse_line (char *line, Line *out) {
     break;
   }
   return 1;
+}
+
+static void parse_func (FILE *f, char *line, int is_sub) {
+  cur = line + (is_sub ? 3 : 8);
+  skip_ws ();
+  char *name = parse_id ();
+  int f_is_str = name[strlen (name) - 1] == '$';
+  char **params = NULL;
+  int *is_str = NULL;
+  size_t n = 0, cap = 0;
+  skip_ws ();
+  if (*cur == '(') {
+    cur++;
+    skip_ws ();
+    if (*cur != ')') {
+      while (1) {
+        char *p = parse_id ();
+        int ps = p[strlen (p) - 1] == '$';
+        if (n == cap) {
+          cap = cap ? 2 * cap : 4;
+          params = realloc (params, cap * sizeof (char *));
+          is_str = realloc (is_str, cap * sizeof (int));
+        }
+        params[n] = p;
+        is_str[n] = ps;
+        n++;
+        skip_ws ();
+        if (*cur != ',') break;
+        cur++;
+        skip_ws ();
+      }
+    }
+    if (*cur == ')') cur++;
+  }
+  StmtVec body = {0};
+  char buf[256];
+  while (fgets (buf, sizeof (buf), f)) {
+    char *p = buf;
+    buf[strcspn (buf, "\n")] = '\0';
+    while (isspace ((unsigned char) *p)) p++;
+    if (*p == '\0') continue;
+    if ((is_sub && strncasecmp (p, "END SUB", 7) == 0)
+        || (!is_sub && strncasecmp (p, "END FUNCTION", 12) == 0))
+      break;
+    Line l;
+    if (parse_line (buf, &l)) {
+      for (size_t i = 0; i < l.stmts.len; i++) stmt_vec_push (&body, l.stmts.data[i]);
+    } else {
+      fprintf (stderr, "parse error: %s\n", buf);
+    }
+  }
+  FuncDef fd = {name, params, is_str, n, NULL, body, f_is_str, is_sub, NULL, NULL};
+  func_vec_push (&func_defs, fd);
 }
 
 /* Variable mapping */
@@ -2086,6 +2246,49 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                        MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, asc_proto),
                                           MIR_new_ref_op (ctx, asc_import),
                                           MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (find_func (n->var) != NULL) {
+      MIR_op_t args[3];
+      size_t nargs = 0;
+      if (n->left != NULL) {
+        MIR_reg_t a = gen_expr (ctx, func, vars, n->left);
+        args[nargs++] = MIR_new_reg_op (ctx, a);
+      }
+      if (n->right != NULL) {
+        MIR_reg_t a = gen_expr (ctx, func, vars, n->right);
+        args[nargs++] = MIR_new_reg_op (ctx, a);
+      }
+      if (n->index != NULL) {
+        MIR_reg_t a = gen_expr (ctx, func, vars, n->index);
+        args[nargs++] = MIR_new_reg_op (ctx, a);
+      }
+      FuncDef *fd = find_func (n->var);
+      MIR_item_t proto = fd->proto;
+      MIR_item_t item = fd->item;
+      switch (nargs) {
+      case 0:
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, proto),
+                                            MIR_new_ref_op (ctx, item), MIR_new_reg_op (ctx, res)));
+        break;
+      case 1:
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, proto),
+                                            MIR_new_ref_op (ctx, item), MIR_new_reg_op (ctx, res),
+                                            args[0]));
+        break;
+      case 2:
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, proto),
+                                            MIR_new_ref_op (ctx, item), MIR_new_reg_op (ctx, res),
+                                            args[0], args[1]));
+        break;
+      case 3:
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 6, MIR_new_ref_op (ctx, proto),
+                                            MIR_new_ref_op (ctx, item), MIR_new_reg_op (ctx, res),
+                                            args[0], args[1], args[2]));
+        break;
+      }
 
     } else if (strcasecmp (n->var, "POS") == 0) {
       MIR_append_insn (ctx, func,
@@ -3018,6 +3221,65 @@ static void gen_stmt (Stmt *s) {
     }
     break;
   }
+  case ST_CALL: {
+    MIR_op_t args[3];
+    size_t nargs = 0;
+    if (s->u.call.arg1 != NULL)
+      args[nargs++] = MIR_new_reg_op (g_ctx, gen_expr (g_ctx, g_func, &g_vars, s->u.call.arg1));
+    if (s->u.call.arg2 != NULL)
+      args[nargs++] = MIR_new_reg_op (g_ctx, gen_expr (g_ctx, g_func, &g_vars, s->u.call.arg2));
+    if (s->u.call.arg3 != NULL)
+      args[nargs++] = MIR_new_reg_op (g_ctx, gen_expr (g_ctx, g_func, &g_vars, s->u.call.arg3));
+    FuncDef *fd = find_func (s->u.call.name);
+    MIR_item_t proto = fd->proto;
+    MIR_item_t item = fd->item;
+    int has_ret = fd->is_proc ? 0 : 1;
+    char buf[32];
+    MIR_reg_t tmp = 0;
+    if (has_ret) {
+      sprintf (buf, "$t%d", tmp_id++);
+      MIR_type_t t = fd->is_str_ret ? MIR_T_P : MIR_T_D;
+      tmp = MIR_new_func_reg (g_ctx, g_func->u.func, t, buf);
+    }
+    switch (nargs) {
+    case 0:
+      MIR_append_insn (g_ctx, g_func,
+                       has_ret ? MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, proto),
+                                                    MIR_new_ref_op (g_ctx, item),
+                                                    MIR_new_reg_op (g_ctx, tmp))
+                               : MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, proto),
+                                                    MIR_new_ref_op (g_ctx, item)));
+      break;
+    case 1:
+      MIR_append_insn (g_ctx, g_func,
+                       has_ret ? MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, proto),
+                                                    MIR_new_ref_op (g_ctx, item),
+                                                    MIR_new_reg_op (g_ctx, tmp), args[0])
+                               : MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, proto),
+                                                    MIR_new_ref_op (g_ctx, item), args[0]));
+      break;
+    case 2:
+      MIR_append_insn (g_ctx, g_func,
+                       has_ret
+                         ? MIR_new_call_insn (g_ctx, 5, MIR_new_ref_op (g_ctx, proto),
+                                              MIR_new_ref_op (g_ctx, item),
+                                              MIR_new_reg_op (g_ctx, tmp), args[0], args[1])
+                         : MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, proto),
+                                              MIR_new_ref_op (g_ctx, item), args[0], args[1]));
+      break;
+    case 3:
+      MIR_append_insn (g_ctx, g_func,
+                       has_ret ? MIR_new_call_insn (g_ctx, 6, MIR_new_ref_op (g_ctx, proto),
+                                                    MIR_new_ref_op (g_ctx, item),
+                                                    MIR_new_reg_op (g_ctx, tmp), args[0], args[1],
+                                                    args[2])
+                               : MIR_new_call_insn (g_ctx, 5, MIR_new_ref_op (g_ctx, proto),
+                                                    MIR_new_ref_op (g_ctx, item), args[0], args[1],
+                                                    args[2]));
+      break;
+    }
+    break;
+  }
   case ST_END: {
     MIR_append_insn (g_ctx, g_func, MIR_new_ret_insn (g_ctx, 1, MIR_new_int_op (g_ctx, 0)));
     break;
@@ -3227,7 +3489,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   read_str_import = MIR_new_import (ctx, "basic_read_str");
   restore_proto = MIR_new_proto (ctx, "basic_restore_p", 0, NULL, 0);
   restore_import = MIR_new_import (ctx, "basic_restore");
-
+  g_ctx = ctx;
   for (size_t i = 0; i < func_defs.len; i++) {
     FuncDef *fd = &func_defs.data[i];
     MIR_type_t rtype = fd->is_str_ret ? MIR_T_P : MIR_T_D;
@@ -3241,8 +3503,13 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     }
     char proto_name[128];
     snprintf (proto_name, sizeof (proto_name), "%s_p", fd->name);
-    fd->proto = MIR_new_proto_arr (ctx, proto_name, 1, &rtype, fd->n, vars);
-    fd->item = MIR_new_func_arr (ctx, fd->name, 1, &rtype, fd->n, vars);
+    if (fd->is_proc) {
+      fd->proto = MIR_new_proto_arr (ctx, proto_name, 0, NULL, fd->n, vars);
+      fd->item = MIR_new_func_arr (ctx, fd->name, 0, NULL, fd->n, vars);
+    } else {
+      fd->proto = MIR_new_proto_arr (ctx, proto_name, 1, &rtype, fd->n, vars);
+      fd->item = MIR_new_func_arr (ctx, fd->name, 1, &rtype, fd->n, vars);
+    }
     VarVec fvars = {0};
     for (size_t j = 0; j < fd->n; j++) {
       if (fvars.len == fvars.cap) {
@@ -3256,8 +3523,33 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       fvars.data[fvars.len].reg = MIR_reg (ctx, fd->params[j], fd->item->u.func);
       fvars.len++;
     }
-    MIR_reg_t r = gen_expr (ctx, fd->item, &fvars, fd->body);
-    MIR_append_insn (ctx, fd->item, MIR_new_ret_insn (ctx, 1, MIR_new_reg_op (ctx, r)));
+    if (fd->body != NULL) {
+      MIR_reg_t r = gen_expr (ctx, fd->item, &fvars, fd->body);
+      MIR_append_insn (ctx, fd->item, MIR_new_ret_insn (ctx, 1, MIR_new_reg_op (ctx, r)));
+    } else {
+      MIR_item_t saved_func = g_func;
+      VarVec saved_vars = g_vars;
+      LineVec *saved_prog = g_prog;
+      MIR_label_t *saved_labels = g_labels;
+      size_t saved_loop_len = g_loop_len;
+      g_func = fd->item;
+      g_vars = fvars;
+      g_prog = NULL;
+      g_labels = NULL;
+      g_loop_len = 0;
+      for (size_t j = 0; j < fd->body_stmts.len; j++) gen_stmt (&fd->body_stmts.data[j]);
+      if (fd->is_proc) {
+        MIR_append_insn (ctx, fd->item, MIR_new_ret_insn (ctx, 0));
+      } else {
+        MIR_reg_t r = get_var (&g_vars, ctx, fd->item, fd->name);
+        MIR_append_insn (ctx, fd->item, MIR_new_ret_insn (ctx, 1, MIR_new_reg_op (ctx, r)));
+      }
+      g_func = saved_func;
+      g_vars = saved_vars;
+      g_prog = saved_prog;
+      g_labels = saved_labels;
+      g_loop_len = saved_loop_len;
+    }
     MIR_finish_func (ctx);
     free (vars);
   }
@@ -3526,17 +3818,30 @@ int main (int argc, char **argv) {
     return 1;
   }
   LineVec prog = {0};
+  int auto_line = 10;
   char line[256];
   while (fgets (line, sizeof (line), f)) {
     char *p = line;
     line[strcspn (line, "\n")] = '\0';
     while (isspace ((unsigned char) *p)) p++;
     if (*p == '\0') continue;
+    if (strncasecmp (p, "FUNCTION", 8) == 0) {
+      parse_func (f, p, 0);
+      continue;
+    } else if (strncasecmp (p, "SUB", 3) == 0) {
+      parse_func (f, p, 1);
+      continue;
+    }
     Line l;
-    if (parse_line (line, &l))
+    if (parse_line (line, &l)) {
+      if (l.line == 0) {
+        l.line = auto_line;
+        auto_line += 10;
+      }
       line_vec_insert (&prog, l);
-    else
+    } else {
       fprintf (stderr, "parse error: %s\n", line);
+    }
   }
   fclose (f);
   gen_program (&prog, jit, asm_p, obj_p, bin_p, reduce_libs, out_name, fname);
