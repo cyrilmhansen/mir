@@ -33,6 +33,12 @@
 - Graphics output from BASIC samples uses the Kitty terminal protocol. View
   `.out` files in a Kitty-capable terminal or with `kitty +kitten icat`.
 
+## FLEUVES support
+- `HPLOT TO` without explicit starting coordinates now draws from the previous
+  point, enabling programs such as `fleuves.bas`.
+- Scalar variables may now coexist with arrays of the same name.
+- `run-tests.sh` compiles `fleuves.bas` to ensure continued support.
+
 ## Postmortem
 - `basic/basicc` entered an infinite loop when parsing programs ending with `END` or `STOP`.
 - The cursor in `parse_stmt` was not advanced for these keywords, causing the loop in `parse_line` to never progress.

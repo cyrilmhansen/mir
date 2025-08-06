@@ -11,6 +11,7 @@ static int seeded = 0;
 static int basic_pos_val = 1;
 static int basic_error_handler = 0;
 static int basic_line = 0;
+static double last_hplot_x = 0.0, last_hplot_y = 0.0;
 
 void basic_set_error_handler (double line) { basic_error_handler = (int) line; }
 
@@ -370,6 +371,8 @@ void basic_hcolor (double c) { current_hcolor = 30 + ((int) c & 7); }
 void basic_hplot (double x, double y) {
   printf ("\x1b[%dm\x1b[%d;%dH*\x1b[0m", current_hcolor, (int) y, (int) x);
   fflush (stdout);
+  last_hplot_x = x;
+  last_hplot_y = y;
 }
 
 void basic_hplot_to (double x0, double y0, double x1, double y1) {
@@ -380,6 +383,12 @@ void basic_hplot_to (double x0, double y0, double x1, double y1) {
   for (int i = 0; i <= steps; i++) {
     basic_hplot (x0 + xi * i, y0 + yi * i);
   }
+  last_hplot_x = x1;
+  last_hplot_y = y1;
+}
+
+void basic_hplot_to_current (double x1, double y1) {
+  basic_hplot_to (last_hplot_x, last_hplot_y, x1, y1);
 }
 
 void basic_beep (void) {
