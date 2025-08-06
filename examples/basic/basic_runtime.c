@@ -312,6 +312,20 @@ double basic_int (double x) { return floor (x); }
 
 double basic_timer (void) { return (double) clock () / CLOCKS_PER_SEC; }
 
+double basic_time (void) {
+  time_t t = time (NULL);
+  struct tm *tm_info = localtime (&t);
+  return (double) (tm_info->tm_hour * 3600 + tm_info->tm_min * 60 + tm_info->tm_sec);
+}
+
+char *basic_time_str (void) {
+  time_t t = time (NULL);
+  struct tm *tm_info = localtime (&t);
+  char buf[9];
+  strftime (buf, sizeof (buf), "%H:%M:%S", tm_info);
+  return strdup (buf);
+}
+
 char *basic_input_chr (double n) {
   int len = (int) n;
   char *res = malloc ((size_t) len + 1);
