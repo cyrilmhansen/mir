@@ -3430,6 +3430,55 @@ static void repl (void) {
       gen_program (&prog, 0, 0, 0, 0, 0, NULL, "(repl)");
       continue;
     }
+    if (strncasecmp (p, "COMPILE", 7) == 0) {
+      p += 7;
+      while (isspace ((unsigned char) *p)) p++;
+      if (strncasecmp (p, "NATIVE", 6) == 0) {
+        p += 6;
+        while (isspace ((unsigned char) *p)) p++;
+        if (*p == '\0') {
+          fprintf (stderr, "missing output file\n");
+        } else {
+          gen_program (&prog, 0, 0, 0, 1, 0, p, "(repl)");
+          if (access (p, F_OK) == 0)
+            printf ("%s\n", p);
+          else
+            perror (p);
+        }
+        continue;
+      } else if (strncasecmp (p, "BMIR", 4) == 0) {
+        p += 4;
+        while (isspace ((unsigned char) *p)) p++;
+        if (*p == '\0') {
+          fprintf (stderr, "missing output file\n");
+        } else {
+          gen_program (&prog, 0, 0, 1, 0, 0, p, "(repl)");
+          char *name = change_suffix (p, ".bmir");
+          if (access (name, F_OK) == 0)
+            printf ("%s\n", name);
+          else
+            perror (name);
+          free (name);
+        }
+        continue;
+      }
+      fprintf (stderr, "unknown COMPILE target\n");
+      continue;
+    }
+    if (strncasecmp (p, "SAVE", 4) == 0) {
+      p += 4;
+      while (isspace ((unsigned char) *p)) p++;
+      if (*p == '\0') {
+        fprintf (stderr, "missing output file\n");
+      } else {
+        gen_program (&prog, 0, 0, 0, 1, 0, p, "(repl)");
+        if (access (p, F_OK) == 0)
+          printf ("Saved %s\n", p);
+        else
+          perror (p);
+      }
+      continue;
+    }
     if (strcasecmp (p, "LIST") == 0) {
       for (size_t i = 0; i < prog.len; i++) printf ("%s\n", prog.data[i].src);
       continue;
