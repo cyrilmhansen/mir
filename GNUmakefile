@@ -446,6 +446,8 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
 	diff $(SRC_DIR)/examples/basic/eof.out $(BUILD_DIR)/basic/eof.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/beep.bas > $(BUILD_DIR)/basic/beep.out
 	diff $(SRC_DIR)/examples/basic/beep.out $(BUILD_DIR)/basic/beep.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/colons.bas > $(BUILD_DIR)/basic/colons.out
+	diff $(SRC_DIR)/examples/basic/colons.out $(BUILD_DIR)/basic/colons.out
 
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/sieve.bas > $(BUILD_DIR)/basic/sieve.out
 	diff $(SRC_DIR)/examples/basic/sieve.out $(BUILD_DIR)/basic/sieve.out

@@ -1340,6 +1340,12 @@ static int parse_line (char *line, Line *out) {
   out->line = line_no;
   out->stmts = (StmtVec) {0};
   while (1) {
+    skip_ws ();
+    while (*cur == ':') {
+      cur++;
+      skip_ws ();
+    }
+    if (*cur == '\0') break;
     Stmt s;
     if (!parse_stmt (&s)) return 0;
     if (s.kind == ST_PRINT || s.kind == ST_PRINT_HASH) {
@@ -1389,12 +1395,6 @@ static int parse_line (char *line, Line *out) {
     }
     vec_push (&out->stmts, s);
     if (s.kind == ST_REM) break;
-    skip_ws ();
-    if (*cur == ':') {
-      cur++;
-      continue;
-    }
-    break;
   }
   return 1;
 }
