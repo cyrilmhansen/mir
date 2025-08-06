@@ -38,4 +38,6 @@
 - `basic/basicc` entered an infinite loop when parsing programs ending with `END` or `STOP`.
 - The cursor in `parse_stmt` was not advanced for these keywords, causing the loop in `parse_line` to never progress.
 - Advancing the cursor for `END`/`STOP` and restoring a colon check after each statement resolves the issue.
+- `fleuves.bas` could not be parsed due to unhandled empty statements and missing loop generation.
+- Allowing consecutive or trailing colons and emitting MIR for `FOR`/`NEXT` and `WHILE`/`WEND` enables complex BASIC programs to run.
 
