@@ -32,7 +32,6 @@ char *basic_get (void) {
 
 int basic_strcmp (const char *a, const char *b) { return strcmp (a, b); }
 
-
 typedef struct BasicData {
   int is_str;
   double num;
@@ -59,6 +58,18 @@ void basic_home (void) { printf ("\x1b[2J\x1b[H"); }
 
 void basic_vtab (double n) { printf ("\x1b[%d;H", (int) n); }
 
+void basic_screen (double m) { (void) m; }
+
+void basic_cls (void) { printf ("\x1b[2J\x1b[H"); }
+
+void basic_color (double c) { printf ("\x1b[%dm", (int) c); }
+
+void basic_key_off (void) {}
+
+void basic_locate (double r, double c) { printf ("\x1b[%d;%dH", (int) r, (int) c); }
+
+void basic_tab (double n) { printf ("\x1b[%dG", (int) n); }
+
 double basic_rnd (double n) {
   static int seeded = 0;
   if (!seeded) {
@@ -67,4 +78,3 @@ double basic_rnd (double n) {
   }
   return ((double) rand () / RAND_MAX) * n;
 }
-
