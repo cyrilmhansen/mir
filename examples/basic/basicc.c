@@ -543,8 +543,15 @@ static Node *parse_term (void) {
   while (1) {
     skip_ws ();
     char op = *cur;
-    if (op != '*' && op != '/') break;
-    cur++;
+    if (op != '*' && op != '/' && op != '\\' && strncasecmp (cur, "MOD", 3) != 0) break;
+    if (op == '\\') {
+      cur++;
+    } else if (op == '*' || op == '/') {
+      cur++;
+    } else {
+      op = '%';
+      cur += 3; /* skip MOD */
+    }
     Node *r = parse_factor ();
     Node *nn = new_node (N_BIN);
     nn->op = op;
@@ -1573,16 +1580,38 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
     } else {
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
-      MIR_insn_code_t op = MIR_DADD;
-      switch (n->op) {
-      case '+': op = MIR_DADD; break;
-      case '-': op = MIR_DSUB; break;
-      case '*': op = MIR_DMUL; break;
-      case '/': op = MIR_DDIV; break;
+      if (n->op == '\\' || n->op == '%') {
+        sprintf (buf, "$t%d", tmp_id++);
+        MIR_reg_t li = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, li),
+                                       MIR_new_reg_op (ctx, l)));
+        sprintf (buf, "$t%d", tmp_id++);
+        MIR_reg_t ri = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, ri),
+                                       MIR_new_reg_op (ctx, r)));
+        sprintf (buf, "$t%d", tmp_id++);
+        MIR_reg_t resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+        MIR_insn_code_t iop = n->op == '\\' ? MIR_DIV : MIR_MOD;
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, iop, MIR_new_reg_op (ctx, resi),
+                                       MIR_new_reg_op (ctx, li), MIR_new_reg_op (ctx, ri)));
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_I2D, MIR_new_reg_op (ctx, res),
+                                       MIR_new_reg_op (ctx, resi)));
+      } else {
+        MIR_insn_code_t op = MIR_DADD;
+        switch (n->op) {
+        case '+': op = MIR_DADD; break;
+        case '-': op = MIR_DSUB; break;
+        case '*': op = MIR_DMUL; break;
+        case '/': op = MIR_DDIV; break;
+        }
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, op, MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, l),
+                                       MIR_new_reg_op (ctx, r)));
       }
-      MIR_append_insn (ctx, func,
-                       MIR_new_insn (ctx, op, MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, l),
-                                     MIR_new_reg_op (ctx, r)));
       return res;
     }
   }
@@ -1794,6 +1823,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                            MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, proto),
                                               MIR_new_ref_op (ctx, import),
                                               MIR_new_reg_op (ctx, r)));
+          if (!e->is_str && k + 1 < s->u.print.n && !s->u.print.items[k + 1]->is_str)
+            MIR_append_insn (ctx, func,
+                             MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, prints_proto),
+                                                MIR_new_ref_op (ctx, prints_import),
+                                                MIR_new_str_op (ctx, (MIR_str_t) {2, " "})));
         }
         if (!s->u.print.no_nl)
           MIR_append_insn (ctx, func,
@@ -1884,12 +1918,16 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       }
       case ST_GOSUB: {
         MIR_label_t ret = MIR_new_label (ctx);
+        MIR_item_t ret_ref = MIR_new_lref_data (ctx, NULL, ret, NULL, 0);
         char buf[32];
         sprintf (buf, "$t%d", tmp_id++);
         MIR_reg_t tmp = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, tmp),
-                                       MIR_new_label_op (ctx, ret)));
+                                       MIR_new_ref_op (ctx, ret_ref)));
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, tmp),
+                                       MIR_new_mem_op (ctx, MIR_T_I64, 0, tmp, 0, 1)));
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, MIR_MOV,
                                        MIR_new_mem_op (ctx, MIR_T_P, 0, ret_stack, ret_sp, 1),
@@ -1918,12 +1956,16 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                                                                             bs->u.target))));
         } else if (bs->kind == ST_GOSUB) {
           MIR_label_t ret = MIR_new_label (ctx);
+          MIR_item_t ret_ref = MIR_new_lref_data (ctx, NULL, ret, NULL, 0);
           char buf[32];
           sprintf (buf, "$t%d", tmp_id++);
           MIR_reg_t tmp = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
           MIR_append_insn (ctx, func,
                            MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, tmp),
-                                         MIR_new_label_op (ctx, ret)));
+                                         MIR_new_ref_op (ctx, ret_ref)));
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, tmp),
+                                         MIR_new_mem_op (ctx, MIR_T_I64, 0, tmp, 0, 1)));
           MIR_append_insn (ctx, func,
                            MIR_new_insn (ctx, MIR_MOV,
                                          MIR_new_mem_op (ctx, MIR_T_P, 0, ret_stack, ret_sp, 1),
@@ -2320,10 +2362,20 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                            MIR_new_insn (ctx, MIR_BNE, MIR_new_label_op (ctx, next),
                                          MIR_new_reg_op (ctx, idx),
                                          MIR_new_int_op (ctx, (int) k + 1)));
+          MIR_item_t after_ref = MIR_new_lref_data (ctx, NULL, after, NULL, 0);
+          char buf[32];
+          sprintf (buf, "$t%d", tmp_id++);
+          MIR_reg_t tmp = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, tmp),
+                                         MIR_new_ref_op (ctx, after_ref)));
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, tmp),
+                                         MIR_new_mem_op (ctx, MIR_T_I64, 0, tmp, 0, 1)));
           MIR_append_insn (ctx, func,
                            MIR_new_insn (ctx, MIR_MOV,
                                          MIR_new_mem_op (ctx, MIR_T_P, 0, ret_stack, ret_sp, 1),
-                                         MIR_new_label_op (ctx, after)));
+                                         MIR_new_reg_op (ctx, tmp)));
           MIR_append_insn (ctx, func,
                            MIR_new_insn (ctx, MIR_ADD, MIR_new_reg_op (ctx, ret_sp),
                                          MIR_new_reg_op (ctx, ret_sp), MIR_new_int_op (ctx, 8)));
