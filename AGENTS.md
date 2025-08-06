@@ -24,4 +24,5 @@
   - `DATA`, `READ`, and `RESTORE` statements.
   - graphics commands such as `HOME`, `VTAB`, `HTAB`, `TEXT`, `INVERSE`, `NORMAL`, `HGR2`, `HCOLOR=`, and `HPLOT`.
   - memory and spacing operations like `PEEK`, `POKE`, and `SPC`.
+  - integer arithmetic: division (`\\`) and modulo (`MOD`).
 
