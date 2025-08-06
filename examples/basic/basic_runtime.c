@@ -7,6 +7,16 @@
 
 static int seeded = 0;
 static int basic_pos_val = 1;
+static int basic_error_handler = 0;
+static int basic_line = 0;
+
+void basic_set_error_handler (double line) { basic_error_handler = (int) line; }
+
+double basic_get_error_handler (void) { return (double) basic_error_handler; }
+
+void basic_set_line (double line) { basic_line = (int) line; }
+
+double basic_get_line (void) { return (double) basic_line; }
 
 double basic_input (void) {
   double x = 0.0;

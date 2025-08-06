@@ -457,7 +457,9 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
 				printf '2\n3\n' | $(BUILD_DIR)/basic/basicc$(EXE) -c -o $(BUILD_DIR)/basic/adder $(SRC_DIR)/examples/basic/adder.bas
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/random.bas > $(BUILD_DIR)/basic/random.out
 	diff $(SRC_DIR)/examples/basic/random.out $(BUILD_DIR)/basic/random.out
-	        $(BUILD_DIR)/basic/basicc$(EXE) -S -o $(BUILD_DIR)/basic/hello $(SRC_DIR)/examples/basic/hello.bas
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/onerror.bas > $(BUILD_DIR)/basic/onerror.out
+	diff $(SRC_DIR)/examples/basic/onerror.out $(BUILD_DIR)/basic/onerror.out
+	$(BUILD_DIR)/basic/basicc$(EXE) -S -o $(BUILD_DIR)/basic/hello $(SRC_DIR)/examples/basic/hello.bas
 
 		test -s $(BUILD_DIR)/basic/hello.mir
 		test -s $(BUILD_DIR)/basic/hello.bmir
