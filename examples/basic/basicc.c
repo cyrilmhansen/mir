@@ -182,7 +182,7 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   get_hash_import, randomize_proto, randomize_import, stop_proto, stop_import;
 
 /* AST for expressions */
-typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_STR, N_CALL } NodeKind;
+typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL } NodeKind;
 typedef struct Node Node;
 struct Node {
   NodeKind kind;
@@ -459,6 +459,13 @@ static Relop parse_relop (void);
 
 static Node *parse_factor (void) {
   skip_ws ();
+  if (strncasecmp (cur, "NOT", 3) == 0 && !isalnum ((unsigned char) cur[3]) && cur[3] != '_'
+      && cur[3] != '$') {
+    cur += 3;
+    Node *n = new_node (N_NOT);
+    n->left = parse_factor ();
+    return n;
+  }
   if (*cur == '(') {
     cur++;
     Node *e = parse_expr ();
@@ -1388,6 +1395,20 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                      MIR_new_insn (ctx, MIR_DNEG, MIR_new_reg_op (ctx, r),
                                    MIR_new_reg_op (ctx, v)));
     return r;
+  } else if (n->kind == N_NOT) {
+    MIR_reg_t v = gen_expr (ctx, func, vars, n->left);
+    char buf[32];
+    sprintf (buf, "$t%d", tmp_id++);
+    MIR_reg_t resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+    MIR_append_insn (ctx, func,
+                     MIR_new_insn (ctx, MIR_DEQ, MIR_new_reg_op (ctx, resi),
+                                   MIR_new_reg_op (ctx, v), MIR_new_double_op (ctx, 0.0)));
+    sprintf (buf, "$t%d", tmp_id++);
+    MIR_reg_t resd = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
+    MIR_append_insn (ctx, func,
+                     MIR_new_insn (ctx, MIR_I2D, MIR_new_reg_op (ctx, resd),
+                                   MIR_new_reg_op (ctx, resi)));
+    return resd;
   } else if (n->kind == N_CALL) {
     char buf[32];
     sprintf (buf, "$t%d", tmp_id++);
