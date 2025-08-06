@@ -68,6 +68,13 @@ extern void basic_hcolor (double);
 extern void basic_hplot (double, double);
 extern void basic_hplot_to (double, double, double, double);
 extern void basic_hplot_to_current (double, double);
+extern void basic_move (double, double);
+extern void basic_draw (double, double);
+extern void basic_draw_line (double, double, double, double);
+extern void basic_circle (double, double, double);
+extern void basic_rect (double, double, double, double);
+extern void basic_fill (double, double, double, double);
+extern void basic_mode (double);
 
 extern char *basic_chr (double);
 extern char *basic_string (double, const char *);
@@ -180,6 +187,13 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_hplot")) return basic_hplot;
   if (!strcmp (name, "basic_hplot_to")) return basic_hplot_to;
   if (!strcmp (name, "basic_hplot_to_current")) return basic_hplot_to_current;
+  if (!strcmp (name, "basic_move")) return basic_move;
+  if (!strcmp (name, "basic_draw")) return basic_draw;
+  if (!strcmp (name, "basic_draw_line")) return basic_draw_line;
+  if (!strcmp (name, "basic_circle")) return basic_circle;
+  if (!strcmp (name, "basic_rect")) return basic_rect;
+  if (!strcmp (name, "basic_fill")) return basic_fill;
+  if (!strcmp (name, "basic_mode")) return basic_mode;
 
   if (!strcmp (name, "basic_chr")) return basic_chr;
   if (!strcmp (name, "basic_string")) return basic_string;
@@ -230,7 +244,9 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   locate_proto, locate_import, htab_proto, htab_import, home_proto, poke_proto, poke_import,
   home_import, vtab_proto, vtab_import, text_proto, text_import, inverse_proto, inverse_import,
   normal_proto, normal_import, hgr2_proto, hgr2_import, hcolor_proto, hcolor_import, hplot_proto,
-  hplot_import, hplotto_proto, hplotto_import, hplottocur_proto, hplottocur_import, calloc_proto,
+  hplot_import, hplotto_proto, hplotto_import, hplottocur_proto, hplottocur_import, move_proto,
+  move_import, draw_proto, draw_import, line_proto, line_import, circle_proto, circle_import,
+  rect_proto, rect_import, mode_proto, mode_import, fill_proto, fill_import, calloc_proto,
   calloc_import, memset_proto, memset_import, strcmp_proto, strcmp_import, open_proto, open_import,
   close_proto, close_import, printh_proto, printh_import, prinths_proto, prinths_import,
   input_hash_proto, input_hash_import, input_hash_str_proto, input_hash_str_import, get_hash_proto,
@@ -351,6 +367,13 @@ typedef enum {
   ST_HGR2,
   ST_HCOLOR,
   ST_HPLOT,
+  ST_MOVE,
+  ST_DRAW,
+  ST_LINE,
+  ST_CIRCLE,
+  ST_RECT,
+  ST_MODE,
+  ST_FILL,
   ST_END,
   ST_STOP,
   ST_REM,
@@ -375,7 +398,7 @@ typedef struct {
 struct Stmt {
   StmtKind kind;
   union {
-    Node *expr; /* PRINT/VTAB/HTAB/SCREEN/COLOR/WHILE/HCOLOR/RANDOMIZE */
+    Node *expr; /* PRINT/VTAB/HTAB/SCREEN/COLOR/WHILE/HCOLOR/RANDOMIZE/MODE */
     struct {
       Node **items;
       size_t n;
@@ -449,6 +472,37 @@ struct Stmt {
       Node *row;
       Node *col;
     } locate;
+    struct {
+      Node *x;
+      Node *y;
+    } move;
+    struct {
+      Node *x;
+      Node *y;
+    } draw;
+    struct {
+      Node *x0;
+      Node *y0;
+      Node *x1;
+      Node *y1;
+    } line;
+    struct {
+      Node *x;
+      Node *y;
+      Node *r;
+    } circle;
+    struct {
+      Node *x0;
+      Node *y0;
+      Node *x1;
+      Node *y1;
+    } rect;
+    struct {
+      Node *x0;
+      Node *y0;
+      Node *x1;
+      Node *y1;
+    } fill;
     struct {
       Node **xs;
       Node **ys;
@@ -1202,6 +1256,90 @@ static int parse_stmt (Stmt *out) {
       }
     }
     return 1;
+  } else if (strncasecmp (cur, "MOVE", 4) == 0) {
+    cur += 4;
+    skip_ws ();
+    out->kind = ST_MOVE;
+    out->u.move.x = parse_expr ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.move.y = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "DRAW", 4) == 0) {
+    cur += 4;
+    skip_ws ();
+    out->kind = ST_DRAW;
+    out->u.draw.x = parse_expr ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.draw.y = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "LINE", 4) == 0) {
+    cur += 4;
+    skip_ws ();
+    out->kind = ST_LINE;
+    out->u.line.x0 = parse_expr ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.line.y0 = parse_expr ();
+    skip_ws ();
+    if (strncasecmp (cur, "TO", 2) == 0) {
+      cur += 2;
+      skip_ws ();
+    }
+    out->u.line.x1 = parse_expr ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.line.y1 = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "CIRCLE", 6) == 0) {
+    cur += 6;
+    skip_ws ();
+    out->kind = ST_CIRCLE;
+    out->u.circle.x = parse_expr ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.circle.y = parse_expr ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.circle.r = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "RECT", 4) == 0) {
+    cur += 4;
+    skip_ws ();
+    out->kind = ST_RECT;
+    out->u.rect.x0 = parse_expr ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.rect.y0 = parse_expr ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.rect.x1 = parse_expr ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.rect.y1 = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "MODE", 4) == 0) {
+    cur += 4;
+    skip_ws ();
+    out->kind = ST_MODE;
+    out->u.expr = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "FILL", 4) == 0) {
+    cur += 4;
+    skip_ws ();
+    out->kind = ST_FILL;
+    out->u.fill.x0 = parse_expr ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.fill.y0 = parse_expr ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.fill.x1 = parse_expr ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.fill.y1 = parse_expr ();
+    return 1;
   } else if (strncasecmp (cur, "LET", 3) == 0) {
     cur += 3;
     skip_ws ();
@@ -1429,6 +1567,12 @@ static int parse_line (char *line, Line *out) {
   out->line = line_no;
   out->stmts = (StmtVec) {0};
   while (1) {
+    skip_ws ();
+    while (*cur == ':') {
+      cur++;
+      skip_ws ();
+    }
+    if (*cur == '\0') break;
     Stmt s;
     if (!parse_stmt (&s)) return 0;
     if (s.kind == ST_PRINT || s.kind == ST_PRINT_HASH) {
@@ -2245,12 +2389,12 @@ static void gen_stmt (Stmt *s) {
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, input_hash_str_proto),
                                           MIR_new_ref_op (g_ctx, input_hash_str_import),
-                                          MIR_new_reg_op (g_ctx, fn), MIR_new_reg_op (g_ctx, v)));
+                                          MIR_new_reg_op (g_ctx, v), MIR_new_reg_op (g_ctx, fn)));
     } else {
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, input_hash_proto),
                                           MIR_new_ref_op (g_ctx, input_hash_import),
-                                          MIR_new_reg_op (g_ctx, fn), MIR_new_reg_op (g_ctx, v)));
+                                          MIR_new_reg_op (g_ctx, v), MIR_new_reg_op (g_ctx, fn)));
     }
     break;
   }
@@ -2268,7 +2412,7 @@ static void gen_stmt (Stmt *s) {
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, get_hash_proto),
                                         MIR_new_ref_op (g_ctx, get_hash_import),
-                                        MIR_new_reg_op (g_ctx, fn), MIR_new_reg_op (g_ctx, v)));
+                                        MIR_new_reg_op (g_ctx, v), MIR_new_reg_op (g_ctx, fn)));
     break;
   }
   case ST_PUT: {
@@ -2709,6 +2853,94 @@ static void gen_stmt (Stmt *s) {
     }
     break;
   }
+  case ST_MOVE: {
+    MIR_reg_t x = gen_expr (g_ctx, g_func, &g_vars, s->u.move.x);
+    MIR_reg_t y = gen_expr (g_ctx, g_func, &g_vars, s->u.move.y);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, move_proto),
+                                        MIR_new_ref_op (g_ctx, move_import),
+                                        MIR_new_reg_op (g_ctx, x), MIR_new_reg_op (g_ctx, y)));
+    break;
+  }
+  case ST_DRAW: {
+    MIR_reg_t x = gen_expr (g_ctx, g_func, &g_vars, s->u.draw.x);
+    MIR_reg_t y = gen_expr (g_ctx, g_func, &g_vars, s->u.draw.y);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, draw_proto),
+                                        MIR_new_ref_op (g_ctx, draw_import),
+                                        MIR_new_reg_op (g_ctx, x), MIR_new_reg_op (g_ctx, y)));
+    break;
+  }
+  case ST_LINE: {
+    MIR_reg_t x0 = gen_expr (g_ctx, g_func, &g_vars, s->u.line.x0);
+    MIR_reg_t y0 = gen_expr (g_ctx, g_func, &g_vars, s->u.line.y0);
+    MIR_reg_t x1 = gen_expr (g_ctx, g_func, &g_vars, s->u.line.x1);
+    MIR_reg_t y1 = gen_expr (g_ctx, g_func, &g_vars, s->u.line.y1);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 6, MIR_new_ref_op (g_ctx, line_proto),
+                                        MIR_new_ref_op (g_ctx, line_import),
+                                        MIR_new_reg_op (g_ctx, x0), MIR_new_reg_op (g_ctx, y0),
+                                        MIR_new_reg_op (g_ctx, x1), MIR_new_reg_op (g_ctx, y1)));
+    break;
+  }
+  case ST_CIRCLE: {
+    MIR_reg_t x = gen_expr (g_ctx, g_func, &g_vars, s->u.circle.x);
+    MIR_reg_t y = gen_expr (g_ctx, g_func, &g_vars, s->u.circle.y);
+    MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.circle.r);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 5, MIR_new_ref_op (g_ctx, circle_proto),
+                                        MIR_new_ref_op (g_ctx, circle_import),
+                                        MIR_new_reg_op (g_ctx, x), MIR_new_reg_op (g_ctx, y),
+                                        MIR_new_reg_op (g_ctx, r)));
+    break;
+  }
+  case ST_RECT: {
+    MIR_reg_t x0 = gen_expr (g_ctx, g_func, &g_vars, s->u.rect.x0);
+    MIR_reg_t y0 = gen_expr (g_ctx, g_func, &g_vars, s->u.rect.y0);
+    MIR_reg_t x1 = gen_expr (g_ctx, g_func, &g_vars, s->u.rect.x1);
+    MIR_reg_t y1 = gen_expr (g_ctx, g_func, &g_vars, s->u.rect.y1);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 6, MIR_new_ref_op (g_ctx, rect_proto),
+                                        MIR_new_ref_op (g_ctx, rect_import),
+                                        MIR_new_reg_op (g_ctx, x0), MIR_new_reg_op (g_ctx, y0),
+                                        MIR_new_reg_op (g_ctx, x1), MIR_new_reg_op (g_ctx, y1)));
+    break;
+  }
+  case ST_MODE: {
+    MIR_reg_t m = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, mode_proto),
+                                        MIR_new_ref_op (g_ctx, mode_import),
+                                        MIR_new_reg_op (g_ctx, m)));
+    break;
+  }
+  case ST_FILL: {
+    MIR_reg_t x0 = gen_expr (g_ctx, g_func, &g_vars, s->u.fill.x0);
+    MIR_reg_t y0 = gen_expr (g_ctx, g_func, &g_vars, s->u.fill.y0);
+    MIR_reg_t x1 = gen_expr (g_ctx, g_func, &g_vars, s->u.fill.x1);
+    MIR_reg_t y1 = gen_expr (g_ctx, g_func, &g_vars, s->u.fill.y1);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 6, MIR_new_ref_op (g_ctx, fill_proto),
+                                        MIR_new_ref_op (g_ctx, fill_import),
+                                        MIR_new_reg_op (g_ctx, x0), MIR_new_reg_op (g_ctx, y0),
+                                        MIR_new_reg_op (g_ctx, x1), MIR_new_reg_op (g_ctx, y1)));
+    break;
+  }
+  case ST_BEEP: {
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, beep_proto),
+                                        MIR_new_ref_op (g_ctx, beep_import)));
+    break;
+  }
+  case ST_SOUND: {
+    MIR_reg_t f = gen_expr (g_ctx, g_func, &g_vars, s->u.sound.freq);
+    MIR_reg_t d = gen_expr (g_ctx, g_func, &g_vars, s->u.sound.dur);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, sound_proto),
+                                        MIR_new_ref_op (g_ctx, sound_import),
+                                        MIR_new_reg_op (g_ctx, f), MIR_new_reg_op (g_ctx, d)));
+    break;
+  }
   case ST_ON_ERROR: {
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, on_error_proto),
@@ -2850,6 +3082,24 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   hplottocur_proto
     = MIR_new_proto (ctx, "basic_hplot_to_current_p", 0, NULL, 2, MIR_T_D, "x", MIR_T_D, "y");
   hplottocur_import = MIR_new_import (ctx, "basic_hplot_to_current");
+  move_proto = MIR_new_proto (ctx, "basic_move_p", 0, NULL, 2, MIR_T_D, "x", MIR_T_D, "y");
+  move_import = MIR_new_import (ctx, "basic_move");
+  draw_proto = MIR_new_proto (ctx, "basic_draw_p", 0, NULL, 2, MIR_T_D, "x", MIR_T_D, "y");
+  draw_import = MIR_new_import (ctx, "basic_draw");
+  line_proto = MIR_new_proto (ctx, "basic_line_p", 0, NULL, 4, MIR_T_D, "x0", MIR_T_D, "y0",
+                              MIR_T_D, "x1", MIR_T_D, "y1");
+  line_import = MIR_new_import (ctx, "basic_draw_line");
+  circle_proto
+    = MIR_new_proto (ctx, "basic_circle_p", 0, NULL, 3, MIR_T_D, "x", MIR_T_D, "y", MIR_T_D, "r");
+  circle_import = MIR_new_import (ctx, "basic_circle");
+  rect_proto = MIR_new_proto (ctx, "basic_rect_p", 0, NULL, 4, MIR_T_D, "x0", MIR_T_D, "y0",
+                              MIR_T_D, "x1", MIR_T_D, "y1");
+  rect_import = MIR_new_import (ctx, "basic_rect");
+  mode_proto = MIR_new_proto (ctx, "basic_mode_p", 0, NULL, 1, MIR_T_D, "m");
+  mode_import = MIR_new_import (ctx, "basic_mode");
+  fill_proto = MIR_new_proto (ctx, "basic_fill_p", 0, NULL, 4, MIR_T_D, "x0", MIR_T_D, "y0",
+                              MIR_T_D, "x1", MIR_T_D, "y1");
+  fill_import = MIR_new_import (ctx, "basic_fill");
   beep_proto = MIR_new_proto (ctx, "basic_beep_p", 0, NULL, 0);
   beep_import = MIR_new_import (ctx, "basic_beep");
   sound_proto = MIR_new_proto (ctx, "basic_sound_p", 0, NULL, 2, MIR_T_D, "f", MIR_T_D, "d");

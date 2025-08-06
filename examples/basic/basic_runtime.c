@@ -419,6 +419,71 @@ void basic_hplot_to_current (double x1, double y1) {
   last_hplot_y = y1;
 }
 
+void basic_move (double x, double y) {
+  last_hplot_x = x;
+  last_hplot_y = y;
+}
+
+void basic_draw (double x, double y) {
+  basic_kitty_line (last_hplot_x, last_hplot_y, x, y);
+  last_hplot_x = x;
+  last_hplot_y = y;
+}
+
+void basic_draw_line (double x0, double y0, double x1, double y1) {
+  basic_kitty_line (x0, y0, x1, y1);
+  last_hplot_x = x1;
+  last_hplot_y = y1;
+}
+
+static void basic_kitty_circle (double x, double y, double r) {
+  double prev_x = x + r, prev_y = y;
+  int steps = 360;
+  for (int i = 1; i <= steps; i++) {
+    double ang = 2 * 3.14159265358979323846 * i / steps;
+    double nx = x + r * cos (ang);
+    double ny = y + r * sin (ang);
+    basic_kitty_line (prev_x, prev_y, nx, ny);
+    prev_x = nx;
+    prev_y = ny;
+  }
+}
+
+void basic_circle (double x, double y, double r) {
+  basic_kitty_circle (x, y, r);
+  last_hplot_x = x + r;
+  last_hplot_y = y;
+}
+
+void basic_rect (double x0, double y0, double x1, double y1) {
+  basic_kitty_line (x0, y0, x1, y0);
+  basic_kitty_line (x1, y0, x1, y1);
+  basic_kitty_line (x1, y1, x0, y1);
+  basic_kitty_line (x0, y1, x0, y0);
+  last_hplot_x = x0;
+  last_hplot_y = y0;
+}
+
+void basic_fill (double x0, double y0, double x1, double y1) {
+  if (x0 > x1) {
+    double t = x0;
+    x0 = x1;
+    x1 = t;
+  }
+  if (y0 > y1) {
+    double t = y0;
+    y0 = y1;
+    y1 = t;
+  }
+  for (int y = (int) y0; y <= (int) y1; y++) {
+    basic_kitty_line (x0, y, x1, y);
+  }
+  last_hplot_x = x1;
+  last_hplot_y = y1;
+}
+
+void basic_mode (double m) { (void) m; }
+
 void basic_beep (void) {
   fputc ('\a', stdout);
   fflush (stdout);
