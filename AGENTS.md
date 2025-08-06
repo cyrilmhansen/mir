@@ -15,6 +15,7 @@
   - `-j` to execute with the JIT generator.
   - `-S` or `-c` to emit MIR text (`.mir`) and binary (`.bmir`) files.
   - `-b` to build a standalone executable.
+  - `-l` to reduce linked libraries when building executables.
   - `-o <path>` to set the base name for generated files.
   - Runtime helpers are implemented in `examples/basic/basic_runtime.c` and linked when building binaries.
 

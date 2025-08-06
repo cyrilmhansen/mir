@@ -430,5 +430,8 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE)
 	diff $(SRC_DIR)/examples/basic/array_default.out $(BUILD_DIR)/basic/array_default.out
 	printf '10 PRINT "HI"\nRUN\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl.out
 	diff $(SRC_DIR)/examples/basic/repl.out $(BUILD_DIR)/basic/repl.out
+	$(BUILD_DIR)/basic/basicc$(EXE) -b -l -o $(BUILD_DIR)/basic/hello-lean $(SRC_DIR)/examples/basic/hello.bas
+	$(BUILD_DIR)/basic/hello-lean$(EXE) > $(BUILD_DIR)/basic/hello-lean.out
+	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/hello-lean.out
 	$(BUILD_DIR)/basic/kitty_test$(EXE) > $(BUILD_DIR)/basic/kitty_test.out
 	diff $(SRC_DIR)/examples/basic/kitty/kitty_test.out $(BUILD_DIR)/basic/kitty_test.out
