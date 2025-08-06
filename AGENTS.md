@@ -22,5 +22,6 @@
   - loops (`FOR`/`NEXT`, `WHILE`/`WEND`).
   - arrays via `DIM` and indexed variables.
   - `DATA`, `READ`, and `RESTORE` statements.
-  - graphics commands such as `HOME` and `VTAB`.
+  - graphics commands such as `HOME`, `VTAB`, `HTAB`, `TEXT`, `INVERSE`, `NORMAL`, `HGR2`, `HCOLOR=`, and `HPLOT`.
+  - memory and spacing operations like `PEEK`, `POKE`, and `SPC`.
 
