@@ -50,7 +50,6 @@ extern double basic_int (double);
 extern double basic_timer (void);
 extern char *basic_input_chr (double);
 
-
 static void *resolve (const char *name) {
   if (!strcmp (name, "basic_print")) return basic_print;
   if (!strcmp (name, "basic_print_str")) return basic_print_str;
@@ -157,6 +156,8 @@ typedef enum {
   ST_DIM,
   ST_FOR,
   ST_NEXT,
+  ST_WHILE,
+  ST_WEND,
   ST_GOSUB,
   ST_RETURN,
   ST_ON_GOSUB,
@@ -165,7 +166,7 @@ typedef enum { REL_NONE, REL_EQ, REL_NE, REL_LT, REL_LE, REL_GT, REL_GE } Relop;
 typedef struct {
   StmtKind kind;
   union {
-    Node *expr; /* PRINT/VTAB/SCREEN/COLOR/TAB */
+    Node *expr; /* PRINT/VTAB/SCREEN/COLOR/TAB/WHILE */
     struct {
       Node **items;
       size_t n;
@@ -273,8 +274,8 @@ static char *parse_id (void) {
     buf[i++] = toupper ((unsigned char) *cur);
     cur++;
   }
-  if (*cur == '$') {
-    buf[i++] = '$';
+  if (*cur == '$' || *cur == '%') {
+    buf[i++] = toupper ((unsigned char) *cur);
     cur++;
   }
   buf[i] = 0;
@@ -667,6 +668,15 @@ static int parse_stmt (Stmt *out) {
     out->u.next.var = NULL;
     skip_ws ();
     if (isalpha ((unsigned char) *cur)) out->u.next.var = parse_id ();
+    return 1;
+  } else if (strncasecmp (cur, "WHILE", 5) == 0) {
+    cur += 5;
+    out->kind = ST_WHILE;
+    out->u.expr = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "WEND", 4) == 0) {
+    cur += 4;
+    out->kind = ST_WEND;
     return 1;
   } else if (strncasecmp (cur, "RETURN", 6) == 0) {
     cur += 6;
@@ -1070,6 +1080,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   /* return stack for GOSUB/RETURN */
   MIR_reg_t ret_stack = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, "ret_stack");
   MIR_reg_t ret_sp = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, "ret_sp");
+  MIR_reg_t ret_addr = 0;
   MIR_append_insn (ctx, func,
                    MIR_new_insn (ctx, MIR_ALLOCA, MIR_new_reg_op (ctx, ret_stack),
                                  MIR_new_int_op (ctx, 1024)));
@@ -1077,7 +1088,9 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                    MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, ret_sp),
                                  MIR_new_int_op (ctx, 0)));
 
+  typedef enum { LOOP_FOR, LOOP_WHILE } LoopType;
   typedef struct {
+    LoopType type;
     MIR_reg_t var, end, step;
     MIR_label_t start_label, end_label;
   } LoopInfo;
@@ -1423,12 +1436,14 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
           loop_cap = loop_cap ? 2 * loop_cap : 4;
           loop_stack = realloc (loop_stack, loop_cap * sizeof (LoopInfo));
         }
-        loop_stack[loop_len++] = (LoopInfo) {var, end, step, body, loop_end};
+        loop_stack[loop_len++] = (LoopInfo) {LOOP_FOR, var, end, step, body, loop_end};
         break;
       }
       case ST_NEXT: {
         if (loop_len == 0) break;
-        LoopInfo info = loop_stack[--loop_len];
+        LoopInfo info = loop_stack[loop_len - 1];
+        if (info.type != LOOP_FOR) break;
+        loop_len--;
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, MIR_DADD, MIR_new_reg_op (ctx, info.var),
                                        MIR_new_reg_op (ctx, info.var),
@@ -1454,15 +1469,40 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
         MIR_append_insn (ctx, func, info.end_label);
         break;
       }
+      case ST_WHILE: {
+        MIR_label_t start = MIR_new_label (ctx);
+        MIR_label_t end = MIR_new_label (ctx);
+        MIR_append_insn (ctx, func, start);
+        MIR_reg_t cond = gen_expr (ctx, func, &vars, s->u.expr);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_DBEQ, MIR_new_label_op (ctx, end),
+                                       MIR_new_reg_op (ctx, cond), MIR_new_double_op (ctx, 0.0)));
+        if (loop_len == loop_cap) {
+          loop_cap = loop_cap ? 2 * loop_cap : 4;
+          loop_stack = realloc (loop_stack, loop_cap * sizeof (LoopInfo));
+        }
+        loop_stack[loop_len++] = (LoopInfo) {LOOP_WHILE, 0, 0, 0, start, end};
+        break;
+      }
+      case ST_WEND: {
+        if (loop_len == 0) break;
+        LoopInfo info = loop_stack[loop_len - 1];
+        if (info.type != LOOP_WHILE) break;
+        loop_len--;
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, info.start_label)));
+        MIR_append_insn (ctx, func, info.end_label);
+        break;
+      }
       case ST_RETURN: {
+        if (ret_addr == 0) ret_addr = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, "ret_addr");
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, MIR_SUB, MIR_new_reg_op (ctx, ret_sp),
                                        MIR_new_reg_op (ctx, ret_sp), MIR_new_int_op (ctx, 8)));
-        MIR_reg_t addr = MIR_new_func_reg (ctx, func->u.func, MIR_T_P, "$ret");
         MIR_append_insn (ctx, func,
-                         MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, addr),
+                         MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, ret_addr),
                                        MIR_new_mem_op (ctx, MIR_T_P, 0, ret_stack, ret_sp, 1)));
-        MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMPI, MIR_new_reg_op (ctx, addr)));
+        MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMPI, MIR_new_reg_op (ctx, ret_addr)));
         break;
       }
       case ST_ON_GOSUB: {
