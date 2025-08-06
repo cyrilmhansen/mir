@@ -36,11 +36,20 @@ extern size_t basic_data_pos;
 extern void basic_home (void);
 extern void basic_vtab (double);
 extern double basic_rnd (double);
+
+extern void basic_screen (double);
+extern void basic_cls (void);
+extern void basic_color (double);
+extern void basic_key_off (void);
+extern void basic_locate (double, double);
+extern void basic_tab (double);
+
 extern char *basic_chr (double);
 extern char *basic_string (double, const char *);
 extern double basic_int (double);
 extern double basic_timer (void);
 extern char *basic_input_chr (double);
+
 
 static void *resolve (const char *name) {
   if (!strcmp (name, "basic_print")) return basic_print;
@@ -57,6 +66,14 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_home")) return basic_home;
   if (!strcmp (name, "basic_vtab")) return basic_vtab;
   if (!strcmp (name, "basic_rnd")) return basic_rnd;
+
+  if (!strcmp (name, "basic_screen")) return basic_screen;
+  if (!strcmp (name, "basic_cls")) return basic_cls;
+  if (!strcmp (name, "basic_color")) return basic_color;
+  if (!strcmp (name, "basic_key_off")) return basic_key_off;
+  if (!strcmp (name, "basic_locate")) return basic_locate;
+  if (!strcmp (name, "basic_tab")) return basic_tab;
+
   if (!strcmp (name, "basic_chr")) return basic_chr;
   if (!strcmp (name, "basic_string")) return basic_string;
   if (!strcmp (name, "basic_int")) return basic_int;
@@ -127,6 +144,12 @@ typedef enum {
   ST_READ,
   ST_RESTORE,
   ST_CLEAR,
+  ST_SCREEN,
+  ST_CLS,
+  ST_COLOR,
+  ST_KEYOFF,
+  ST_LOCATE,
+  ST_TAB,
   ST_HOME,
   ST_VTAB,
   ST_END,
@@ -142,7 +165,7 @@ typedef enum { REL_NONE, REL_EQ, REL_NE, REL_LT, REL_LE, REL_GT, REL_GE } Relop;
 typedef struct {
   StmtKind kind;
   union {
-    Node *expr; /* PRINT/PRINTS/VTAB */
+    Node *expr; /* PRINT/VTAB/SCREEN/COLOR/TAB */
     struct {
       Node **items;
       size_t n;
@@ -186,6 +209,10 @@ typedef struct {
     struct {
       char *var;
     } next;
+    struct {
+      Node *row;
+      Node *col;
+    } locate;
     int target; /* GOTO/GOSUB */
     struct {
       Node *expr;
@@ -519,6 +546,45 @@ static int parse_stmt (Stmt *out) {
   } else if (strncasecmp (cur, "RESTORE", 7) == 0) {
     cur += 7;
     out->kind = ST_RESTORE;
+  } else if (strncasecmp (cur, "SCREEN", 6) == 0) {
+    cur += 6;
+    skip_ws ();
+    out->kind = ST_SCREEN;
+    out->u.expr = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "CLS", 3) == 0) {
+    cur += 3;
+    out->kind = ST_CLS;
+    return 1;
+  } else if (strncasecmp (cur, "COLOR", 5) == 0) {
+    cur += 5;
+    skip_ws ();
+    out->kind = ST_COLOR;
+    out->u.expr = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "KEY", 3) == 0) {
+    cur += 3;
+    skip_ws ();
+    if (strncasecmp (cur, "OFF", 3) != 0) return 0;
+    cur += 3;
+    out->kind = ST_KEYOFF;
+    return 1;
+  } else if (strncasecmp (cur, "LOCATE", 6) == 0) {
+    cur += 6;
+    skip_ws ();
+    out->kind = ST_LOCATE;
+    out->u.locate.row = parse_expr ();
+    skip_ws ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.locate.col = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "TAB", 3) == 0) {
+    cur += 3;
+    skip_ws ();
+    out->kind = ST_TAB;
+    out->u.expr = parse_expr ();
+    return 1;
   } else if (strncasecmp (cur, "HOME", 4) == 0) {
     cur += 4;
     out->kind = ST_HOME;
@@ -952,6 +1018,19 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   MIR_item_t home_import = MIR_new_import (ctx, "basic_home");
   MIR_item_t vtab_proto = MIR_new_proto (ctx, "basic_vtab_p", 0, NULL, 1, MIR_T_D, "n");
   MIR_item_t vtab_import = MIR_new_import (ctx, "basic_vtab");
+  MIR_item_t screen_proto = MIR_new_proto (ctx, "basic_screen_p", 0, NULL, 1, MIR_T_D, "m");
+  MIR_item_t screen_import = MIR_new_import (ctx, "basic_screen");
+  MIR_item_t cls_proto = MIR_new_proto (ctx, "basic_cls_p", 0, NULL, 0);
+  MIR_item_t cls_import = MIR_new_import (ctx, "basic_cls");
+  MIR_item_t color_proto = MIR_new_proto (ctx, "basic_color_p", 0, NULL, 1, MIR_T_D, "c");
+  MIR_item_t color_import = MIR_new_import (ctx, "basic_color");
+  MIR_item_t keyoff_proto = MIR_new_proto (ctx, "basic_key_off_p", 0, NULL, 0);
+  MIR_item_t keyoff_import = MIR_new_import (ctx, "basic_key_off");
+  MIR_item_t locate_proto
+    = MIR_new_proto (ctx, "basic_locate_p", 0, NULL, 2, MIR_T_D, "r", MIR_T_D, "c");
+  MIR_item_t locate_import = MIR_new_import (ctx, "basic_locate");
+  MIR_item_t tab_proto = MIR_new_proto (ctx, "basic_tab_p", 0, NULL, 1, MIR_T_D, "n");
+  MIR_item_t tab_import = MIR_new_import (ctx, "basic_tab");
   rnd_proto = MIR_new_proto (ctx, "basic_rnd_p", 1, &d, 1, MIR_T_D, "n");
   rnd_import = MIR_new_import (ctx, "basic_rnd");
   chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, MIR_T_D, "n");
@@ -1234,6 +1313,51 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
         MIR_append_insn (ctx, func,
                          MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, restore_proto),
                                             MIR_new_ref_op (ctx, restore_import)));
+        break;
+      }
+      case ST_SCREEN: {
+        MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.expr);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, screen_proto),
+                                            MIR_new_ref_op (ctx, screen_import),
+                                            MIR_new_reg_op (ctx, r)));
+        break;
+      }
+      case ST_CLS: {
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, cls_proto),
+                                            MIR_new_ref_op (ctx, cls_import)));
+        break;
+      }
+      case ST_COLOR: {
+        MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.expr);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, color_proto),
+                                            MIR_new_ref_op (ctx, color_import),
+                                            MIR_new_reg_op (ctx, r)));
+        break;
+      }
+      case ST_KEYOFF: {
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, keyoff_proto),
+                                            MIR_new_ref_op (ctx, keyoff_import)));
+        break;
+      }
+      case ST_LOCATE: {
+        MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.locate.row);
+        MIR_reg_t c = gen_expr (ctx, func, &vars, s->u.locate.col);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, locate_proto),
+                                            MIR_new_ref_op (ctx, locate_import),
+                                            MIR_new_reg_op (ctx, r), MIR_new_reg_op (ctx, c)));
+        break;
+      }
+      case ST_TAB: {
+        MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.expr);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, tab_proto),
+                                            MIR_new_ref_op (ctx, tab_import),
+                                            MIR_new_reg_op (ctx, r)));
         break;
       }
       case ST_HOME: {
