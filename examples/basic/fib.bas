@@ -1,0 +1,14 @@
+5 REM Fibonacci benchmark
+10 N = 35
+20 ITER = 1000
+30 FOR J = 1 TO ITER
+40  A = 0
+50  B = 1
+60  FOR I = 2 TO N
+70   T = A + B
+80   A = B
+90   B = T
+100  NEXT I
+110 NEXT J
+120 PRINT INT(B)
+130 END
