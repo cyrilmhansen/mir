@@ -438,6 +438,8 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
 	diff $(SRC_DIR)/examples/basic/graphics.out $(BUILD_DIR)/basic/graphics.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/fileio.bas > $(BUILD_DIR)/basic/fileio.out
 	diff $(SRC_DIR)/examples/basic/fileio.out $(BUILD_DIR)/basic/fileio.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/beep.bas > $(BUILD_DIR)/basic/beep.out
+	diff $(SRC_DIR)/examples/basic/beep.out $(BUILD_DIR)/basic/beep.out
 
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/periodic.bas > $(BUILD_DIR)/basic/periodic.out
 	diff $(SRC_DIR)/examples/basic/periodic.out $(BUILD_DIR)/basic/periodic.out
