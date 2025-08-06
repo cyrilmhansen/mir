@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 
 double basic_input (void) {
   double x = 0.0;
@@ -31,7 +32,6 @@ char *basic_get (void) {
 }
 
 int basic_strcmp (const char *a, const char *b) { return strcmp (a, b); }
-
 
 typedef struct BasicData {
   int is_str;
@@ -68,3 +68,35 @@ double basic_rnd (double n) {
   return ((double) rand () / RAND_MAX) * n;
 }
 
+char *basic_chr (double n) {
+  char *s = malloc (2);
+  s[0] = (char) ((int) n);
+  s[1] = '\0';
+  return s;
+}
+
+char *basic_string (double n, const char *s) {
+  int len = (int) n;
+  char ch = s != NULL && s[0] != '\0' ? s[0] : '\0';
+  char *res = malloc ((size_t) len + 1);
+  for (int i = 0; i < len; i++) res[i] = ch;
+  res[len] = '\0';
+  return res;
+}
+
+double basic_int (double x) { return floor (x); }
+
+double basic_timer (void) { return (double) clock () / CLOCKS_PER_SEC; }
+
+char *basic_input_chr (double n) {
+  int len = (int) n;
+  char *res = malloc ((size_t) len + 1);
+  int i = 0;
+  for (; i < len; i++) {
+    int c = getchar ();
+    if (c == EOF) break;
+    res[i] = (char) c;
+  }
+  res[i] = '\0';
+  return res;
+}
