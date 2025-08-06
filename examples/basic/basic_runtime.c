@@ -84,7 +84,13 @@ void basic_put (const char *s) {
   fputc (c, stdout);
 }
 
-int basic_strcmp (const char *a, const char *b) { return strcmp (a, b); }
+int basic_strcmp (const char *a, const char *b) {
+  if (a == NULL || b == NULL) {
+    if (a == b) return 0;
+    return a == NULL ? -1 : 1;
+  }
+  return strcmp (a, b);
+}
 
 #define BASIC_MAX_FILES 16
 static FILE *basic_files[BASIC_MAX_FILES];
