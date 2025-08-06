@@ -69,7 +69,8 @@ void basic_key_off (void) {}
 
 void basic_locate (double r, double c) { printf ("\x1b[%d;%dH", (int) r, (int) c); }
 
-void basic_tab (double n) { printf ("\x1b[%dG", (int) n); }
+void basic_htab (double n) { printf ("\x1b[%dG", (int) n); }
+void basic_tab (double n) { basic_htab (n); }
 
 double basic_rnd (double n) {
   static int seeded = 0;
