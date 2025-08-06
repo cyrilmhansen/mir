@@ -26,4 +26,9 @@
   - graphics commands such as `HOME`, `VTAB`, `HTAB`, `TEXT`, `INVERSE`, `NORMAL`, `HGR2`, `HCOLOR=`, and `HPLOT`.
   - memory and spacing operations like `PEEK`, `POKE`, and `SPC`.
   - integer arithmetic: division (`\\`) and modulo (`MOD`).
+  - input with `INPUT` and single-character `GET`.
+  - state reset via `CLEAR`.
+
+- Graphics output from BASIC samples uses the Kitty terminal protocol. View
+  `.out` files in a Kitty-capable terminal or with `kitty +kitten icat`.
 
