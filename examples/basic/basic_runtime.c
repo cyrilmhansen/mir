@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <sys/select.h>
 #include <unistd.h>
+#include "kitty/kitty.h"
 
 static int seeded = 0;
 static int basic_pos_val = 1;
