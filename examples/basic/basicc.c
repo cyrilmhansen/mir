@@ -385,13 +385,14 @@ static Node *parse_factor (void) {
     if (strcasecmp (id, "RND") == 0 || strcasecmp (id, "CHR$") == 0
         || strcasecmp (id, "STRING$") == 0 || strcasecmp (id, "INT") == 0
         || strcasecmp (id, "TIMER") == 0 || strcasecmp (id, "INPUT$") == 0
-        || strcasecmp (id, "PEEK") == 0) {
+        || strcasecmp (id, "PEEK") == 0) || strcasecmp (id, "SPC") == 0)
+     {
       Node *n = new_node (N_CALL);
       n->var = id;
       n->left = arg1;
       n->right = arg2;
       if (strcasecmp (id, "CHR$") == 0 || strcasecmp (id, "STRING$") == 0
-          || strcasecmp (id, "INPUT$") == 0)
+          || strcasecmp (id, "INPUT$") == 0 || strcasecmp (id, "SPC") == 0)
         n->is_str = 1;
       return n;
     }
@@ -1003,6 +1004,19 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                             MIR_new_ref_op (ctx, string_import),
                                             MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, a1),
                                             MIR_new_reg_op (ctx, a2)));
+      } else if (strcasecmp (n->var, "SPC") == 0) {
+        MIR_reg_t a1 = gen_expr (ctx, func, vars, n->left);
+        char buf2[32];
+        sprintf (buf2, "$t%d", tmp_id++);
+        MIR_reg_t space = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf2);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, space),
+                                       MIR_new_str_op (ctx, (MIR_str_t) {2, " "})));
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, string_proto),
+                                            MIR_new_ref_op (ctx, string_import),
+                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, a1),
+                                            MIR_new_reg_op (ctx, space)));
       } else if (strcasecmp (n->var, "INPUT$") == 0) {
         MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
         MIR_append_insn (ctx, func,
