@@ -6,6 +6,7 @@
 #include <string.h>
 #include <strings.h>
 #include <stdint.h>
+#include <unistd.h>
 
 #ifndef BASIC_SRC_DIR
 #define BASIC_SRC_DIR "."
@@ -78,6 +79,20 @@ extern double basic_val (const char *);
 extern char *basic_str (double);
 extern double basic_asc (const char *);
 extern double basic_instr (const char *, const char *);
+
+static int kitty_graphics_available (void) {
+  const char *id = getenv ("KITTY_WINDOW_ID");
+  const char *term = getenv ("TERM");
+  return isatty (1) && (id != NULL || (term != NULL && strstr (term, "kitty") != NULL));
+}
+
+static void show_kitty_banner (void) {
+  const char *png
+    = "iVBORw0KGgoAAAANSUhEUgAAAEYAAAAHCAIAAAA6SKwaAAAANElEQVR4nGP8zzDcAAvD0oF2ArUB4/"
+      "9hF02MDMPQS8POTyzeDM0D7QYqA8Z3Te8G2g1UBgBMlgjamTyVSgAAAABJRU5ErkJggg==";
+  printf ("\x1b]1337;File=inline=1;width=70;height=7;preserveAspectRatio=0:%s\x07\n", png);
+  fflush (stdout);
+}
 extern double basic_int (double);
 extern double basic_timer (void);
 extern double basic_time (void);
@@ -2515,7 +2530,6 @@ static void gen_stmt (Stmt *s) {
                                    MIR_new_reg_op (g_ctx, g_ret_sp), MIR_new_int_op (g_ctx, 8)));
     MIR_append_insn (g_ctx, g_func,
 
-
                      MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, addr),
                                    MIR_new_mem_op (g_ctx, MIR_T_P, 0, g_ret_stack, g_ret_sp, 1)));
     MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMPI, MIR_new_reg_op (g_ctx, addr)));
@@ -3089,6 +3103,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
 }
 
 int main (int argc, char **argv) {
+  if (kitty_graphics_available ()) show_kitty_banner ();
   int jit = 0, asm_p = 0, obj_p = 0, bin_p = 0;
   const char *fname = NULL, *out_name = NULL;
   for (int i = 1; i < argc; i++) {
