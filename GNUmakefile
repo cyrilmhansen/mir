@@ -400,6 +400,17 @@ clean-mir-utility-tests:
 # ------------------ BASIC compiler example -------------------
 .PHONY: basic-test clean-basic basic-bench
 
+ifeq ($(OS),Windows_NT)
+  BASIC_RUNTIME_LIB=basic_runtime.dll
+  BASIC_RUNTIME_FLAGS=-shared
+else ifeq ($(UNAME_S),Darwin)
+  BASIC_RUNTIME_LIB=libbasic_runtime.dylib
+  BASIC_RUNTIME_FLAGS=-dynamiclib
+else
+  BASIC_RUNTIME_LIB=libbasic_runtime.so
+  BASIC_RUNTIME_FLAGS=-shared
+endif
+
 $(BUILD_DIR)/basic/basicc$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
 	$(SRC_DIR)/examples/basic/basicc.c $(SRC_DIR)/examples/basic/basic_runtime.c \
 	$(SRC_DIR)/examples/basic/kitty/kitty.c $(SRC_DIR)/examples/basic/kitty/lodepng.c
@@ -413,7 +424,13 @@ $(BUILD_DIR)/basic/kitty_test$(EXE): \
 	mkdir -p $(BUILD_DIR)/basic
 	$(COMPILE_AND_LINK) $^ -lm $(EXEO)$@
 
-basic-test: $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE)
+$(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB): \
+	$(SRC_DIR)/examples/basic/basic_runtime.c \
+	$(SRC_DIR)/examples/basic/kitty/kitty.c \
+	$(SRC_DIR)/examples/basic/kitty/lodepng.c | $(BUILD_DIR)/basic
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BASIC_RUNTIME_FLAGS) $^ -lm $(EXEO)$@
+
+basic-test: $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/mir-bin-run$(EXE)
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/hello.bas > $(BUILD_DIR)/basic/hello.out
 	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/hello.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/relop.bas > $(BUILD_DIR)/basic/relop.out
@@ -437,3 +454,5 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE)
 	diff $(SRC_DIR)/examples/basic/kitty/kitty_test.out $(BUILD_DIR)/basic/kitty_test.out
 	$(BUILD_DIR)/basic/basicc$(EXE) -r -o $(BUILD_DIR)/basic/hello $(SRC_DIR)/examples/basic/hello.bas
 	test -f $(BUILD_DIR)/basic/hello.bmir
+	MIR_LIB_DIRS=$(BUILD_DIR)/basic MIR_LIBS=basic_runtime $(BUILD_DIR)/mir-bin-run$(EXE) $(BUILD_DIR)/basic/hello.bmir hello > $(BUILD_DIR)/basic/hello-run.out
+	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/hello-run.out
