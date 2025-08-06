@@ -42,7 +42,7 @@ extern void basic_cls (void);
 extern void basic_color (double);
 extern void basic_key_off (void);
 extern void basic_locate (double, double);
-extern void basic_tab (double);
+extern void basic_htab (double);
 
 extern char *basic_chr (double);
 extern char *basic_string (double, const char *);
@@ -73,7 +73,8 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_color")) return basic_color;
   if (!strcmp (name, "basic_key_off")) return basic_key_off;
   if (!strcmp (name, "basic_locate")) return basic_locate;
-  if (!strcmp (name, "basic_tab")) return basic_tab;
+  if (!strcmp (name, "basic_htab")) return basic_htab;
+  if (!strcmp (name, "basic_tab")) return basic_htab;
 
   if (!strcmp (name, "basic_chr")) return basic_chr;
   if (!strcmp (name, "basic_string")) return basic_string;
@@ -98,8 +99,8 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   input_str_proto, input_str_import, get_proto, get_import, read_proto, read_import, read_str_proto,
   read_str_import, restore_proto, restore_import, screen_proto, screen_import, cls_proto,
   cls_import, color_proto, color_import, keyoff_proto, keyoff_import, locate_proto, locate_import,
-  tab_proto, tab_import, poke_proto, poke_import, home_proto, home_import, vtab_proto, vtab_import,
-  calloc_proto, calloc_import, memset_proto, memset_import, strcmp_proto, strcmp_import;
+  htab_proto, htab_import, home_proto, poke_proto, poke_import, home_import, vtab_proto, vtab_import, calloc_proto,
+  calloc_import, memset_proto, memset_import, strcmp_proto, strcmp_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_STR, N_CALL } NodeKind;
@@ -161,7 +162,7 @@ typedef enum {
   ST_COLOR,
   ST_KEYOFF,
   ST_LOCATE,
-  ST_TAB,
+  ST_HTAB,
   ST_POKE,
   ST_HOME,
   ST_VTAB,
@@ -182,7 +183,7 @@ typedef struct Stmt Stmt;
 struct Stmt {
   StmtKind kind;
   union {
-    Node *expr; /* PRINT/VTAB/SCREEN/COLOR/TAB/WHILE */
+    Node *expr; /* PRINT/VTAB/HTAB/SCREEN/COLOR/WHILE */
     struct {
       Node **items;
       size_t n;
@@ -686,10 +687,10 @@ static int parse_stmt (Stmt *out) {
     cur++;
     out->u.locate.col = parse_expr ();
     return 1;
-  } else if (strncasecmp (cur, "TAB", 3) == 0) {
-    cur += 3;
+  } else if (strncasecmp (cur, "HTAB", 4) == 0 || strncasecmp (cur, "TAB", 3) == 0) {
+    cur += strncasecmp (cur, "HTAB", 4) == 0 ? 4 : 3;
     skip_ws ();
-    out->kind = ST_TAB;
+    out->kind = ST_HTAB;
     out->u.expr = parse_expr ();
     return 1;
   } else if (strncasecmp (cur, "POKE", 4) == 0) {
@@ -1300,8 +1301,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   keyoff_import = MIR_new_import (ctx, "basic_key_off");
   locate_proto = MIR_new_proto (ctx, "basic_locate_p", 0, NULL, 2, MIR_T_D, "r", MIR_T_D, "c");
   locate_import = MIR_new_import (ctx, "basic_locate");
-  tab_proto = MIR_new_proto (ctx, "basic_tab_p", 0, NULL, 1, MIR_T_D, "n");
-  tab_import = MIR_new_import (ctx, "basic_tab");
+  htab_proto = MIR_new_proto (ctx, "basic_htab_p", 0, NULL, 1, MIR_T_D, "n");
+  htab_import = MIR_new_import (ctx, "basic_htab");
   poke_proto = MIR_new_proto (ctx, "basic_poke_p", 0, NULL, 2, MIR_T_D, "addr", MIR_T_D, "value");
   poke_import = MIR_new_import (ctx, "basic_poke");
   rnd_proto = MIR_new_proto (ctx, "basic_rnd_p", 1, &d, 1, MIR_T_D, "n");
@@ -1616,11 +1617,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                                             MIR_new_reg_op (ctx, r), MIR_new_reg_op (ctx, c)));
         break;
       }
-      case ST_TAB: {
+      case ST_HTAB: {
         MIR_reg_t r = gen_expr (ctx, func, &vars, s->u.expr);
         MIR_append_insn (ctx, func,
-                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, tab_proto),
-                                            MIR_new_ref_op (ctx, tab_import),
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, htab_proto),
+                                            MIR_new_ref_op (ctx, htab_import),
                                             MIR_new_reg_op (ctx, r)));
         break;
       }
