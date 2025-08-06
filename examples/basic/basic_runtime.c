@@ -45,6 +45,12 @@ char *basic_get (void) {
   return s;
 }
 
+void basic_put (const char *s) {
+  int c = s != NULL && s[0] != '\0' ? (unsigned char) s[0] : 0;
+  basic_pos_val = c == '\n' ? 1 : basic_pos_val + 1;
+  fputc (c, stdout);
+}
+
 int basic_strcmp (const char *a, const char *b) { return strcmp (a, b); }
 
 #define BASIC_MAX_FILES 16
@@ -115,6 +121,13 @@ char *basic_get_hash (double n) {
   s[0] = (char) c;
   s[1] = '\0';
   return s;
+}
+
+void basic_put_hash (double n, const char *s) {
+  int idx = (int) n;
+  if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return;
+  int c = s != NULL && s[0] != '\0' ? (unsigned char) s[0] : 0;
+  fputc (c, basic_files[idx]);
 }
 
 typedef struct BasicData {
