@@ -5,15 +5,28 @@
 #include <math.h>
 #include <stdint.h>
 
+static int seeded = 0;
+static int basic_pos_val = 1;
+
 double basic_input (void) {
   double x = 0.0;
   if (scanf ("%lf", &x) != 1) return 0.0;
   return x;
 }
 
-void basic_print (double x) { printf ("%g", x); }
+void basic_print (double x) {
+  char buf[32];
+  int len = snprintf (buf, sizeof (buf), "%g", x);
+  basic_pos_val += len;
+  fputs (buf, stdout);
+}
 
-void basic_print_str (const char *s) { fputs (s, stdout); }
+void basic_print_str (const char *s) {
+  for (const char *p = s; *p != '\0'; p++) basic_pos_val = *p == '\n' ? 1 : basic_pos_val + 1;
+  fputs (s, stdout);
+}
+
+double basic_pos (void) { return (double) basic_pos_val; }
 
 char *basic_input_str (void) {
   char buf[256];
@@ -143,8 +156,16 @@ void basic_locate (double r, double c) { printf ("\x1b[%d;%dH", (int) r, (int) c
 void basic_htab (double n) { printf ("\x1b[%dG", (int) n); }
 void basic_tab (double n) { basic_htab (n); }
 
+void basic_randomize (double n, double has_seed) {
+  if (has_seed != 0.0) {
+    srand ((unsigned) n);
+  } else {
+    srand ((unsigned) time (NULL));
+  }
+  seeded = 1;
+}
+
 double basic_rnd (double n) {
-  static int seeded = 0;
   if (!seeded) {
     srand ((unsigned) time (NULL));
     seeded = 1;
@@ -215,6 +236,12 @@ char *basic_mid (const char *s, double start_d, double len_d) {
   memcpy (res, s + start, cnt);
   res[cnt] = '\0';
   return res;
+}
+
+double basic_instr (const char *s, const char *sub) {
+  if (s == NULL || sub == NULL || *sub == '\0') return 0.0;
+  const char *p = strstr (s, sub);
+  return p == NULL ? 0.0 : (double) (p - s + 1);
 }
 
 double basic_len (const char *s) { return (double) strlen (s); }
