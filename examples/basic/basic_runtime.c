@@ -117,6 +117,12 @@ char *basic_get_hash (double n) {
   return s;
 }
 
+double basic_eof (double n) {
+  int idx = (int) n;
+  if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return -1.0;
+  return feof (basic_files[idx]) ? -1.0 : 0.0;
+}
+
 typedef struct BasicData {
   int is_str;
   double num;

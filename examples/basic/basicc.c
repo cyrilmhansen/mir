@@ -84,6 +84,7 @@ extern void basic_print_hash_str (double, const char *);
 extern double basic_input_hash (double);
 extern char *basic_input_hash_str (double);
 extern char *basic_get_hash (double);
+extern double basic_eof (double);
 
 extern void basic_stop (void);
 extern void basic_beep (void);
@@ -105,6 +106,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_input_hash")) return basic_input_hash;
   if (!strcmp (name, "basic_input_hash_str")) return basic_input_hash_str;
   if (!strcmp (name, "basic_get_hash")) return basic_get_hash;
+  if (!strcmp (name, "basic_eof")) return basic_eof;
 
   if (!strcmp (name, "basic_read")) return basic_read;
   if (!strcmp (name, "basic_read_str")) return basic_read_str;
@@ -166,11 +168,11 @@ static void *resolve (const char *name) {
 /* Runtime call prototypes for expressions */
 static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, string_import,
   int_proto, int_import, timer_proto, timer_import, input_chr_proto, input_chr_import, peek_proto,
-  peek_import, abs_proto, abs_import, sgn_proto, sgn_import, sqr_proto, sqr_import, sin_proto,
-  sin_import, cos_proto, cos_import, tan_proto, tan_import, atn_proto, atn_import, log_proto,
-  log_import, exp_proto, exp_import, left_proto, left_import, right_proto, right_import, mid_proto,
-  mid_import, len_proto, len_import, val_proto, val_import, str_proto, str_import, asc_proto,
-  asc_import, pos_proto, pos_import, instr_proto, instr_import;
+  peek_import, eof_proto, eof_import, abs_proto, abs_import, sgn_proto, sgn_import, sqr_proto,
+  sqr_import, sin_proto, sin_import, cos_proto, cos_import, tan_proto, tan_import, atn_proto,
+  atn_import, log_proto, log_import, exp_proto, exp_import, left_proto, left_import, right_proto,
+  right_import, mid_proto, mid_import, len_proto, len_import, val_proto, val_import, str_proto,
+  str_import, asc_proto, asc_import, pos_proto, pos_import, instr_proto, instr_import;
 
 /* Runtime call prototypes for statements */
 static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_proto, input_import,
@@ -560,7 +562,8 @@ static Node *parse_factor (void) {
     if (strcasecmp (id, "RND") == 0 || strcasecmp (id, "CHR$") == 0
         || strcasecmp (id, "STRING$") == 0 || strcasecmp (id, "INT") == 0
         || strcasecmp (id, "TIMER") == 0 || strcasecmp (id, "INPUT$") == 0
-        || strcasecmp (id, "PEEK") == 0 || strcasecmp (id, "SPC") == 0
+        || strcasecmp (id, "PEEK") == 0 || strcasecmp (id, "EOF") == 0
+        || strcasecmp (id, "SPC") == 0
 
         || strcasecmp (id, "POS") == 0 || strcasecmp (id, "ABS") == 0 || strcasecmp (id, "SGN") == 0
         || strcasecmp (id, "SQR") == 0 || strcasecmp (id, "SIN") == 0 || strcasecmp (id, "COS") == 0
@@ -1593,6 +1596,12 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                        MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, peek_proto),
                                           MIR_new_ref_op (ctx, peek_import),
                                           MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "EOF") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, eof_proto),
+                                          MIR_new_ref_op (ctx, eof_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
     } else if (strcasecmp (n->var, "ABS") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
       MIR_append_insn (ctx, func,
@@ -2014,6 +2023,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   input_chr_import = MIR_new_import (ctx, "basic_input_chr");
   peek_proto = MIR_new_proto (ctx, "basic_peek_p", 1, &d, 1, MIR_T_D, "addr");
   peek_import = MIR_new_import (ctx, "basic_peek");
+  eof_proto = MIR_new_proto (ctx, "basic_eof_p", 1, &d, 1, MIR_T_D, "n");
+  eof_import = MIR_new_import (ctx, "basic_eof");
   pos_proto = MIR_new_proto (ctx, "basic_pos_p", 1, &d, 0);
   pos_import = MIR_new_import (ctx, "basic_pos");
 
