@@ -84,6 +84,8 @@ extern char *basic_get_hash (double);
 
 extern void basic_stop (void);
 
+static int array_base = 0;
+
 static void *resolve (const char *name) {
   if (!strcmp (name, "basic_print")) return basic_print;
   if (!strcmp (name, "basic_print_str")) return basic_print_str;
@@ -677,6 +679,17 @@ static int parse_stmt (Stmt *out) {
     /* Comment line: ignore rest */
     out->kind = ST_REM;
     return 1;
+  } else if (strncasecmp (cur, "OPTION", 6) == 0) {
+    cur += 6;
+    skip_ws ();
+    if (strncasecmp (cur, "BASE", 4) != 0) return 0;
+    cur += 4;
+    skip_ws ();
+    int base = parse_int ();
+    if (base != 0 && base != 1) return 0;
+    array_base = base;
+    out->kind = ST_REM;
+    return 1;
   } else if (strncasecmp (cur, "DIM", 3) == 0) {
     cur += 3;
     out->kind = ST_DIM;
@@ -693,6 +706,7 @@ static int parse_stmt (Stmt *out) {
       if (*cur == '(') {
         cur++;
         size = parse_int ();
+        size = size - array_base + 1;
         skip_ws ();
         if (*cur == ')') cur++;
       }
@@ -1193,6 +1207,11 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, idx),
                                        MIR_new_reg_op (ctx, idxd)));
+        if (array_base != 0)
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_SUB, MIR_new_reg_op (ctx, idx),
+                                         MIR_new_reg_op (ctx, idx),
+                                         MIR_new_int_op (ctx, array_base)));
         sprintf (buf, "$t%d", tmp_id++);
         MIR_reg_t off = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
         MIR_append_insn (ctx, func,
@@ -1309,6 +1328,11 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       MIR_append_insn (ctx, func,
                        MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, idx),
                                      MIR_new_reg_op (ctx, idxd)));
+      if (array_base != 0)
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_SUB, MIR_new_reg_op (ctx, idx),
+                                       MIR_new_reg_op (ctx, idx),
+                                       MIR_new_int_op (ctx, array_base)));
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t off = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
       MIR_append_insn (ctx, func,
@@ -1838,6 +1862,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
           MIR_append_insn (ctx, func,
                            MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, idx),
                                          MIR_new_reg_op (ctx, idxd)));
+          if (array_base != 0)
+            MIR_append_insn (ctx, func,
+                             MIR_new_insn (ctx, MIR_SUB, MIR_new_reg_op (ctx, idx),
+                                           MIR_new_reg_op (ctx, idx),
+                                           MIR_new_int_op (ctx, array_base)));
           sprintf (buf, "$t%d", tmp_id++);
           MIR_reg_t off = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
           MIR_append_insn (ctx, func,
@@ -2009,6 +2038,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
             MIR_append_insn (ctx, func,
                              MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, idx),
                                            MIR_new_reg_op (ctx, idxd)));
+            if (array_base != 0)
+              MIR_append_insn (ctx, func,
+                               MIR_new_insn (ctx, MIR_SUB, MIR_new_reg_op (ctx, idx),
+                                             MIR_new_reg_op (ctx, idx),
+                                             MIR_new_int_op (ctx, array_base)));
             sprintf (buf, "$t%d", tmp_id++);
             MIR_reg_t off = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
             MIR_append_insn (ctx, func,
