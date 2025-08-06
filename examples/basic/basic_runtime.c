@@ -98,6 +98,51 @@ char *basic_string (double n, const char *s) {
   return res;
 }
 
+char *basic_left (const char *s, double n) {
+  size_t len = strlen (s);
+  size_t cnt = (size_t) n;
+  if (cnt > len) cnt = len;
+  char *res = malloc (cnt + 1);
+  memcpy (res, s, cnt);
+  res[cnt] = '\0';
+  return res;
+}
+
+char *basic_right (const char *s, double n) {
+  size_t len = strlen (s);
+  size_t cnt = (size_t) n;
+  if (cnt > len) cnt = len;
+  return strdup (s + len - cnt);
+}
+
+char *basic_mid (const char *s, double start_d, double len_d) {
+  size_t len = strlen (s);
+  size_t start = (size_t) start_d;
+  if (start < 1) start = 1;
+  start--;
+  if (start >= len) return strdup ("");
+  size_t cnt = len_d < 0 ? len - start : (size_t) len_d;
+  if (start + cnt > len) cnt = len - start;
+  char *res = malloc (cnt + 1);
+  memcpy (res, s + start, cnt);
+  res[cnt] = '\0';
+  return res;
+}
+
+double basic_len (const char *s) { return (double) strlen (s); }
+
+double basic_val (const char *s) { return strtod (s, NULL); }
+
+char *basic_str (double n) {
+  char buf[32];
+  snprintf (buf, sizeof (buf), "%g", n);
+  return strdup (buf);
+}
+
+double basic_asc (const char *s) {
+  return s == NULL || s[0] == '\0' ? 0.0 : (double) (unsigned char) s[0];
+}
+
 double basic_int (double x) { return floor (x); }
 
 double basic_timer (void) { return (double) clock () / CLOCKS_PER_SEC; }
