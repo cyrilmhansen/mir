@@ -34,6 +34,76 @@ char *basic_get (void) {
 
 int basic_strcmp (const char *a, const char *b) { return strcmp (a, b); }
 
+#define BASIC_MAX_FILES 16
+static FILE *basic_files[BASIC_MAX_FILES];
+
+void basic_open (double n, const char *path) {
+  int idx = (int) n;
+  if (idx < 0 || idx >= BASIC_MAX_FILES) return;
+  if (basic_files[idx] != NULL) {
+    fclose (basic_files[idx]);
+    basic_files[idx] = NULL;
+  }
+  FILE *f = fopen (path, "r+");
+  if (f == NULL) f = fopen (path, "w+");
+  basic_files[idx] = f;
+}
+
+void basic_close (double n) {
+  int idx = (int) n;
+  if (idx < 0 || idx >= BASIC_MAX_FILES) return;
+  if (basic_files[idx] != NULL) {
+    fclose (basic_files[idx]);
+    basic_files[idx] = NULL;
+  }
+}
+
+void basic_print_hash (double n, double x) {
+  int idx = (int) n;
+  if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return;
+  fprintf (basic_files[idx], "%g", x);
+}
+
+void basic_print_hash_str (double n, const char *s) {
+  int idx = (int) n;
+  if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return;
+  fputs (s, basic_files[idx]);
+}
+
+double basic_input_hash (double n) {
+  int idx = (int) n;
+  if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return 0.0;
+  double x = 0.0;
+  if (fscanf (basic_files[idx], "%lf", &x) != 1) return 0.0;
+  return x;
+}
+
+char *basic_input_hash_str (double n) {
+  int idx = (int) n;
+  if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return strdup ("");
+  char buf[256];
+  if (fgets (buf, sizeof (buf), basic_files[idx]) == NULL) return strdup ("");
+  size_t len = strlen (buf);
+  if (len > 0 && buf[len - 1] == '\n') buf[len - 1] = '\0';
+  return strdup (buf);
+}
+
+char *basic_get_hash (double n) {
+  int idx = (int) n;
+  if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) {
+    char *s = malloc (2);
+    s[0] = 0;
+    s[1] = '\0';
+    return s;
+  }
+  int c = fgetc (basic_files[idx]);
+  if (c == EOF) c = 0;
+  char *s = malloc (2);
+  s[0] = (char) c;
+  s[1] = '\0';
+  return s;
+}
+
 typedef struct BasicData {
   int is_str;
   double num;

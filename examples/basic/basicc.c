@@ -57,6 +57,13 @@ extern double basic_timer (void);
 extern char *basic_input_chr (double);
 extern double basic_peek (double);
 extern void basic_poke (double, double);
+extern void basic_open (double, const char *);
+extern void basic_close (double);
+extern void basic_print_hash (double, double);
+extern void basic_print_hash_str (double, const char *);
+extern double basic_input_hash (double);
+extern char *basic_input_hash_str (double);
+extern char *basic_get_hash (double);
 
 static void *resolve (const char *name) {
   if (!strcmp (name, "basic_print")) return basic_print;
@@ -65,6 +72,13 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_input_str")) return basic_input_str;
   if (!strcmp (name, "basic_get")) return basic_get;
   if (!strcmp (name, "basic_strcmp")) return basic_strcmp;
+  if (!strcmp (name, "basic_open")) return basic_open;
+  if (!strcmp (name, "basic_close")) return basic_close;
+  if (!strcmp (name, "basic_print_hash")) return basic_print_hash;
+  if (!strcmp (name, "basic_print_hash_str")) return basic_print_hash_str;
+  if (!strcmp (name, "basic_input_hash")) return basic_input_hash;
+  if (!strcmp (name, "basic_input_hash_str")) return basic_input_hash_str;
+  if (!strcmp (name, "basic_get_hash")) return basic_get_hash;
 
   if (!strcmp (name, "basic_read")) return basic_read;
   if (!strcmp (name, "basic_read_str")) return basic_read_str;
@@ -114,7 +128,10 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   htab_proto, htab_import, home_proto, poke_proto, poke_import, home_import, vtab_proto,
   vtab_import, text_proto, text_import, inverse_proto, inverse_import, normal_proto, normal_import,
   hgr2_proto, hgr2_import, hcolor_proto, hcolor_import, hplot_proto, hplot_import, calloc_proto,
-  calloc_import, memset_proto, memset_import, strcmp_proto, strcmp_import;
+  calloc_import, memset_proto, memset_import, strcmp_proto, strcmp_import, open_proto, open_import,
+  close_proto, close_import, printh_proto, printh_import, prinths_proto, prinths_import,
+  input_hash_proto, input_hash_import, input_hash_str_proto, input_hash_str_import, get_hash_proto,
+  get_hash_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_STR, N_CALL } NodeKind;
@@ -167,6 +184,11 @@ typedef enum {
   ST_IF,
   ST_INPUT,
   ST_GET,
+  ST_OPEN,
+  ST_CLOSE,
+  ST_PRINT_HASH,
+  ST_INPUT_HASH,
+  ST_GET_HASH,
   ST_DATA,
   ST_READ,
   ST_RESTORE,
@@ -225,6 +247,28 @@ struct Stmt {
     struct {
       char *var;
     } get;
+    struct {
+      Node *num;
+      Node *path;
+    } open;
+    struct {
+      Node *num;
+    } close;
+    struct {
+      Node *num;
+      Node **items;
+      size_t n;
+      int no_nl;
+    } printhash;
+    struct {
+      Node *num;
+      char *var;
+      int is_str;
+    } inputhash;
+    struct {
+      Node *num;
+      char *var;
+    } gethash;
     struct {
       Node **vars;
       size_t n;
@@ -615,6 +659,34 @@ static int parse_stmt (Stmt *out) {
     cur += 5;
     out->kind = ST_CLEAR;
     return 1;
+  } else if (strncasecmp (cur, "OPEN", 4) == 0) {
+    cur += 4;
+    skip_ws ();
+    out->kind = ST_OPEN;
+    out->u.open.num = parse_expr ();
+    skip_ws ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.open.path = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "CLOSE", 5) == 0) {
+    cur += 5;
+    skip_ws ();
+    out->kind = ST_CLOSE;
+    out->u.close.num = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "PRINT#", 6) == 0) {
+    cur += 6;
+    skip_ws ();
+    out->kind = ST_PRINT_HASH;
+    out->u.printhash.num = parse_expr ();
+    skip_ws ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.printhash.items = NULL;
+    out->u.printhash.n = 0;
+    out->u.printhash.no_nl = 0;
+    return 1;
   } else if (strncasecmp (cur, "PRINT", 5) == 0) {
     cur += 5;
     out->kind = ST_PRINT;
@@ -622,11 +694,32 @@ static int parse_stmt (Stmt *out) {
     out->u.print.n = 0;
     out->u.print.no_nl = 0;
     return 1;
+  } else if (strncasecmp (cur, "INPUT#", 6) == 0) {
+    cur += 6;
+    skip_ws ();
+    out->kind = ST_INPUT_HASH;
+    out->u.inputhash.num = parse_expr ();
+    skip_ws ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.inputhash.var = parse_id ();
+    out->u.inputhash.is_str = out->u.inputhash.var[strlen (out->u.inputhash.var) - 1] == '$';
+    return 1;
   } else if (strncasecmp (cur, "INPUT", 5) == 0) {
     cur += 5;
     out->kind = ST_INPUT;
     out->u.input.var = parse_id ();
     out->u.input.is_str = out->u.input.var[strlen (out->u.input.var) - 1] == '$';
+    return 1;
+  } else if (strncasecmp (cur, "GET#", 4) == 0) {
+    cur += 4;
+    skip_ws ();
+    out->kind = ST_GET_HASH;
+    out->u.gethash.num = parse_expr ();
+    skip_ws ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.gethash.var = parse_id ();
     return 1;
   } else if (strncasecmp (cur, "GET", 3) == 0) {
     cur += 3;
@@ -912,26 +1005,43 @@ static int parse_line (char *line, Line *out) {
   while (1) {
     Stmt s;
     if (!parse_stmt (&s)) return 0;
-    if (s.kind == ST_PRINT) {
+    if (s.kind == ST_PRINT || s.kind == ST_PRINT_HASH) {
       size_t cap = 0;
-      s.u.print.items = NULL;
-      s.u.print.n = 0;
-      s.u.print.no_nl = 0;
+      if (s.kind == ST_PRINT) {
+        s.u.print.items = NULL;
+        s.u.print.n = 0;
+        s.u.print.no_nl = 0;
+      } else {
+        s.u.printhash.items = NULL;
+        s.u.printhash.n = 0;
+        s.u.printhash.no_nl = 0;
+      }
       while (1) {
         skip_ws ();
         if (*cur == ':' || *cur == '\0') break;
         Node *e = parse_expr ();
-        if (s.u.print.n == cap) {
-          cap = cap ? cap * 2 : 4;
-          s.u.print.items = realloc (s.u.print.items, cap * sizeof (Node *));
+        if (s.kind == ST_PRINT) {
+          if (s.u.print.n == cap) {
+            cap = cap ? cap * 2 : 4;
+            s.u.print.items = realloc (s.u.print.items, cap * sizeof (Node *));
+          }
+          s.u.print.items[s.u.print.n++] = e;
+        } else {
+          if (s.u.printhash.n == cap) {
+            cap = cap ? cap * 2 : 4;
+            s.u.printhash.items = realloc (s.u.printhash.items, cap * sizeof (Node *));
+          }
+          s.u.printhash.items[s.u.printhash.n++] = e;
         }
-        s.u.print.items[s.u.print.n++] = e;
         skip_ws ();
         if (*cur == ';' || *cur == ',') {
           cur++;
           skip_ws ();
           if (*cur == ':' || *cur == '\0') {
-            s.u.print.no_nl = 1;
+            if (s.kind == ST_PRINT)
+              s.u.print.no_nl = 1;
+            else
+              s.u.printhash.no_nl = 1;
             break;
           }
           continue;
@@ -1343,6 +1453,21 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   input_str_import = MIR_new_import (ctx, "basic_input_str");
   get_proto = MIR_new_proto (ctx, "basic_get_p", 1, &p, 0);
   get_import = MIR_new_import (ctx, "basic_get");
+  open_proto = MIR_new_proto (ctx, "basic_open_p", 0, NULL, 2, MIR_T_D, "n", MIR_T_P, "path");
+  open_import = MIR_new_import (ctx, "basic_open");
+  close_proto = MIR_new_proto (ctx, "basic_close_p", 0, NULL, 1, MIR_T_D, "n");
+  close_import = MIR_new_import (ctx, "basic_close");
+  printh_proto = MIR_new_proto (ctx, "basic_print_hash_p", 0, NULL, 2, MIR_T_D, "n", MIR_T_D, "x");
+  printh_import = MIR_new_import (ctx, "basic_print_hash");
+  prinths_proto
+    = MIR_new_proto (ctx, "basic_print_hash_str_p", 0, NULL, 2, MIR_T_D, "n", MIR_T_P, "s");
+  prinths_import = MIR_new_import (ctx, "basic_print_hash_str");
+  input_hash_proto = MIR_new_proto (ctx, "basic_input_hash_p", 1, &d, 1, MIR_T_D, "n");
+  input_hash_import = MIR_new_import (ctx, "basic_input_hash");
+  input_hash_str_proto = MIR_new_proto (ctx, "basic_input_hash_str_p", 1, &p, 1, MIR_T_D, "n");
+  input_hash_str_import = MIR_new_import (ctx, "basic_input_hash_str");
+  get_hash_proto = MIR_new_proto (ctx, "basic_get_hash_p", 1, &p, 1, MIR_T_D, "n");
+  get_hash_import = MIR_new_import (ctx, "basic_get_hash");
   home_proto = MIR_new_proto (ctx, "basic_home_p", 0, NULL, 0);
   home_import = MIR_new_import (ctx, "basic_home");
   vtab_proto = MIR_new_proto (ctx, "basic_vtab_p", 0, NULL, 1, MIR_T_D, "n");
@@ -1457,6 +1582,43 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                            MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, prints_proto),
                                               MIR_new_ref_op (ctx, prints_import),
                                               MIR_new_str_op (ctx, (MIR_str_t) {2, "\n"})));
+        break;
+      }
+      case ST_PRINT_HASH: {
+        MIR_reg_t fn = gen_expr (ctx, func, &vars, s->u.printhash.num);
+        for (size_t k = 0; k < s->u.printhash.n; k++) {
+          Node *e = s->u.printhash.items[k];
+          MIR_reg_t r = gen_expr (ctx, func, &vars, e);
+          MIR_item_t proto = e->is_str ? prinths_proto : printh_proto;
+          MIR_item_t import = e->is_str ? prinths_import : printh_import;
+          MIR_append_insn (ctx, func,
+                           MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, proto),
+                                              MIR_new_ref_op (ctx, import),
+                                              MIR_new_reg_op (ctx, fn), MIR_new_reg_op (ctx, r)));
+        }
+        if (!s->u.printhash.no_nl)
+          MIR_append_insn (ctx, func,
+                           MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, prinths_proto),
+                                              MIR_new_ref_op (ctx, prinths_import),
+                                              MIR_new_reg_op (ctx, fn),
+                                              MIR_new_str_op (ctx, (MIR_str_t) {2, "\n"})));
+        break;
+      }
+      case ST_OPEN: {
+        MIR_reg_t fn = gen_expr (ctx, func, &vars, s->u.open.num);
+        MIR_reg_t path = gen_expr (ctx, func, &vars, s->u.open.path);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, open_proto),
+                                            MIR_new_ref_op (ctx, open_import),
+                                            MIR_new_reg_op (ctx, fn), MIR_new_reg_op (ctx, path)));
+        break;
+      }
+      case ST_CLOSE: {
+        MIR_reg_t fn = gen_expr (ctx, func, &vars, s->u.close.num);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, close_proto),
+                                            MIR_new_ref_op (ctx, close_import),
+                                            MIR_new_reg_op (ctx, fn)));
         break;
       }
       case ST_LET: {
@@ -1575,12 +1737,37 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
         }
         break;
       }
+      case ST_INPUT_HASH: {
+        MIR_reg_t fn = gen_expr (ctx, func, &vars, s->u.inputhash.num);
+        MIR_reg_t v = get_var (&vars, ctx, func, s->u.inputhash.var);
+        if (s->u.inputhash.is_str) {
+          MIR_append_insn (ctx, func,
+                           MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, input_hash_str_proto),
+                                              MIR_new_ref_op (ctx, input_hash_str_import),
+                                              MIR_new_reg_op (ctx, v), MIR_new_reg_op (ctx, fn)));
+        } else {
+          MIR_append_insn (ctx, func,
+                           MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, input_hash_proto),
+                                              MIR_new_ref_op (ctx, input_hash_import),
+                                              MIR_new_reg_op (ctx, v), MIR_new_reg_op (ctx, fn)));
+        }
+        break;
+      }
       case ST_GET: {
         MIR_reg_t v = get_var (&vars, ctx, func, s->u.get.var);
         MIR_append_insn (ctx, func,
                          MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, get_proto),
                                             MIR_new_ref_op (ctx, get_import),
                                             MIR_new_reg_op (ctx, v)));
+        break;
+      }
+      case ST_GET_HASH: {
+        MIR_reg_t fn = gen_expr (ctx, func, &vars, s->u.gethash.num);
+        MIR_reg_t v = get_var (&vars, ctx, func, s->u.gethash.var);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, get_hash_proto),
+                                            MIR_new_ref_op (ctx, get_hash_import),
+                                            MIR_new_reg_op (ctx, v), MIR_new_reg_op (ctx, fn)));
         break;
       }
       case ST_DATA: {

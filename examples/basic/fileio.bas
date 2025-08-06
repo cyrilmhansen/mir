@@ -1,0 +1,7 @@
+10 OPEN 1,"tmp.txt"
+20 PRINT#1,"HELLO"
+30 CLOSE 1
+40 OPEN 1,"tmp.txt"
+50 INPUT#1,A$
+60 PRINT A$
+70 CLOSE 1
