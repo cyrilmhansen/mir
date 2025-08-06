@@ -1,0 +1,5 @@
+10 PRINT 1<>2
+20 PRINT 1 < > 2
+30 PRINT 3>=2
+40 PRINT 3 > = 2
+50 END
