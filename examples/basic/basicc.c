@@ -141,7 +141,8 @@ static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, st
   peek_import, abs_proto, abs_import, sgn_proto, sgn_import, sqr_proto, sqr_import, sin_proto,
   sin_import, cos_proto, cos_import, tan_proto, tan_import, atn_proto, atn_import, log_proto,
   log_import, exp_proto, exp_import, left_proto, left_import, right_proto, right_import, mid_proto,
-  mid_import, len_proto, len_import, val_proto, val_import, str_proto, str_import, asc_proto, asc_import
+  mid_import, len_proto, len_import, val_proto, val_import, str_proto, str_import, asc_proto,
+  asc_import;
 
 /* Runtime call prototypes for statements */
 static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_proto, input_import,
@@ -457,9 +458,9 @@ static Node *parse_factor (void) {
         || strcasecmp (id, "PEEK") == 0 || strcasecmp (id, "SPC") == 0
         || strcasecmp (id, "ABS") == 0 || strcasecmp (id, "SGN") == 0 || strcasecmp (id, "SQR") == 0
         || strcasecmp (id, "SIN") == 0 || strcasecmp (id, "COS") == 0 || strcasecmp (id, "TAN") == 0
-        || strcasecmp (id, "ATN") == 0 || strcasecmp (id, "LOG") == 0
-        || strcasecmp (id, "EXP") == 0) || strcasecmp (id, "LEFT$") == 0
-        || strcasecmp (id, "RIGHT$") == 0 || strcasecmp (id, "MID$") == 0 || strcasecmp (id, "LEN") == 0
+        || strcasecmp (id, "ATN") == 0 || strcasecmp (id, "LOG") == 0 || strcasecmp (id, "EXP") == 0
+        || strcasecmp (id, "LEFT$") == 0 || strcasecmp (id, "RIGHT$") == 0
+        || strcasecmp (id, "MID$") == 0 || strcasecmp (id, "LEN") == 0
         || strcasecmp (id, "VAL") == 0 || strcasecmp (id, "STR$") == 0
         || strcasecmp (id, "ASC") == 0) {
       Node *n = new_node (N_CALL);
@@ -1305,7 +1306,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, exp_proto),
                                           MIR_new_ref_op (ctx, exp_import),
-
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
     } else if (strcasecmp (n->var, "LEN") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
       MIR_append_insn (ctx, func,
