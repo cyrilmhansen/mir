@@ -4,6 +4,7 @@
 - Run `clang-format -i` on any modified C source files before committing.
 
 ## Testing
+- All new features must include accompanying unit tests.
 - Use `make basic-test` to run unit tests for the BASIC compiler example after changes in `examples/basic` or related build rules.
 - To exercise the extended BASIC features, run the `periodic.bas` sample:
   `./build/basic/basicc examples/basic/periodic.bas > build/basic/periodic.out && diff examples/basic/periodic.out build/basic/periodic.out`.

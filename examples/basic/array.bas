@@ -1,0 +1,9 @@
+5 REM array and FOR/NEXT test
+10 DIM A(2)
+20 FOR I=0 TO 2
+30  A(I)=I
+40 NEXT I
+50 FOR I=0 TO 2
+60  PRINT A(I)
+70 NEXT I
+80 END
