@@ -49,6 +49,8 @@ extern char *basic_string (double, const char *);
 extern double basic_int (double);
 extern double basic_timer (void);
 extern char *basic_input_chr (double);
+extern double basic_peek (double);
+extern void basic_poke (double, double);
 
 static void *resolve (const char *name) {
   if (!strcmp (name, "basic_print")) return basic_print;
@@ -78,6 +80,8 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_int")) return basic_int;
   if (!strcmp (name, "basic_timer")) return basic_timer;
   if (!strcmp (name, "basic_input_chr")) return basic_input_chr;
+  if (!strcmp (name, "basic_peek")) return basic_peek;
+  if (!strcmp (name, "basic_poke")) return basic_poke;
 
   if (!strcmp (name, "calloc")) return calloc;
   if (!strcmp (name, "memset")) return memset;
@@ -86,15 +90,16 @@ static void *resolve (const char *name) {
 
 /* Runtime call prototypes for expressions */
 static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, string_import,
-  int_proto, int_import, timer_proto, timer_import, input_chr_proto, input_chr_import;
+  int_proto, int_import, timer_proto, timer_import, input_chr_proto, input_chr_import, peek_proto,
+  peek_import;
 
 /* Runtime call prototypes for statements */
 static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_proto, input_import,
   input_str_proto, input_str_import, get_proto, get_import, read_proto, read_import, read_str_proto,
   read_str_import, restore_proto, restore_import, screen_proto, screen_import, cls_proto,
   cls_import, color_proto, color_import, keyoff_proto, keyoff_import, locate_proto, locate_import,
-  tab_proto, tab_import, home_proto, home_import, vtab_proto, vtab_import, calloc_proto,
-  calloc_import, memset_proto, memset_import, strcmp_proto, strcmp_import;
+  tab_proto, tab_import, poke_proto, poke_import, home_proto, home_import, vtab_proto, vtab_import,
+  calloc_proto, calloc_import, memset_proto, memset_import, strcmp_proto, strcmp_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_STR, N_CALL } NodeKind;
@@ -157,6 +162,7 @@ typedef enum {
   ST_KEYOFF,
   ST_LOCATE,
   ST_TAB,
+  ST_POKE,
   ST_HOME,
   ST_VTAB,
   ST_END,
@@ -221,6 +227,10 @@ struct Stmt {
       Node *row;
       Node *col;
     } locate;
+    struct {
+      Node *addr;
+      Node *value;
+    } poke;
     int target; /* GOTO/GOSUB */
     struct {
       Node *expr;
@@ -375,7 +385,8 @@ static Node *parse_factor (void) {
     if (strcasecmp (id, "RND") == 0 || strcasecmp (id, "CHR$") == 0
         || strcasecmp (id, "STRING$") == 0 || strcasecmp (id, "INT") == 0
         || strcasecmp (id, "TIMER") == 0 || strcasecmp (id, "INPUT$") == 0
-        || strcasecmp (id, "SPC") == 0) {
+        || strcasecmp (id, "PEEK") == 0) || strcasecmp (id, "SPC") == 0)
+     {
       Node *n = new_node (N_CALL);
       n->var = id;
       n->left = arg1;
@@ -680,6 +691,16 @@ static int parse_stmt (Stmt *out) {
     skip_ws ();
     out->kind = ST_TAB;
     out->u.expr = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "POKE", 4) == 0) {
+    cur += 4;
+    skip_ws ();
+    out->kind = ST_POKE;
+    out->u.poke.addr = parse_expr ();
+    skip_ws ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.poke.value = parse_expr ();
     return 1;
   } else if (strncasecmp (cur, "HOME", 4) == 0) {
     cur += 4;
@@ -1074,6 +1095,12 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                        MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, timer_proto),
                                           MIR_new_ref_op (ctx, timer_import),
                                           MIR_new_reg_op (ctx, res)));
+    } else if (strcasecmp (n->var, "PEEK") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, peek_proto),
+                                          MIR_new_ref_op (ctx, peek_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
     }
     return res;
   } else if (n->op == '&') {
@@ -1275,6 +1302,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   locate_import = MIR_new_import (ctx, "basic_locate");
   tab_proto = MIR_new_proto (ctx, "basic_tab_p", 0, NULL, 1, MIR_T_D, "n");
   tab_import = MIR_new_import (ctx, "basic_tab");
+  poke_proto = MIR_new_proto (ctx, "basic_poke_p", 0, NULL, 2, MIR_T_D, "addr", MIR_T_D, "value");
+  poke_import = MIR_new_import (ctx, "basic_poke");
   rnd_proto = MIR_new_proto (ctx, "basic_rnd_p", 1, &d, 1, MIR_T_D, "n");
   rnd_import = MIR_new_import (ctx, "basic_rnd");
   chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, MIR_T_D, "n");
@@ -1287,6 +1316,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   timer_import = MIR_new_import (ctx, "basic_timer");
   input_chr_proto = MIR_new_proto (ctx, "basic_input_chr_p", 1, &p, 1, MIR_T_D, "n");
   input_chr_import = MIR_new_import (ctx, "basic_input_chr");
+  peek_proto = MIR_new_proto (ctx, "basic_peek_p", 1, &d, 1, MIR_T_D, "addr");
+  peek_import = MIR_new_import (ctx, "basic_peek");
   calloc_proto = MIR_new_proto (ctx, "calloc_p", 1, &p, 2, MIR_T_I64, "n", MIR_T_I64, "sz");
   calloc_import = MIR_new_import (ctx, "calloc");
   memset_proto
@@ -1404,10 +1435,16 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       }
       case ST_GOSUB: {
         MIR_label_t ret = MIR_new_label (ctx);
+        char buf[32];
+        sprintf (buf, "$t%d", tmp_id++);
+        MIR_reg_t tmp = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, tmp),
+                                       MIR_new_label_op (ctx, ret)));
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, MIR_MOV,
                                        MIR_new_mem_op (ctx, MIR_T_P, 0, ret_stack, ret_sp, 1),
-                                       MIR_new_label_op (ctx, ret)));
+                                       MIR_new_reg_op (ctx, tmp)));
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, MIR_ADD, MIR_new_reg_op (ctx, ret_sp),
                                        MIR_new_reg_op (ctx, ret_sp), MIR_new_int_op (ctx, 8)));
@@ -1432,10 +1469,16 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                                                                             bs->u.target))));
         } else if (bs->kind == ST_GOSUB) {
           MIR_label_t ret = MIR_new_label (ctx);
+          char buf[32];
+          sprintf (buf, "$t%d", tmp_id++);
+          MIR_reg_t tmp = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, tmp),
+                                         MIR_new_label_op (ctx, ret)));
           MIR_append_insn (ctx, func,
                            MIR_new_insn (ctx, MIR_MOV,
                                          MIR_new_mem_op (ctx, MIR_T_P, 0, ret_stack, ret_sp, 1),
-                                         MIR_new_label_op (ctx, ret)));
+                                         MIR_new_reg_op (ctx, tmp)));
           MIR_append_insn (ctx, func,
                            MIR_new_insn (ctx, MIR_ADD, MIR_new_reg_op (ctx, ret_sp),
                                          MIR_new_reg_op (ctx, ret_sp), MIR_new_int_op (ctx, 8)));
@@ -1579,6 +1622,15 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                          MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, tab_proto),
                                             MIR_new_ref_op (ctx, tab_import),
                                             MIR_new_reg_op (ctx, r)));
+        break;
+      }
+      case ST_POKE: {
+        MIR_reg_t a = gen_expr (ctx, func, &vars, s->u.poke.addr);
+        MIR_reg_t v = gen_expr (ctx, func, &vars, s->u.poke.value);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, poke_proto),
+                                            MIR_new_ref_op (ctx, poke_import),
+                                            MIR_new_reg_op (ctx, a), MIR_new_reg_op (ctx, v)));
         break;
       }
       case ST_HOME: {
