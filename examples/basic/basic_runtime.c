@@ -30,7 +30,7 @@ double basic_input (void) {
 
 void basic_print (double x) {
   char buf[32];
-  int len = snprintf (buf, sizeof (buf), "%g", x);
+  int len = snprintf (buf, sizeof (buf), "%.15g", x);
   basic_pos_val += len;
   fputs (buf, stdout);
 }
@@ -119,7 +119,7 @@ void basic_close (double n) {
 void basic_print_hash (double n, double x) {
   int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return;
-  fprintf (basic_files[idx], "%g", x);
+  fprintf (basic_files[idx], "%.15g", x);
 }
 
 void basic_print_hash_str (double n, const char *s) {
@@ -308,7 +308,7 @@ double basic_val (const char *s) { return strtod (s, NULL); }
 
 char *basic_str (double n) {
   char buf[32];
-  snprintf (buf, sizeof (buf), "%g", n);
+  snprintf (buf, sizeof (buf), "%.15g", n);
   return strdup (buf);
 }
 
