@@ -57,6 +57,7 @@ extern double basic_timer (void);
 extern char *basic_input_chr (double);
 extern double basic_peek (double);
 extern void basic_poke (double, double);
+extern void basic_stop (void);
 
 static void *resolve (const char *name) {
   if (!strcmp (name, "basic_print")) return basic_print;
@@ -95,6 +96,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_input_chr")) return basic_input_chr;
   if (!strcmp (name, "basic_peek")) return basic_peek;
   if (!strcmp (name, "basic_poke")) return basic_poke;
+  if (!strcmp (name, "basic_stop")) return basic_stop;
 
   if (!strcmp (name, "calloc")) return calloc;
   if (!strcmp (name, "memset")) return memset;
@@ -113,8 +115,9 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   cls_import, color_proto, color_import, keyoff_proto, keyoff_import, locate_proto, locate_import,
   htab_proto, htab_import, home_proto, poke_proto, poke_import, home_import, vtab_proto,
   vtab_import, text_proto, text_import, inverse_proto, inverse_import, normal_proto, normal_import,
-  hgr2_proto, hgr2_import, hcolor_proto, hcolor_import, hplot_proto, hplot_import, calloc_proto,
-  calloc_import, memset_proto, memset_import, strcmp_proto, strcmp_import;
+  hgr2_proto, hgr2_import, hcolor_proto, hcolor_import, hplot_proto, hplot_import, stop_proto,
+  stop_import, calloc_proto, calloc_import, memset_proto, memset_import, strcmp_proto,
+  strcmp_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_STR, N_CALL } NodeKind;
@@ -187,6 +190,7 @@ typedef enum {
   ST_HCOLOR,
   ST_HPLOT,
   ST_END,
+  ST_STOP,
   ST_REM,
   ST_DIM,
   ST_FOR,
@@ -887,6 +891,9 @@ static int parse_stmt (Stmt *out) {
   } else if (strncasecmp (cur, "END", 3) == 0) {
     out->kind = ST_END;
     return 1;
+  } else if (strncasecmp (cur, "STOP", 4) == 0) {
+    out->kind = ST_STOP;
+    return 1;
   } else if (isalpha ((unsigned char) *cur)) {
     Node *v = parse_factor ();
     skip_ws ();
@@ -1373,6 +1380,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   hcolor_import = MIR_new_import (ctx, "basic_hcolor");
   hplot_proto = MIR_new_proto (ctx, "basic_hplot_p", 0, NULL, 2, MIR_T_D, "x", MIR_T_D, "y");
   hplot_import = MIR_new_import (ctx, "basic_hplot");
+  stop_proto = MIR_new_proto (ctx, "basic_stop_p", 0, NULL, 0);
+  stop_import = MIR_new_import (ctx, "basic_stop");
   rnd_proto = MIR_new_proto (ctx, "basic_rnd_p", 1, &d, 1, MIR_T_D, "n");
   rnd_import = MIR_new_import (ctx, "basic_rnd");
   chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, MIR_T_D, "n");
@@ -1934,6 +1943,12 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       }
       case ST_END: {
         MIR_append_insn (ctx, func, MIR_new_ret_insn (ctx, 1, MIR_new_int_op (ctx, 0)));
+        break;
+      }
+      case ST_STOP: {
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, stop_proto),
+                                            MIR_new_ref_op (ctx, stop_import)));
         break;
       }
       case ST_DIM: {
