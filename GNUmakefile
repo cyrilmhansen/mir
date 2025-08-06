@@ -406,7 +406,99 @@ $(BUILD_DIR)/basic/basicc$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-ge
 	$(COMPILE_AND_LINK) -DBASIC_SRC_DIR=\"$(SRC_DIR)\" $^ -lm $(EXEO)$@
 
 basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
-	$(SRC_DIR)/examples/basic/run-tests.sh
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/hello.bas > $(BUILD_DIR)/basic/hello.out
+	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/hello.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/relop.bas > $(BUILD_DIR)/basic/relop.out
+	diff $(SRC_DIR)/examples/basic/relop.out $(BUILD_DIR)/basic/relop.out
+	printf '2\n3\n' | $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/adder.bas > $(BUILD_DIR)/basic/adder.out
+	diff $(SRC_DIR)/examples/basic/adder.out $(BUILD_DIR)/basic/adder.out
+	printf 'MIR\nY\n' | $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/string.bas > $(BUILD_DIR)/basic/string.out
+	diff $(SRC_DIR)/examples/basic/string.out $(BUILD_DIR)/basic/string.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/strfuncs.bas > $(BUILD_DIR)/basic/strfuncs.out
+	diff $(SRC_DIR)/examples/basic/strfuncs.out $(BUILD_DIR)/basic/strfuncs.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/instr.bas > $(BUILD_DIR)/basic/instr.out
+	diff $(SRC_DIR)/examples/basic/instr.out $(BUILD_DIR)/basic/instr.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/array.bas > $(BUILD_DIR)/basic/array.out
+	diff $(SRC_DIR)/examples/basic/array.out $(BUILD_DIR)/basic/array.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/on.bas > $(BUILD_DIR)/basic/on.out
+	diff $(SRC_DIR)/examples/basic/on.out $(BUILD_DIR)/basic/on.out
+	        $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/while.bas > $(BUILD_DIR)/basic/while.out
+	        diff $(SRC_DIR)/examples/basic/while.out $(BUILD_DIR)/basic/while.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/ifcolons.bas > $(BUILD_DIR)/basic/ifcolons.out
+	diff $(SRC_DIR)/examples/basic/ifcolons.out $(BUILD_DIR)/basic/ifcolons.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/ifmulti.bas > $(BUILD_DIR)/basic/ifmulti.out
+	diff $(SRC_DIR)/examples/basic/ifmulti.out $(BUILD_DIR)/basic/ifmulti.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/not.bas > $(BUILD_DIR)/basic/not.out
+	diff $(SRC_DIR)/examples/basic/not.out $(BUILD_DIR)/basic/not.out
+		$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/relop.bas > $(BUILD_DIR)/basic/relop.out
+		diff $(SRC_DIR)/examples/basic/relop.out $(BUILD_DIR)/basic/relop.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/restore.bas > $(BUILD_DIR)/basic/restore.out
+	diff $(SRC_DIR)/examples/basic/restore.out $(BUILD_DIR)/basic/restore.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/math.bas > $(BUILD_DIR)/basic/math.out
+	diff $(SRC_DIR)/examples/basic/math.out $(BUILD_DIR)/basic/math.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/time.bas > $(BUILD_DIR)/basic/time.out
+	diff $(SRC_DIR)/examples/basic/time.out $(BUILD_DIR)/basic/time.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/stop.bas > $(BUILD_DIR)/basic/stop.out
+	diff $(SRC_DIR)/examples/basic/stop.out $(BUILD_DIR)/basic/stop.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/pos.bas > $(BUILD_DIR)/basic/pos.out
+	diff $(SRC_DIR)/examples/basic/pos.out $(BUILD_DIR)/basic/pos.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/restore.bas > $(BUILD_DIR)/basic/restore.out
+	diff $(SRC_DIR)/examples/basic/restore.out $(BUILD_DIR)/basic/restore.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/peekpoke.bas > $(BUILD_DIR)/basic/peekpoke.out
+	diff $(SRC_DIR)/examples/basic/peekpoke.out $(BUILD_DIR)/basic/peekpoke.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/graphics.bas > $(BUILD_DIR)/basic/graphics.out
+	diff $(SRC_DIR)/examples/basic/graphics.out $(BUILD_DIR)/basic/graphics.out
+	$(BUILD_DIR)/basic/basicc$(EXE) examples/basic/readhplot.bas > examples/basic/readhplot.tmp
+	diff $(SRC_DIR)/examples/basic/readhplot.out $(SRC_DIR)/examples/basic/readhplot.tmp
+	rm $(SRC_DIR)/examples/basic/readhplot.tmp
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/fileio.bas > $(BUILD_DIR)/basic/fileio.out
+	diff $(SRC_DIR)/examples/basic/fileio.out $(BUILD_DIR)/basic/fileio.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/eof.bas > $(BUILD_DIR)/basic/eof.out
+	diff $(SRC_DIR)/examples/basic/eof.out $(BUILD_DIR)/basic/eof.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/beep.bas > $(BUILD_DIR)/basic/beep.out
+	diff $(SRC_DIR)/examples/basic/beep.out $(BUILD_DIR)/basic/beep.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/colons.bas > $(BUILD_DIR)/basic/colons.out
+	diff $(SRC_DIR)/examples/basic/colons.out $(BUILD_DIR)/basic/colons.out
+
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/sieve.bas > $(BUILD_DIR)/basic/sieve.out
+	diff $(SRC_DIR)/examples/basic/sieve.out $(BUILD_DIR)/basic/sieve.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/fib.bas > $(BUILD_DIR)/basic/fib.out
+	diff $(SRC_DIR)/examples/basic/fib.out $(BUILD_DIR)/basic/fib.out
+
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/periodic.bas > $(BUILD_DIR)/basic/periodic.out
+	diff $(SRC_DIR)/examples/basic/periodic.out $(BUILD_DIR)/basic/periodic.out
+		$(BUILD_DIR)/basic/basicc$(EXE) -S -o $(BUILD_DIR)/basic/hello $(SRC_DIR)/examples/basic/hello.bas
+
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/fn.bas > $(BUILD_DIR)/basic/fn.out
+	diff $(SRC_DIR)/examples/basic/fn.out $(BUILD_DIR)/basic/fn.out
+	                $(BUILD_DIR)/basic/basicc$(EXE) -S -o $(BUILD_DIR)/basic/hello $(SRC_DIR)/examples/basic/hello.bas
+	                test -s $(BUILD_DIR)/basic/hello.mir
+			test -s $(BUILD_DIR)/basic/hello.bmir
+				printf '2\n3\n' | $(BUILD_DIR)/basic/basicc$(EXE) -c -o $(BUILD_DIR)/basic/adder $(SRC_DIR)/examples/basic/adder.bas
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/random.bas > $(BUILD_DIR)/basic/random.out
+	diff $(SRC_DIR)/examples/basic/random.out $(BUILD_DIR)/basic/random.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/onerror.bas > $(BUILD_DIR)/basic/onerror.out
+	diff $(SRC_DIR)/examples/basic/onerror.out $(BUILD_DIR)/basic/onerror.out
+	$(BUILD_DIR)/basic/basicc$(EXE) -S -o $(BUILD_DIR)/basic/hello $(SRC_DIR)/examples/basic/hello.bas
+
+		test -s $(BUILD_DIR)/basic/hello.mir
+		test -s $(BUILD_DIR)/basic/hello.bmir
+		printf '2\n3\n' | $(BUILD_DIR)/basic/basicc$(EXE) -c -o $(BUILD_DIR)/basic/adder $(SRC_DIR)/examples/basic/adder.bas
+		test -s $(BUILD_DIR)/basic/adder.mir
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/base0.bas > $(BUILD_DIR)/basic/base0.out
+	diff $(SRC_DIR)/examples/basic/base0.out $(BUILD_DIR)/basic/base0.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/base1.bas > $(BUILD_DIR)/basic/base1.out
+	diff $(SRC_DIR)/examples/basic/base1.out $(BUILD_DIR)/basic/base1.out
+	$(BUILD_DIR)/basic/basicc$(EXE) -S -o $(BUILD_DIR)/basic/hello $(SRC_DIR)/examples/basic/hello.bas
+	test -s $(BUILD_DIR)/basic/hello.mir
+	test -s $(BUILD_DIR)/basic/hello.bmir
+	printf '2\n3\n' | $(BUILD_DIR)/basic/basicc$(EXE) -c -o $(BUILD_DIR)/basic/adder $(SRC_DIR)/examples/basic/adder.bas
+	test -s $(BUILD_DIR)/basic/adder.mir
+	test -s $(BUILD_DIR)/basic/adder.bmir
+	$(BUILD_DIR)/basic/basicc$(EXE) -b -o $(BUILD_DIR)/basic/hello-bin $(SRC_DIR)/examples/basic/hello.bas
+	$(BUILD_DIR)/basic/hello-bin > $(BUILD_DIR)/basic/hello-bin.out
+		diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/hello-bin.out
+
 clean-basic:
 	$(RM) $(BUILD_DIR)/basic/basicc$(EXE) \
 		$(BUILD_DIR)/basic/hello.out $(BUILD_DIR)/basic/adder.out $(BUILD_DIR)/basic/guess.out \
