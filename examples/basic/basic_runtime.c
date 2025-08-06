@@ -217,6 +217,12 @@ char *basic_mid (const char *s, double start_d, double len_d) {
   return res;
 }
 
+double basic_instr (const char *s, const char *sub) {
+  if (s == NULL || sub == NULL || *sub == '\0') return 0.0;
+  const char *p = strstr (s, sub);
+  return p == NULL ? 0.0 : (double) (p - s + 1);
+}
+
 double basic_len (const char *s) { return (double) strlen (s); }
 
 double basic_val (const char *s) { return strtod (s, NULL); }
