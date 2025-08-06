@@ -3983,7 +3983,6 @@ int main (int argc, char **argv) {
         l.line = auto_line;
         auto_line += 10;
       }
-      line_vec_insert (&prog, l);
     } else {
       fprintf (stderr, "parse error: %s\n", line);
     }
