@@ -3455,6 +3455,8 @@ int main (int argc, char **argv) {
       asm_p = obj_p = 1;
     } else if (strcmp (argv[i], "-c") == 0) {
       asm_p = obj_p = 1;
+    } else if (strcmp (argv[i], "-r") == 0) {
+      obj_p = 1;
     } else if (strcmp (argv[i], "-b") == 0) {
       bin_p = 1;
     } else if (strcmp (argv[i], "-l") == 0) {
