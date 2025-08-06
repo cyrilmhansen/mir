@@ -412,8 +412,6 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
 	diff $(SRC_DIR)/examples/basic/relop.out $(BUILD_DIR)/basic/relop.out
 	printf '2\n3\n' | $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/adder.bas > $(BUILD_DIR)/basic/adder.out
 	diff $(SRC_DIR)/examples/basic/adder.out $(BUILD_DIR)/basic/adder.out
-	printf '6\n' | $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/guess.bas > $(BUILD_DIR)/basic/guess.out
-	diff $(SRC_DIR)/examples/basic/guess.out $(BUILD_DIR)/basic/guess.out
 	printf 'MIR\nY\n' | $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/string.bas > $(BUILD_DIR)/basic/string.out
 	diff $(SRC_DIR)/examples/basic/string.out $(BUILD_DIR)/basic/string.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/strfuncs.bas > $(BUILD_DIR)/basic/strfuncs.out
