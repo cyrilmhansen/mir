@@ -539,6 +539,7 @@ struct Stmt {
 typedef struct {
   int line;
   StmtVec stmts;
+  char *src;
 } Line;
 
 typedef struct {
@@ -566,6 +567,39 @@ static void line_vec_push (LineVec *v, Line l) {
     v->data = realloc (v->data, v->cap * sizeof (Line));
   }
   v->data[v->len++] = l;
+}
+
+static void line_vec_insert (LineVec *v, Line l) {
+  if (v->len == v->cap) {
+    v->cap = v->cap ? 2 * v->cap : 16;
+    v->data = realloc (v->data, v->cap * sizeof (Line));
+  }
+  size_t i = 0;
+  while (i < v->len && v->data[i].line < l.line) i++;
+  if (i < v->len && v->data[i].line == l.line) {
+    free (v->data[i].src);
+    v->data[i] = l;
+  } else {
+    memmove (&v->data[i + 1], &v->data[i], (v->len - i) * sizeof (Line));
+    v->data[i] = l;
+    v->len++;
+  }
+}
+
+static void line_vec_delete (LineVec *v, int line) {
+  for (size_t i = 0; i < v->len; i++) {
+    if (v->data[i].line == line) {
+      free (v->data[i].src);
+      memmove (&v->data[i], &v->data[i + 1], (v->len - i - 1) * sizeof (Line));
+      v->len--;
+      return;
+    }
+  }
+}
+
+static void line_vec_clear (LineVec *v) {
+  for (size_t i = 0; i < v->len; i++) free (v->data[i].src);
+  v->len = 0;
 }
 
 /* Parsing utilities */
@@ -1563,6 +1597,7 @@ static int parse_stmt (Stmt *out) {
 /* Parse a single line into multiple statements */
 static int parse_line (char *line, Line *out) {
   cur = line;
+  out->src = strdup (line);
   int line_no = parse_int ();
   out->line = line_no;
   out->stmts = (StmtVec) {0};
@@ -3366,6 +3401,49 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   MIR_finish (ctx);
 }
 
+static void repl (void) {
+  LineVec prog = {0};
+  char line[256];
+  for (;;) {
+    printf ("READY.\n");
+    if (!fgets (line, sizeof (line), stdin)) break;
+    line[strcspn (line, "\n")] = '\0';
+    char *p = line;
+    while (isspace ((unsigned char) *p)) p++;
+    if (*p == '\0') continue;
+    if (isdigit ((unsigned char) *p)) {
+      char *end;
+      long num = strtol (p, &end, 10);
+      while (isspace ((unsigned char) *end)) end++;
+      if (*end == '\0') {
+        line_vec_delete (&prog, num);
+      } else {
+        Line l;
+        if (parse_line (line, &l))
+          line_vec_insert (&prog, l);
+        else
+          fprintf (stderr, "parse error: %s\n", line);
+      }
+      continue;
+    }
+    if (strcasecmp (p, "RUN") == 0) {
+      gen_program (&prog, 0, 0, 0, 0, NULL, "(repl)");
+      continue;
+    }
+    if (strcasecmp (p, "LIST") == 0) {
+      for (size_t i = 0; i < prog.len; i++) printf ("%s\n", prog.data[i].src);
+      continue;
+    }
+    if (strcasecmp (p, "NEW") == 0) {
+      line_vec_clear (&prog);
+      continue;
+    }
+    if (strcasecmp (p, "QUIT") == 0 || strcasecmp (p, "EXIT") == 0) {
+      break;
+    }
+  }
+}
+
 int main (int argc, char **argv) {
   if (kitty_graphics_available ()) show_kitty_banner ();
   int jit = 0, asm_p = 0, obj_p = 0, bin_p = 0, reduce_libs = 0;
@@ -3388,8 +3466,8 @@ int main (int argc, char **argv) {
     }
   }
   if (!fname) {
-    fprintf (stderr, "usage: %s [-j] [-S|-c] [-b] [-l] [-o output] file.bas\n", argv[0]);
-    return 1;
+    repl ();
+    return 0;
   }
   FILE *f = fopen (fname, "r");
   if (!f) {
@@ -3400,11 +3478,12 @@ int main (int argc, char **argv) {
   char line[256];
   while (fgets (line, sizeof (line), f)) {
     char *p = line;
+    line[strcspn (line, "\n")] = '\0';
     while (isspace ((unsigned char) *p)) p++;
     if (*p == '\0') continue;
     Line l;
     if (parse_line (line, &l))
-      line_vec_push (&prog, l);
+      line_vec_insert (&prog, l);
     else
       fprintf (stderr, "parse error: %s\n", line);
   }
