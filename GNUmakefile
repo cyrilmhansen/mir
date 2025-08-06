@@ -428,6 +428,8 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE)
 	diff $(SRC_DIR)/examples/basic/restore.out $(BUILD_DIR)/basic/restore.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/math.bas > $(BUILD_DIR)/basic/math.out
 	diff $(SRC_DIR)/examples/basic/math.out $(BUILD_DIR)/basic/math.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/time.bas > $(BUILD_DIR)/basic/time.out
+	diff $(SRC_DIR)/examples/basic/time.out $(BUILD_DIR)/basic/time.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/stop.bas > $(BUILD_DIR)/basic/stop.out
 	diff $(SRC_DIR)/examples/basic/stop.out $(BUILD_DIR)/basic/stop.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/pos.bas > $(BUILD_DIR)/basic/pos.out
