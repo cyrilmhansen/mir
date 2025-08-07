@@ -58,3 +58,10 @@ printf 'LOAD %s\nRUN\nQUIT\n' "$ROOT/examples/basic/hello.bas" | "$BASICC" > "$R
 diff "$ROOT/examples/basic/repl-load.out" "$ROOT/basic/repl-load.out"
 echo "repl LOAD done"
 
+echo "Running repl CODE"
+printf '10 PRINT "HI"\nCOMPILE CODE repl-code.bin\nQUIT\n' | "$BASICC" > "$ROOT/basic/repl-code.out"
+diff "$ROOT/examples/basic/repl-code.out" "$ROOT/basic/repl-code.out"
+test -s repl-code.bin
+rm -f repl-code.bin
+echo "repl CODE done"
+
