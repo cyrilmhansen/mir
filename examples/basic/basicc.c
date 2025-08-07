@@ -3999,8 +3999,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     MIR_load_module (ctx, module);
     MIR_gen_init (ctx);
     MIR_link (ctx, MIR_set_gen_interface, resolve);
-    uint8_t *start = _MIR_get_new_code_addr (ctx, 0);
     MIR_gen (ctx, func);
+    uint8_t *start = func->addr;
     uint8_t *end = _MIR_get_new_code_addr (ctx, 0);
     size_t len = end - start;
     FILE *f = fopen (out_name, "wb");
