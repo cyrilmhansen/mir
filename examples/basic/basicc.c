@@ -124,11 +124,13 @@ extern void basic_set_error_handler (double);
 extern double basic_get_error_handler (void);
 extern void basic_set_line (double);
 extern double basic_get_line (void);
+extern void basic_enable_line_tracking (double);
 
 extern void basic_beep (void);
 extern void basic_sound (double, double);
 
 static int array_base = 0;
+static int line_tracking = 1;
 
 static void *resolve (const char *name) {
   if (!strcmp (name, "basic_print")) return basic_print;
@@ -217,6 +219,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_get_error_handler")) return basic_get_error_handler;
   if (!strcmp (name, "basic_set_line")) return basic_set_line;
   if (!strcmp (name, "basic_get_line")) return basic_get_line;
+  if (!strcmp (name, "basic_enable_line_tracking")) return basic_enable_line_tracking;
 
   if (!strcmp (name, "basic_beep")) return basic_beep;
   if (!strcmp (name, "basic_sound")) return basic_sound;
@@ -252,7 +255,8 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   input_hash_proto, input_hash_import, input_hash_str_proto, input_hash_str_import, get_hash_proto,
   get_hash_import, put_hash_proto, put_hash_import, randomize_proto, randomize_import, stop_proto,
   stop_import, on_error_proto, on_error_import, set_line_proto, set_line_import, get_line_proto,
-  get_line_import, beep_proto, beep_import, sound_proto, sound_import;
+  get_line_import, line_track_proto, line_track_import, beep_proto, beep_import, sound_proto,
+  sound_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL } NodeKind;
@@ -2077,6 +2081,7 @@ static MIR_reg_t g_ret_stack, g_ret_sp, g_ret_addr;
 static MIR_insn_t g_var_init_anchor;
 static LoopInfo *g_loop_stack;
 static size_t g_loop_len, g_loop_cap;
+static int g_line_tracking = 1;
 static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Node *n) {
   if (n->is_str) {
     if (n->kind == N_STR) {
@@ -3378,6 +3383,10 @@ static void gen_stmt (Stmt *s) {
                                      MIR_new_label_op (g_ctx, find_label (g_prog, g_labels,
                                                                           s->u.resume.line))));
     } else {
+      if (!g_line_tracking) {
+        fprintf (stderr, "RESUME without line requires line tracking\n");
+        exit (1);
+      }
       char buf[32];
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t line = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_D, buf);
@@ -3494,7 +3503,7 @@ static void gen_stmt (Stmt *s) {
 }
 
 static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p, int reduce_libs,
-                         const char *out_name, const char *src_name) {
+                         int track_lines, const char *out_name, const char *src_name) {
   MIR_context_t ctx = MIR_init ();
   MIR_module_t module = MIR_new_module (ctx, "BASIC");
   print_proto = MIR_new_proto (ctx, "basic_print_p", 0, NULL, 1, MIR_T_D, "x");
@@ -3597,6 +3606,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   set_line_import = MIR_new_import (ctx, "basic_set_line");
   get_line_proto = MIR_new_proto (ctx, "basic_get_line_p", 1, &d, 0);
   get_line_import = MIR_new_import (ctx, "basic_get_line");
+  line_track_proto = MIR_new_proto (ctx, "basic_enable_line_tracking_p", 0, NULL, 1, MIR_T_D, "on");
+  line_track_import = MIR_new_import (ctx, "basic_enable_line_tracking");
   rnd_proto = MIR_new_proto (ctx, "basic_rnd_p", 1, &d, 1, MIR_T_D, "n");
   rnd_import = MIR_new_import (ctx, "basic_rnd");
   chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, MIR_T_D, "n");
@@ -3767,6 +3778,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   g_loop_stack = NULL;
   g_loop_len = 0;
   g_loop_cap = 0;
+  g_line_tracking = track_lines;
+  MIR_append_insn (g_ctx, g_func,
+                   MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, line_track_proto),
+                                      MIR_new_ref_op (g_ctx, line_track_import),
+                                      MIR_new_double_op (g_ctx, (double) g_line_tracking)));
 
   /* create labels for lines */
   size_t n = prog->len;
@@ -3777,10 +3793,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   for (size_t i = 0; i < n; i++) {
     Line *ln = &g_prog->data[i];
     MIR_append_insn (g_ctx, g_func, labels[i]);
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, set_line_proto),
-                                        MIR_new_ref_op (g_ctx, set_line_import),
-                                        MIR_new_double_op (g_ctx, (double) ln->line)));
+    if (g_line_tracking)
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, set_line_proto),
+                                          MIR_new_ref_op (g_ctx, set_line_import),
+                                          MIR_new_double_op (g_ctx, (double) ln->line)));
     for (size_t j = 0; j < ln->stmts.len; j++) {
       gen_stmt (&ln->stmts.data[j]);
     }
@@ -3903,7 +3920,7 @@ static void repl (void) {
       continue;
     }
     if (strcasecmp (p, "RUN") == 0) {
-      gen_program (&prog, 0, 0, 0, 0, 0, NULL, "(repl)");
+      gen_program (&prog, 0, 0, 0, 0, 0, line_tracking, NULL, "(repl)");
       continue;
     }
     if (strncasecmp (p, "COMPILE", 7) == 0) {
@@ -3915,7 +3932,7 @@ static void repl (void) {
         if (*p == '\0') {
           fprintf (stderr, "missing output file\n");
         } else {
-          gen_program (&prog, 0, 0, 0, 1, 0, p, "(repl)");
+          gen_program (&prog, 0, 0, 0, 1, 0, line_tracking, p, "(repl)");
           if (access (p, F_OK) == 0)
             printf ("%s\n", p);
           else
@@ -3928,7 +3945,7 @@ static void repl (void) {
         if (*p == '\0') {
           fprintf (stderr, "missing output file\n");
         } else {
-          gen_program (&prog, 0, 0, 1, 0, 0, p, "(repl)");
+          gen_program (&prog, 0, 0, 1, 0, 0, line_tracking, p, "(repl)");
           char *name = change_suffix (p, ".bmir");
           if (access (name, F_OK) == 0)
             printf ("%s\n", name);
@@ -3947,7 +3964,7 @@ static void repl (void) {
       if (*p == '\0') {
         fprintf (stderr, "missing output file\n");
       } else {
-        gen_program (&prog, 0, 0, 0, 1, 0, p, "(repl)");
+        gen_program (&prog, 0, 0, 0, 1, 0, line_tracking, p, "(repl)");
         if (access (p, F_OK) == 0)
           printf ("Saved %s\n", p);
         else
@@ -3997,6 +4014,8 @@ int main (int argc, char **argv) {
       bin_p = 1;
     } else if (strcmp (argv[i], "-l") == 0) {
       reduce_libs = 1;
+    } else if (strcmp (argv[i], "--no-line-tracking") == 0) {
+      line_tracking = 0;
     } else if (strcmp (argv[i], "-o") == 0 && i + 1 < argc) {
       out_name = argv[++i];
     } else {
@@ -4009,6 +4028,6 @@ int main (int argc, char **argv) {
   }
   LineVec prog = {0};
   if (!load_program (&prog, fname)) return 1;
-  gen_program (&prog, jit, asm_p, obj_p, bin_p, reduce_libs, out_name, fname);
+  gen_program (&prog, jit, asm_p, obj_p, bin_p, reduce_libs, line_tracking, out_name, fname);
   return 0;
 }
