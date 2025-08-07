@@ -445,6 +445,8 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) 
 	diff $(SRC_DIR)/examples/basic/instr.out $(BUILD_DIR)/basic/instr.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/funcproc.bas > $(BUILD_DIR)/basic/funcproc.out
 	diff $(SRC_DIR)/examples/basic/funcproc.out $(BUILD_DIR)/basic/funcproc.out
+	printf 'R\n' | $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/rps.bas > $(BUILD_DIR)/basic/rps.out
+	diff $(SRC_DIR)/examples/basic/rps.out $(BUILD_DIR)/basic/rps.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/array_default.bas > $(BUILD_DIR)/basic/array_default.out
 	diff $(SRC_DIR)/examples/basic/array_default.out $(BUILD_DIR)/basic/array_default.out
 	printf '10 PRINT "HI"\nLIST\nRUN\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl.out
