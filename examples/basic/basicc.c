@@ -1980,6 +1980,41 @@ static void parse_func (FILE *f, char *line, int is_sub) {
   func_vec_push (&func_defs, fd);
 }
 
+static int load_program (LineVec *prog, const char *path) {
+  FILE *f = fopen (path, "r");
+  if (!f) {
+    perror (path);
+    return 0;
+  }
+  int auto_line = 10;
+  char line[256];
+  while (fgets (line, sizeof (line), f)) {
+    char *p = line;
+    line[strcspn (line, "\n")] = '\0';
+    while (isspace ((unsigned char) *p)) p++;
+    if (*p == '\0') continue;
+    if (strncasecmp (p, "FUNCTION", 8) == 0) {
+      parse_func (f, p, 0);
+      continue;
+    } else if (strncasecmp (p, "SUB", 3) == 0) {
+      parse_func (f, p, 1);
+      continue;
+    }
+    Line l;
+    if (parse_line (line, &l)) {
+      if (l.line == 0) {
+        l.line = auto_line;
+        auto_line += 10;
+      }
+      insert_or_replace_line (prog, l);
+    } else {
+      fprintf (stderr, "parse error: %s\n", line);
+    }
+  }
+  fclose (f);
+  return 1;
+}
+
 /* Variable mapping */
 typedef struct {
   char *name;
@@ -3920,6 +3955,17 @@ static void repl (void) {
       }
       continue;
     }
+    if (strncasecmp (p, "LOAD", 4) == 0) {
+      p += 4;
+      while (isspace ((unsigned char) *p)) p++;
+      if (*p == '\0') {
+        fprintf (stderr, "missing input file\n");
+      } else {
+        line_vec_clear (&prog);
+        load_program (&prog, p);
+      }
+      continue;
+    }
     if (strcasecmp (p, "LIST") == 0) {
       list_program (&prog);
       continue;
@@ -3961,37 +4007,8 @@ int main (int argc, char **argv) {
     repl ();
     return 0;
   }
-  FILE *f = fopen (fname, "r");
-  if (!f) {
-    perror (fname);
-    return 1;
-  }
   LineVec prog = {0};
-  int auto_line = 10;
-  char line[256];
-  while (fgets (line, sizeof (line), f)) {
-    char *p = line;
-    line[strcspn (line, "\n")] = '\0';
-    while (isspace ((unsigned char) *p)) p++;
-    if (*p == '\0') continue;
-    if (strncasecmp (p, "FUNCTION", 8) == 0) {
-      parse_func (f, p, 0);
-      continue;
-    } else if (strncasecmp (p, "SUB", 3) == 0) {
-      parse_func (f, p, 1);
-      continue;
-    }
-    Line l;
-    if (parse_line (line, &l)) {
-      if (l.line == 0) {
-        l.line = auto_line;
-        auto_line += 10;
-      }
-    } else {
-      fprintf (stderr, "parse error: %s\n", line);
-    }
-  }
-  fclose (f);
+  if (!load_program (&prog, fname)) return 1;
   gen_program (&prog, jit, asm_p, obj_p, bin_p, reduce_libs, out_name, fname);
   return 0;
 }
