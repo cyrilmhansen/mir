@@ -26,7 +26,7 @@ run_test() {
         diff "$exp" "$out"
 }
 
-for t in hello relop adder string strfuncs instr gosub funcproc graphics readhplot circle box sudoku codebreaker; do
+for t in hello relop adder string strfuncs instr gosub funcproc graphics readhplot circle box sudoku codebreaker rps; do
 	echo "Running $t"
 	run_test "$t"
 	echo "$t OK"
