@@ -26,11 +26,24 @@ run_test() {
         diff "$exp" "$out"
 }
 
-for t in hello relop adder guess string strfuncs instr gosub funcproc graphics readhplot circle box sudoku; do
+for t in hello relop adder string strfuncs instr gosub funcproc graphics readhplot circle box sudoku; do
 	echo "Running $t"
 	run_test "$t"
 	echo "$t OK"
 done
+
+echo "Running hello (no line tracking)"
+"$BASICC" --no-line-tracking "$ROOT/examples/basic/hello.bas" > "$ROOT/basic/hello-no-line.out"
+diff "$ROOT/examples/basic/hello.out" "$ROOT/basic/hello-no-line.out"
+echo "hello (no line tracking) OK"
+
+echo "Running resume (expect error)"
+if "$BASICC" --no-line-tracking "$ROOT/examples/basic/resume.bas" >/dev/null 2> "$ROOT/basic/resume.err"; then
+        echo "resume should have failed"
+        exit 1
+fi
+grep -q "line tracking" "$ROOT/basic/resume.err"
+echo "resume error OK"
 
 echo "Running fleuves (no explain)"
 timeout 10 "$BASICC" "$ROOT/examples/basic/fleuves.bas" < "$ROOT/examples/basic/fleuves.in" >/dev/null

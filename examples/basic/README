@@ -1,0 +1,8 @@
+BASIC Compiler Notes
+====================
+
+The `basicc` compiler accepts the `--no-line-tracking` flag to skip inserting
+`basic_set_line` calls during code generation.  Disabling line tracking can
+speed up compiled programs but removes support for `RESUME` without an explicit
+line number and causes the `basic_get_line` helper to report an error if
+invoked.

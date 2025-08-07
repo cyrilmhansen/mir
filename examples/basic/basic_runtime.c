@@ -13,14 +13,25 @@ static int basic_pos_val = 1;
 static int basic_error_handler = 0;
 static int basic_line = 0;
 static double last_hplot_x = 0.0, last_hplot_y = 0.0;
+int basic_line_tracking_enabled = 1;
+
+void basic_enable_line_tracking (double on) { basic_line_tracking_enabled = on != 0; }
 
 void basic_set_error_handler (double line) { basic_error_handler = (int) line; }
 
 double basic_get_error_handler (void) { return (double) basic_error_handler; }
 
-void basic_set_line (double line) { basic_line = (int) line; }
+void basic_set_line (double line) {
+  if (basic_line_tracking_enabled) basic_line = (int) line;
+}
 
-double basic_get_line (void) { return (double) basic_line; }
+double basic_get_line (void) {
+  if (!basic_line_tracking_enabled) {
+    fprintf (stderr, "line tracking disabled\n");
+    exit (1);
+  }
+  return (double) basic_line;
+}
 
 double basic_input (void) {
   double x = 0.0;
