@@ -449,6 +449,8 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) 
 	diff $(SRC_DIR)/examples/basic/rps.out $(BUILD_DIR)/basic/rps.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/array_default.bas > $(BUILD_DIR)/basic/array_default.out
 	diff $(SRC_DIR)/examples/basic/array_default.out $(BUILD_DIR)/basic/array_default.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/codebreaker.bas < $(SRC_DIR)/examples/basic/codebreaker.in > $(BUILD_DIR)/basic/codebreaker.out
+	diff $(SRC_DIR)/examples/basic/codebreaker.out $(BUILD_DIR)/basic/codebreaker.out
 	printf 'A\nE\nM\nI\nR\n' | $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/hangman.bas > $(BUILD_DIR)/basic/hangman.out
 	diff $(SRC_DIR)/examples/basic/hangman.out $(BUILD_DIR)/basic/hangman.out
 	printf '10 PRINT "HI"\nLIST\nRUN\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl.out
