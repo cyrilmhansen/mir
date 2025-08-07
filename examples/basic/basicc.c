@@ -3619,8 +3619,9 @@ static void gen_stmt (Stmt *s) {
   }
 }
 
-static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p, int reduce_libs,
-                         int track_lines, const char *out_name, const char *src_name) {
+static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p, int code_p,
+                         int reduce_libs, int track_lines, const char *out_name,
+                         const char *src_name) {
   MIR_context_t ctx = MIR_init ();
   MIR_module_t module = MIR_new_module (ctx, "BASIC");
   print_proto = MIR_new_proto (ctx, "basic_print_p", 0, NULL, 1, MIR_T_D, "x");
@@ -3994,6 +3995,25 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     MIR_finish (ctx);
     return;
   }
+  if (code_p) {
+    MIR_load_module (ctx, module);
+    MIR_gen_init (ctx);
+    MIR_link (ctx, MIR_set_gen_interface, resolve);
+    uint8_t *start = _MIR_get_new_code_addr (ctx, 0);
+    MIR_gen (ctx, func);
+    uint8_t *end = _MIR_get_new_code_addr (ctx, 0);
+    size_t len = end - start;
+    FILE *f = fopen (out_name, "wb");
+    if (f != NULL) {
+      fwrite (start, 1, len, f);
+      fclose (f);
+    } else {
+      perror (out_name);
+    }
+    MIR_gen_finish (ctx);
+    MIR_finish (ctx);
+    return;
+  }
   MIR_load_module (ctx, module);
   if (jit) {
     MIR_gen_init (ctx);
@@ -4037,7 +4057,7 @@ static void repl (void) {
       continue;
     }
     if (strcasecmp (p, "RUN") == 0) {
-      gen_program (&prog, 0, 0, 0, 0, 0, line_tracking, NULL, "(repl)");
+      gen_program (&prog, 0, 0, 0, 0, 0, 0, line_tracking, NULL, "(repl)");
       continue;
     }
     if (strncasecmp (p, "COMPILE", 7) == 0) {
@@ -4049,7 +4069,7 @@ static void repl (void) {
         if (*p == '\0') {
           fprintf (stderr, "missing output file\n");
         } else {
-          gen_program (&prog, 0, 0, 0, 1, 0, line_tracking, p, "(repl)");
+          gen_program (&prog, 0, 0, 0, 1, 0, 0, line_tracking, p, "(repl)");
           if (access (p, F_OK) == 0)
             printf ("%s\n", p);
           else
@@ -4062,13 +4082,26 @@ static void repl (void) {
         if (*p == '\0') {
           fprintf (stderr, "missing output file\n");
         } else {
-          gen_program (&prog, 0, 0, 1, 0, 0, line_tracking, p, "(repl)");
+          gen_program (&prog, 0, 0, 1, 0, 0, 0, line_tracking, p, "(repl)");
           char *name = change_suffix (p, ".bmir");
           if (access (name, F_OK) == 0)
             printf ("%s\n", name);
           else
             perror (name);
           free (name);
+        }
+        continue;
+      } else if (strncasecmp (p, "CODE", 4) == 0) {
+        p += 4;
+        while (isspace ((unsigned char) *p)) p++;
+        if (*p == '\0') {
+          fprintf (stderr, "missing output file\n");
+        } else {
+          gen_program (&prog, 0, 0, 0, 0, 1, 0, line_tracking, p, "(repl)");
+          if (access (p, F_OK) == 0)
+            printf ("%s\n", p);
+          else
+            perror (p);
         }
         continue;
       }
@@ -4081,7 +4114,7 @@ static void repl (void) {
       if (*p == '\0') {
         fprintf (stderr, "missing output file\n");
       } else {
-        gen_program (&prog, 0, 0, 0, 1, 0, line_tracking, p, "(repl)");
+        gen_program (&prog, 0, 0, 0, 1, 0, 0, line_tracking, p, "(repl)");
         if (access (p, F_OK) == 0)
           printf ("Saved %s\n", p);
         else
@@ -4145,6 +4178,6 @@ int main (int argc, char **argv) {
   }
   LineVec prog = {0};
   if (!load_program (&prog, fname)) return 1;
-  gen_program (&prog, jit, asm_p, obj_p, bin_p, reduce_libs, line_tracking, out_name, fname);
+  gen_program (&prog, jit, asm_p, obj_p, bin_p, 0, reduce_libs, line_tracking, out_name, fname);
   return 0;
 }
