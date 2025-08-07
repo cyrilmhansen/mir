@@ -485,9 +485,7 @@ static inline MIR_context_t MIR_init2 (MIR_alloc_t alloc, MIR_code_alloc_t code_
 }
 
 /* ...or this one. */
-static inline MIR_context_t MIR_init (void) {
-  return MIR_init2 (NULL, NULL);
-}
+static inline MIR_context_t MIR_init (void) { return MIR_init2 (NULL, NULL); }
 
 extern void MIR_finish (MIR_context_t ctx);
 
@@ -707,6 +705,7 @@ extern void va_end_interp_builtin (MIR_context_t ctx, void *p);
 
 extern void *_MIR_get_bstart_builtin (MIR_context_t ctx);
 extern void *_MIR_get_bend_builtin (MIR_context_t ctx);
+extern int MIR_helper_used_p (MIR_context_t ctx, const char *name);
 
 typedef struct {
   MIR_type_t type;

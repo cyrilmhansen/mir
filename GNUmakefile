@@ -191,7 +191,7 @@ endif
 clean: clean-mir clean-c2m clean-utils clean-l2m clean-adt-tests clean-mir-tests clean-mir2c-test clean-bench
 	$(RM) $(EXECUTABLES) $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/$(SOLIB)
 
-test: readme-example-test mir-bin-run-test c2mir-test basic-test
+test: readme-example-test mir-bin-run-test c2mir-test basic-test helper-bitmap-test
 
 test-all: adt-test simplify-test io-test scan-test mir2c-test $(L2M-TEST) test
 
@@ -522,11 +522,11 @@ clean-mir-interp-tests:
 	$(RM) $(BUILD_DIR)/mir-tests/interp-test7$(EXE)
 # ------------------ MIR gen tests --------------------------
 .PHONY: clean-mir-gen-tests
-.PHONY: gen-test gen-test-loop gen-test-sieve gen-issue219-test gen-test-get-thunk-addr
+.PHONY: gen-test gen-test-loop gen-test-sieve gen-issue219-test gen-test-get-thunk-addr helper-bitmap-test
 .PHONY: gen-test1 gen-test2 gen-test3 gen-test4 gen-test5 gen-test6 gen-test7
 .PHONY: gen-test8 gen-test9 gen-test10 gen-test11 gen-test12 gen-test13 gen-test14 gen-test15 gen-test16
 gen-test: gen-test-loop gen-test-sieve gen-test-get-thunk-addr gen-issue219-test gen-test1 gen-test2 gen-test3 gen-test4 gen-test5 gen-test6 gen-test7\
-	  gen-test8 gen-test9 gen-test10 gen-test11 gen-test12 gen-test13 gen-test14 gen-test15 gen-test16
+          gen-test8 gen-test9 gen-test10 gen-test11 gen-test12 gen-test13 gen-test14 gen-test15 gen-test16
 gen-test-loop: $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) $(SRC_DIR)/mir-tests/loop-sieve-gen.c | $(BUILD_DIR)/mir-tests
 	$(COMPILE_AND_LINK) -DTEST_GEN_LOOP -DTEST_GEN_DEBUG=1 $^ $(LDLIBS) $(EXEO)$(BUILD_DIR)/mir-tests/gen-loop-test$(EXE)
 	$(BUILD_DIR)/mir-tests/gen-loop-test
@@ -539,6 +539,9 @@ gen-issue219-test: $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) $
 gen-test-get-thunk-addr: $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) $(SRC_DIR)/mir-tests/get-thunk-addr.c | $(BUILD_DIR)/mir-tests
 	$(COMPILE_AND_LINK) $^ $(LDLIBS) $(EXEO)$(BUILD_DIR)/mir-tests/gen-get-thunk-addr-test$(EXE)
 	$(BUILD_DIR)/mir-tests/gen-get-thunk-addr-test
+helper-bitmap-test: $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) $(SRC_DIR)/mir-tests/helper-bitmap.c | $(BUILD_DIR)/mir-tests
+	$(COMPILE_AND_LINK) $^ $(LDLIBS) $(EXEO)$(BUILD_DIR)/mir-tests/helper-bitmap-test$(EXE)
+	$(BUILD_DIR)/mir-tests/helper-bitmap-test
 gen-test1: $(BUILD_DIR)/run-test$(EXE)
 	$(BUILD_DIR)/run-test$(EXE) -d $(SRC_DIR)/mir-tests/test1.mir
 gen-test2: $(BUILD_DIR)/run-test$(EXE)
@@ -577,7 +580,7 @@ gen-test16: $(BUILD_DIR)/run-test$(EXE)
 	$(BUILD_DIR)/run-test$(EXE) -g $(SRC_DIR)/mir-tests/test16.mir
 clean-mir-gen-tests:
 	$(RM) $(BUILD_DIR)/mir-tests/gen-loop-test$(EXE) $(BUILD_DIR)/mir-tests/gen-sieve-test$(EXE)
-	$(RM) $(BUILD_DIR)/mir-tests/issue219$(EXE) $(BUILD_DIR)/mir-tests/gen-get-thunk-addr-test
+	$(RM) $(BUILD_DIR)/mir-tests/issue219$(EXE) $(BUILD_DIR)/mir-tests/gen-get-thunk-addr-test $(BUILD_DIR)/mir-tests/helper-bitmap-test$(EXE)
 # ------------------ MIR run tests --------------------------
 mir-bin-run-test: $(BUILD_DIR)/mir-bin-run$(EXE) $(BUILD_DIR)/c2m$(EXE)
 	      $(BUILD_DIR)/c2m$(EXE) -c $(SRC_DIR)/sieve.c
