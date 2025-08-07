@@ -40,3 +40,8 @@ echo "Running fleuves (with explain)"
 timeout 10 "$BASICC" "$ROOT/examples/basic/fleuves.bas" < "$ROOT/examples/basic/fleuves_explain.in" >/dev/null
 echo "fleuves (with explain) done"
 
+echo "Running repl LOAD"
+printf 'LOAD %s\nRUN\nQUIT\n' "$ROOT/examples/basic/hello.bas" | "$BASICC" > "$ROOT/basic/repl-load.out"
+diff "$ROOT/examples/basic/repl-load.out" "$ROOT/basic/repl-load.out"
+echo "repl LOAD done"
+
