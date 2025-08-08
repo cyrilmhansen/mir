@@ -15,6 +15,125 @@ static int basic_line = 0;
 static double last_hplot_x = 0.0, last_hplot_y = 0.0;
 int basic_line_tracking_enabled = 1;
 
+typedef struct {
+  int line;
+  long count;
+  long long ns;
+} LineProfile;
+
+typedef struct {
+  const char *name;
+  long count;
+  long long ns;
+} FuncProfile;
+
+typedef struct {
+  size_t idx;
+  struct timespec start;
+} FuncStackEntry;
+
+static LineProfile *line_profiles = NULL;
+static size_t line_profiles_len = 0;
+static FuncProfile *func_profiles = NULL;
+static size_t func_profiles_len = 0;
+static FuncStackEntry *func_stack = NULL;
+static size_t func_stack_len = 0;
+static int last_profile_line = -1;
+static struct timespec last_time;
+
+static long long diff_ns (struct timespec a, struct timespec b) {
+  return (b.tv_sec - a.tv_sec) * 1000000000LL + (b.tv_nsec - a.tv_nsec);
+}
+
+static LineProfile *get_line_profile (int line) {
+  for (size_t i = 0; i < line_profiles_len; i++)
+    if (line_profiles[i].line == line) return &line_profiles[i];
+  line_profiles = realloc (line_profiles, (line_profiles_len + 1) * sizeof (LineProfile));
+  line_profiles[line_profiles_len] = (LineProfile) {.line = line, .count = 0, .ns = 0};
+  return &line_profiles[line_profiles_len++];
+}
+
+static size_t get_func_profile (const char *name) {
+  for (size_t i = 0; i < func_profiles_len; i++)
+    if (strcmp (func_profiles[i].name, name) == 0) return i;
+  func_profiles = realloc (func_profiles, (func_profiles_len + 1) * sizeof (FuncProfile));
+  func_profiles[func_profiles_len] = (FuncProfile) {.name = name, .count = 0, .ns = 0};
+  return func_profiles_len++;
+}
+
+void basic_profile_reset (void) {
+  free (line_profiles);
+  free (func_profiles);
+  free (func_stack);
+  line_profiles = NULL;
+  func_profiles = NULL;
+  func_stack = NULL;
+  line_profiles_len = func_profiles_len = func_stack_len = 0;
+  last_profile_line = -1;
+  clock_gettime (CLOCK_MONOTONIC, &last_time);
+}
+
+void basic_profile_line (double line_no) {
+  struct timespec now;
+  clock_gettime (CLOCK_MONOTONIC, &now);
+  if (last_profile_line != -1) {
+    LineProfile *lp = get_line_profile (last_profile_line);
+    lp->ns += diff_ns (last_time, now);
+  }
+  LineProfile *curr = get_line_profile ((int) line_no);
+  curr->count++;
+  last_profile_line = (int) line_no;
+  last_time = now;
+}
+
+void basic_profile_func_enter (const char *name) {
+  struct timespec now;
+  clock_gettime (CLOCK_MONOTONIC, &now);
+  size_t idx = get_func_profile (name);
+  func_profiles[idx].count++;
+  func_stack = realloc (func_stack, (func_stack_len + 1) * sizeof (FuncStackEntry));
+  func_stack[func_stack_len++] = (FuncStackEntry) {idx, now};
+}
+
+void basic_profile_func_exit (const char *name) {
+  (void) name;
+  if (func_stack_len == 0) return;
+  struct timespec now;
+  clock_gettime (CLOCK_MONOTONIC, &now);
+  FuncStackEntry ent = func_stack[--func_stack_len];
+  func_profiles[ent.idx].ns += diff_ns (ent.start, now);
+}
+
+static int line_cmp (const void *a, const void *b) {
+  const LineProfile *la = a, *lb = b;
+  return la->line - lb->line;
+}
+
+static int func_cmp (const void *a, const void *b) {
+  const FuncProfile *fa = a, *fb = b;
+  return strcmp (fa->name, fb->name);
+}
+
+void basic_profile_dump (void) {
+  struct timespec now;
+  clock_gettime (CLOCK_MONOTONIC, &now);
+  if (last_profile_line != -1) {
+    LineProfile *lp = get_line_profile (last_profile_line);
+    lp->ns += diff_ns (last_time, now);
+    last_profile_line = -1;
+  }
+  qsort (line_profiles, line_profiles_len, sizeof (LineProfile), line_cmp);
+  qsort (func_profiles, func_profiles_len, sizeof (FuncProfile), func_cmp);
+  for (size_t i = 0; i < line_profiles_len; i++) {
+    printf ("line %d: count %ld time %.9f\n", line_profiles[i].line, line_profiles[i].count,
+            line_profiles[i].ns / 1e9);
+  }
+  for (size_t i = 0; i < func_profiles_len; i++) {
+    printf ("func %s: count %ld time %.9f\n", func_profiles[i].name, func_profiles[i].count,
+            func_profiles[i].ns / 1e9);
+  }
+}
+
 void basic_enable_line_tracking (double on) { basic_line_tracking_enabled = on != 0; }
 
 void basic_set_error_handler (double line) { basic_error_handler = (int) line; }

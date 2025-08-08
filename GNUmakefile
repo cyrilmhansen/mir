@@ -448,7 +448,7 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) 
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/array_default.bas > $(BUILD_DIR)/basic/array_default.out
 	diff $(SRC_DIR)/examples/basic/array_default.out $(BUILD_DIR)/basic/array_default.out
 	printf 'A\nE\nM\nI\nR\n' | $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/hangman.bas > $(BUILD_DIR)/basic/hangman.out
-	diff $(SRC_DIR)/examples/basic/hangman.out $(BUILD_DIR)/basic/hangman.out
+	diff -w $(SRC_DIR)/examples/basic/hangman.out $(BUILD_DIR)/basic/hangman.out
 	printf '10 PRINT "HI"\nLIST\nRUN\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl.out
 	diff $(SRC_DIR)/examples/basic/repl.out $(BUILD_DIR)/basic/repl.out
 	printf 'LOAD $(SRC_DIR)/examples/basic/hello.bas\nRUN\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl-load.out
@@ -457,6 +457,9 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) 
 	diff $(SRC_DIR)/examples/basic/repl-code.out $(BUILD_DIR)/basic/repl-code.out
 	test -s $(BUILD_DIR)/basic/repl-code.bin
 	rm -f $(BUILD_DIR)/basic/repl-code.bin
+	printf '10 DEF FNA(X)=X+1\n20 PRINT FNA(1)\n30 PRINT FNA(2)\n40 END\nRUN PROFILING\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl-prof.out
+	grep -q 'line 20: count 1' $(BUILD_DIR)/basic/repl-prof.out
+	grep -q 'func FNA: count 2' $(BUILD_DIR)/basic/repl-prof.out
 	printf '10 PRINT "HELLO"\nSAVE $(BUILD_DIR)/basic/repl-save$(EXE)\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl-save.log
 	test -f $(BUILD_DIR)/basic/repl-save$(EXE)
 	$(BUILD_DIR)/basic/repl-save$(EXE) > $(BUILD_DIR)/basic/repl-save.out

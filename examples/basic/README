@@ -6,3 +6,30 @@ The `basicc` compiler accepts the `--no-line-tracking` flag to skip inserting
 speed up compiled programs but removes support for `RESUME` without an explicit
 line number and causes the `basic_get_line` helper to report an error if
 invoked.
+
+The REPL understands a `RUN PROFILING` command which executes the current
+program with profiling enabled. After the program finishes, it prints line
+statistics followed by function statistics, each sorted in ascending order. The
+format lists the line number or function name, the execution count, and the
+total time in seconds.
+
+Example session:
+
+```
+10 DEF FNA(X)=X+1
+20 PRINT FNA(1)
+30 PRINT FNA(2)
+40 END
+RUN PROFILING
+QUIT
+```
+
+Sample output:
+
+```
+2
+3
+line 20: count 1 time 0.000000001
+line 30: count 1 time 0.000000001
+func FNA: count 2 time 0.000000002
+```
