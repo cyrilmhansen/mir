@@ -23,6 +23,12 @@ extern char *basic_inkey (void);
 
 extern void basic_put (const char *);
 
+extern void basic_profile_reset (void);
+extern void basic_profile_dump (void);
+extern void basic_profile_line (double);
+extern void basic_profile_func_enter (const char *);
+extern void basic_profile_func_exit (const char *);
+
 extern int basic_strcmp (const char *, const char *);
 
 extern double basic_read (void);
@@ -196,6 +202,9 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_rect")) return basic_rect;
   if (!strcmp (name, "basic_fill")) return basic_fill;
   if (!strcmp (name, "basic_mode")) return basic_mode;
+  if (!strcmp (name, "basic_profile_line")) return basic_profile_line;
+  if (!strcmp (name, "basic_profile_func_enter")) return basic_profile_func_enter;
+  if (!strcmp (name, "basic_profile_func_exit")) return basic_profile_func_exit;
 
   if (!strcmp (name, "basic_chr")) return basic_chr;
   if (!strcmp (name, "basic_string")) return basic_string;
@@ -255,8 +264,9 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   input_hash_proto, input_hash_import, input_hash_str_proto, input_hash_str_import, get_hash_proto,
   get_hash_import, put_hash_proto, put_hash_import, randomize_proto, randomize_import, stop_proto,
   stop_import, on_error_proto, on_error_import, set_line_proto, set_line_import, get_line_proto,
-  get_line_import, line_track_proto, line_track_import, beep_proto, beep_import, sound_proto,
-  sound_import;
+  get_line_import, line_track_proto, line_track_import, profile_line_proto, profile_line_import,
+  profile_func_enter_proto, profile_func_enter_import, profile_func_exit_proto,
+  profile_func_exit_import, beep_proto, beep_import, sound_proto, sound_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL } NodeKind;
@@ -3620,7 +3630,7 @@ static void gen_stmt (Stmt *s) {
 }
 
 static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p, int code_p,
-                         int reduce_libs, int track_lines, const char *out_name,
+                         int reduce_libs, int profile_p, int track_lines, const char *out_name,
                          const char *src_name) {
   MIR_context_t ctx = MIR_init ();
   MIR_module_t module = MIR_new_module (ctx, "BASIC");
@@ -3726,6 +3736,16 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   get_line_import = MIR_new_import (ctx, "basic_get_line");
   line_track_proto = MIR_new_proto (ctx, "basic_enable_line_tracking_p", 0, NULL, 1, MIR_T_D, "on");
   line_track_import = MIR_new_import (ctx, "basic_enable_line_tracking");
+  if (profile_p) {
+    profile_line_proto = MIR_new_proto (ctx, "basic_profile_line_p", 0, NULL, 1, MIR_T_D, "line");
+    profile_line_import = MIR_new_import (ctx, "basic_profile_line");
+    profile_func_enter_proto
+      = MIR_new_proto (ctx, "basic_profile_func_enter_p", 0, NULL, 1, MIR_T_P, "name");
+    profile_func_enter_import = MIR_new_import (ctx, "basic_profile_func_enter");
+    profile_func_exit_proto
+      = MIR_new_proto (ctx, "basic_profile_func_exit_p", 0, NULL, 1, MIR_T_P, "name");
+    profile_func_exit_import = MIR_new_import (ctx, "basic_profile_func_exit");
+  }
   rnd_proto = MIR_new_proto (ctx, "basic_rnd_p", 1, &d, 1, MIR_T_D, "n");
   rnd_import = MIR_new_import (ctx, "basic_rnd");
   chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, MIR_T_D, "n");
@@ -3823,6 +3843,12 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       fd->proto = MIR_new_proto_arr (ctx, proto_name, 1, &rtype, fd->n, vars);
       fd->item = MIR_new_func_arr (ctx, fd->name, 1, &rtype, fd->n, vars);
     }
+    if (profile_p)
+      MIR_append_insn (ctx, fd->item,
+                       MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, profile_func_enter_proto),
+                                          MIR_new_ref_op (ctx, profile_func_enter_import),
+                                          MIR_new_str_op (ctx, (MIR_str_t) {strlen (fd->name) + 1,
+                                                                            fd->name})));
     VarVec fvars = {0};
     for (size_t j = 0; j < fd->n; j++) {
       if (fvars.len == fvars.cap) {
@@ -3838,7 +3864,14 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     }
     if (fd->body != NULL) {
       MIR_reg_t r = gen_expr (ctx, fd->item, &fvars, fd->body);
-      MIR_append_insn (ctx, fd->item, MIR_new_ret_insn (ctx, 1, MIR_new_reg_op (ctx, r)));
+      MIR_insn_t ret_insn = MIR_new_ret_insn (ctx, 1, MIR_new_reg_op (ctx, r));
+      if (profile_p)
+        MIR_append_insn (ctx, fd->item,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, profile_func_exit_proto),
+                                            MIR_new_ref_op (ctx, profile_func_exit_import),
+                                            MIR_new_str_op (ctx, (MIR_str_t) {strlen (fd->name) + 1,
+                                                                              fd->name})));
+      MIR_append_insn (ctx, fd->item, ret_insn);
     } else {
       MIR_item_t saved_func = g_func;
       VarVec saved_vars = g_vars;
@@ -3851,12 +3884,20 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       g_labels = NULL;
       g_loop_len = 0;
       for (size_t j = 0; j < fd->body_stmts.len; j++) gen_stmt (&fd->body_stmts.data[j]);
+      MIR_insn_t ret_insn;
       if (fd->is_proc) {
-        MIR_append_insn (ctx, fd->item, MIR_new_ret_insn (ctx, 0));
+        ret_insn = MIR_new_ret_insn (ctx, 0);
       } else {
         MIR_reg_t r = get_var (&g_vars, ctx, fd->item, fd->name);
-        MIR_append_insn (ctx, fd->item, MIR_new_ret_insn (ctx, 1, MIR_new_reg_op (ctx, r)));
+        ret_insn = MIR_new_ret_insn (ctx, 1, MIR_new_reg_op (ctx, r));
       }
+      if (profile_p)
+        MIR_append_insn (ctx, fd->item,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, profile_func_exit_proto),
+                                            MIR_new_ref_op (ctx, profile_func_exit_import),
+                                            MIR_new_str_op (ctx, (MIR_str_t) {strlen (fd->name) + 1,
+                                                                              fd->name})));
+      MIR_append_insn (ctx, fd->item, ret_insn);
       g_func = saved_func;
       g_vars = saved_vars;
       g_prog = saved_prog;
@@ -3911,6 +3952,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   for (size_t i = 0; i < n; i++) {
     Line *ln = &g_prog->data[i];
     MIR_append_insn (g_ctx, g_func, labels[i]);
+    if (profile_p)
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, profile_line_proto),
+                                          MIR_new_ref_op (g_ctx, profile_line_import),
+                                          MIR_new_double_op (g_ctx, (double) ln->line)));
     if (g_line_tracking)
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, set_line_proto),
@@ -4056,8 +4102,21 @@ static void repl (void) {
       }
       continue;
     }
-    if (strcasecmp (p, "RUN") == 0) {
-      gen_program (&prog, 0, 0, 0, 0, 0, 0, line_tracking, NULL, "(repl)");
+    if (strncasecmp (p, "RUN", 3) == 0) {
+      p += 3;
+      while (isspace ((unsigned char) *p)) p++;
+      int profile_p = 0;
+      if (*p != '\0') {
+        if (strcasecmp (p, "PROFILING") == 0 || strcasecmp (p, "PROFILE") == 0) {
+          profile_p = 1;
+        } else {
+          fprintf (stderr, "unknown RUN option: %s\n", p);
+          continue;
+        }
+      }
+      if (profile_p) basic_profile_reset ();
+      gen_program (&prog, 0, 0, 0, 0, 0, 0, profile_p, line_tracking, NULL, "(repl)");
+      if (profile_p) basic_profile_dump ();
       continue;
     }
     if (strncasecmp (p, "COMPILE", 7) == 0) {
@@ -4069,7 +4128,7 @@ static void repl (void) {
         if (*p == '\0') {
           fprintf (stderr, "missing output file\n");
         } else {
-          gen_program (&prog, 0, 0, 0, 1, 0, 0, line_tracking, p, "(repl)");
+          gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, p, "(repl)");
           if (access (p, F_OK) == 0)
             printf ("%s\n", p);
           else
@@ -4082,7 +4141,7 @@ static void repl (void) {
         if (*p == '\0') {
           fprintf (stderr, "missing output file\n");
         } else {
-          gen_program (&prog, 0, 0, 1, 0, 0, 0, line_tracking, p, "(repl)");
+          gen_program (&prog, 0, 0, 1, 0, 0, 0, 0, line_tracking, p, "(repl)");
           char *name = change_suffix (p, ".bmir");
           if (access (name, F_OK) == 0)
             printf ("%s\n", name);
@@ -4097,7 +4156,7 @@ static void repl (void) {
         if (*p == '\0') {
           fprintf (stderr, "missing output file\n");
         } else {
-          gen_program (&prog, 0, 0, 0, 0, 1, 0, line_tracking, p, "(repl)");
+          gen_program (&prog, 0, 0, 0, 0, 1, 0, 0, line_tracking, p, "(repl)");
           if (access (p, F_OK) == 0)
             printf ("%s\n", p);
           else
@@ -4114,7 +4173,7 @@ static void repl (void) {
       if (*p == '\0') {
         fprintf (stderr, "missing output file\n");
       } else {
-        gen_program (&prog, 0, 0, 0, 1, 0, 0, line_tracking, p, "(repl)");
+        gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, p, "(repl)");
         if (access (p, F_OK) == 0)
           printf ("Saved %s\n", p);
         else
@@ -4178,6 +4237,6 @@ int main (int argc, char **argv) {
   }
   LineVec prog = {0};
   if (!load_program (&prog, fname)) return 1;
-  gen_program (&prog, jit, asm_p, obj_p, bin_p, 0, reduce_libs, line_tracking, out_name, fname);
+  gen_program (&prog, jit, asm_p, obj_p, bin_p, 0, reduce_libs, 0, line_tracking, out_name, fname);
   return 0;
 }

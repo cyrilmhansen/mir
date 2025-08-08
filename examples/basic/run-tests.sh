@@ -65,3 +65,9 @@ test -s repl-code.bin
 rm -f repl-code.bin
 echo "repl CODE done"
 
+echo "Running repl PROFILING"
+printf '10 DEF FNA(X)=X+1\n20 PRINT FNA(1)\n30 PRINT FNA(2)\n40 END\nRUN PROFILING\nQUIT\n' | "$BASICC" > "$ROOT/basic/repl-prof.out"
+grep -q 'line 20: count 1' "$ROOT/basic/repl-prof.out"
+grep -q 'func FNA: count 2' "$ROOT/basic/repl-prof.out"
+echo "repl PROFILING done"
+
