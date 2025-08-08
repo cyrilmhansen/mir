@@ -773,6 +773,13 @@ static void line_vec_clear (LineVec *v) {
   v->len = 0;
 }
 
+static void line_vec_destroy (LineVec *v) {
+  line_vec_clear (v);
+  free (v->data);
+  v->data = NULL;
+  v->cap = 0;
+}
+
 static void insert_or_replace_line (LineVec *prog, Line l) {
   if (prog->len == prog->cap) {
     prog->cap = prog->cap ? 2 * prog->cap : 16;
@@ -4376,7 +4383,7 @@ static void repl (void) {
       if (*p == '\0') {
         fprintf (stderr, "missing input file\n");
       } else {
-        line_vec_clear (&prog);
+        line_vec_destroy (&prog);
         load_program (&prog, p);
       }
       continue;
@@ -4386,7 +4393,7 @@ static void repl (void) {
       continue;
     }
     if (strcasecmp (p, "NEW") == 0) {
-      line_vec_clear (&prog);
+      line_vec_destroy (&prog);
       func_vec_clear (&func_defs);
       data_vals_clear ();
       continue;
