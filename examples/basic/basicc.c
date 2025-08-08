@@ -309,6 +309,16 @@ static void data_vec_push (DataVec *v, BasicData d) {
   v->data[v->len++] = d;
 }
 
+static void data_vals_clear (void) {
+  for (size_t i = 0; i < data_vals.len; i++)
+    if (data_vals.data[i].is_str) free (data_vals.data[i].str);
+  free (data_vals.data);
+  data_vals.data = NULL;
+  data_vals.len = data_vals.cap = 0;
+  basic_data_items = NULL;
+  basic_data_len = basic_data_pos = 0;
+}
+
 /* Statement representation */
 /* Added ST_REM for comment lines, ST_DIM for array declarations, ST_CLEAR to reset state, and
    data-related statements. */
@@ -2055,6 +2065,7 @@ static int load_program (LineVec *prog, const char *path) {
     return 0;
   }
   func_vec_clear (&func_defs);
+  data_vals_clear ();
   int auto_line = 10;
   char line[256];
   while (fgets (line, sizeof (line), f)) {
@@ -4046,6 +4057,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       free (name);
     }
     MIR_finish (ctx);
+    data_vals_clear ();
     return;
   }
   if (bin_p) {
@@ -4080,6 +4092,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     free (ctab_name);
     free (exe_name);
     MIR_finish (ctx);
+    data_vals_clear ();
     return;
   }
   if (code_p) {
@@ -4099,6 +4112,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     }
     MIR_gen_finish (ctx);
     MIR_finish (ctx);
+    data_vals_clear ();
     return;
   }
   MIR_load_module (ctx, module);
@@ -4116,6 +4130,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     m ();
   }
   MIR_finish (ctx);
+  data_vals_clear ();
 }
 
 static void repl (void) {
@@ -4240,12 +4255,18 @@ static void repl (void) {
     if (strcasecmp (p, "NEW") == 0) {
       line_vec_clear (&prog);
       func_vec_clear (&func_defs);
+      data_vals_clear ();
       continue;
     }
     if (strcasecmp (p, "QUIT") == 0 || strcasecmp (p, "EXIT") == 0) {
       break;
     }
   }
+  line_vec_clear (&prog);
+  free (prog.data);
+  func_vec_clear (&func_defs);
+  free (func_defs.data);
+  data_vals_clear ();
 }
 
 int main (int argc, char **argv) {

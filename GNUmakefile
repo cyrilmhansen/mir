@@ -453,6 +453,10 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) 
 	diff $(SRC_DIR)/examples/basic/repl.out $(BUILD_DIR)/basic/repl.out
 	printf 'LOAD $(SRC_DIR)/examples/basic/hello.bas\nRUN\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl-load.out
 	diff $(SRC_DIR)/examples/basic/repl-load.out $(BUILD_DIR)/basic/repl-load.out
+	printf 'LOAD $(SRC_DIR)/examples/basic/restore.bas\nRUN\nNEW\nQUIT\n' | \
+	        valgrind --quiet --leak-check=full --error-exitcode=1 \
+	        $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl-data.out
+	diff $(SRC_DIR)/examples/basic/repl-data.out $(BUILD_DIR)/basic/repl-data.out
 	(cd $(BUILD_DIR)/basic && printf '10 PRINT "HI"\nCOMPILE CODE repl-code.bin\nQUIT\n' | ./basicc$(EXE) > repl-code.out)
 	diff $(SRC_DIR)/examples/basic/repl-code.out $(BUILD_DIR)/basic/repl-code.out
 	test -s $(BUILD_DIR)/basic/repl-code.bin
