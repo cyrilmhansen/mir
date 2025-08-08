@@ -534,6 +534,8 @@ typedef struct {
   int is_proc;
   MIR_item_t item;
   MIR_item_t proto;
+  char **src_lines;
+  size_t src_len, src_cap;
 } FuncDef;
 
 typedef struct {
@@ -549,6 +551,17 @@ static void func_vec_push (FuncVec *v, FuncDef f) {
     v->data = realloc (v->data, v->cap * sizeof (FuncDef));
   }
   v->data[v->len++] = f;
+}
+
+static void func_vec_clear (FuncVec *v) {
+  for (size_t i = 0; i < v->len; i++) {
+    FuncDef *fd = &v->data[i];
+    for (size_t j = 0; j < fd->src_len; j++) free (fd->src_lines[j]);
+    free (fd->src_lines);
+    fd->src_lines = NULL;
+    fd->src_len = fd->src_cap = 0;
+  }
+  v->len = 0;
 }
 
 static FuncDef *find_func (const char *name) {
@@ -772,6 +785,10 @@ static void delete_line (LineVec *prog, int line_no) {
 }
 
 static void list_program (LineVec *prog) {
+  for (size_t i = 0; i < func_defs.len; i++) {
+    FuncDef *fd = &func_defs.data[i];
+    for (size_t j = 0; j < fd->src_len; j++) printf ("%s\n", fd->src_lines[j]);
+  }
   for (size_t i = 0; i < prog->len; i++) printf ("%s\n", prog->data[i].src);
 }
 
@@ -1294,7 +1311,8 @@ static int parse_stmt (Stmt *out) {
     if (*cur != '=') return 0;
     cur++;
     Node *body = parse_expr ();
-    FuncDef fd = {fname, params, is_str, n, body, (StmtVec) {0}, f_is_str, 0, NULL, NULL};
+    FuncDef fd
+      = {fname, params, is_str, n, body, (StmtVec) {0}, f_is_str, 0, NULL, NULL, NULL, 0, 0};
     func_vec_push (&func_defs, fd);
     out->kind = ST_DEF;
     return 1;
@@ -1963,6 +1981,16 @@ static void parse_func (FILE *f, char *line, int is_sub) {
   char **params = NULL;
   int *is_str = NULL;
   size_t n = 0, cap = 0;
+  char **src_lines = NULL;
+  size_t src_len = 0, src_cap = 0;
+  /* store header line */
+  {
+    if (src_len == src_cap) {
+      src_cap = src_cap ? 2 * src_cap : 4;
+      src_lines = realloc (src_lines, src_cap * sizeof (char *));
+    }
+    src_lines[src_len++] = strdup (line);
+  }
   skip_ws ();
   if (*cur == '(') {
     cur++;
@@ -1995,16 +2023,28 @@ static void parse_func (FILE *f, char *line, int is_sub) {
     while (isspace ((unsigned char) *p)) p++;
     if (*p == '\0') continue;
     if ((is_sub && strncasecmp (p, "END SUB", 7) == 0)
-        || (!is_sub && strncasecmp (p, "END FUNCTION", 12) == 0))
+        || (!is_sub && strncasecmp (p, "END FUNCTION", 12) == 0)) {
+      if (src_len == src_cap) {
+        src_cap = src_cap ? 2 * src_cap : 4;
+        src_lines = realloc (src_lines, src_cap * sizeof (char *));
+      }
+      src_lines[src_len++] = strdup (buf);
       break;
+    }
     Line l;
     if (parse_line (buf, &l)) {
+      if (src_len == src_cap) {
+        src_cap = src_cap ? 2 * src_cap : 4;
+        src_lines = realloc (src_lines, src_cap * sizeof (char *));
+      }
+      src_lines[src_len++] = l.src;
       for (size_t i = 0; i < l.stmts.len; i++) stmt_vec_push (&body, l.stmts.data[i]);
     } else {
       fprintf (stderr, "parse error: %s\n", buf);
     }
   }
-  FuncDef fd = {name, params, is_str, n, NULL, body, f_is_str, is_sub, NULL, NULL};
+  FuncDef fd = {name,   params, is_str, n,         NULL,    body,   f_is_str,
+                is_sub, NULL,   NULL,   src_lines, src_len, src_cap};
   func_vec_push (&func_defs, fd);
 }
 
@@ -2014,6 +2054,7 @@ static int load_program (LineVec *prog, const char *path) {
     perror (path);
     return 0;
   }
+  func_vec_clear (&func_defs);
   int auto_line = 10;
   char line[256];
   while (fgets (line, sizeof (line), f)) {
@@ -4198,6 +4239,7 @@ static void repl (void) {
     }
     if (strcasecmp (p, "NEW") == 0) {
       line_vec_clear (&prog);
+      func_vec_clear (&func_defs);
       continue;
     }
     if (strcasecmp (p, "QUIT") == 0 || strcasecmp (p, "EXIT") == 0) {
