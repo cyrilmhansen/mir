@@ -545,6 +545,8 @@ typedef struct {
 
 static FuncVec func_defs;
 
+static void func_def_destroy (FuncDef *fd);
+
 static void func_vec_push (FuncVec *v, FuncDef f) {
   if (v->len == v->cap) {
     v->cap = v->cap ? 2 * v->cap : 4;
@@ -554,14 +556,10 @@ static void func_vec_push (FuncVec *v, FuncDef f) {
 }
 
 static void func_vec_clear (FuncVec *v) {
-  for (size_t i = 0; i < v->len; i++) {
-    FuncDef *fd = &v->data[i];
-    for (size_t j = 0; j < fd->src_len; j++) free (fd->src_lines[j]);
-    free (fd->src_lines);
-    fd->src_lines = NULL;
-    fd->src_len = fd->src_cap = 0;
-  }
-  v->len = 0;
+  for (size_t i = 0; i < v->len; i++) func_def_destroy (&v->data[i]);
+  free (v->data);
+  v->data = NULL;
+  v->len = v->cap = 0;
 }
 
 static FuncDef *find_func (const char *name) {
@@ -736,6 +734,26 @@ static void free_stmt (Stmt *s) {
   case ST_MODE: free_node (s->u.expr); break;
   default: break;
   }
+}
+
+static void func_def_destroy (FuncDef *fd) {
+  free (fd->name);
+  if (fd->params != NULL) {
+    for (size_t i = 0; i < fd->n; i++) free (fd->params[i]);
+    free (fd->params);
+  }
+  free (fd->is_str);
+  free_node (fd->body);
+  free_stmt_vec (&fd->body_stmts);
+  for (size_t i = 0; i < fd->src_len; i++) free (fd->src_lines[i]);
+  free (fd->src_lines);
+  fd->name = NULL;
+  fd->params = NULL;
+  fd->is_str = NULL;
+  fd->body = NULL;
+  fd->body_stmts = (StmtVec) {0};
+  fd->src_lines = NULL;
+  fd->n = fd->src_len = fd->src_cap = 0;
 }
 
 static void free_line (Line *l) {
