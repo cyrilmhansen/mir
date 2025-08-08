@@ -361,7 +361,9 @@ double basic_rnd (double n) {
     srand ((unsigned) time (NULL));
     seeded = 1;
   }
-  return ((double) rand () / RAND_MAX) * n;
+  /* rand () can return RAND_MAX, which would make the result equal to n.
+     Scale by RAND_MAX + 1.0 to keep the value in [0, n). */
+  return ((double) rand () / ((double) RAND_MAX + 1.0)) * n;
 }
 
 double basic_abs (double x) { return fabs (x); }
