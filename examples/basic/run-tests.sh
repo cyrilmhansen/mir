@@ -58,6 +58,11 @@ printf 'LOAD %s\nRUN\nQUIT\n' "$ROOT/examples/basic/hello.bas" | "$BASICC" > "$R
 diff "$ROOT/examples/basic/repl-load.out" "$ROOT/basic/repl-load.out"
 echo "repl LOAD done"
 
+echo "Running repl LIST"
+printf 'LOAD %s\nLIST\nQUIT\n' "$ROOT/examples/basic/funcproc.bas" | "$BASICC" > "$ROOT/basic/repl-list.out"
+diff "$ROOT/examples/basic/repl-list.out" "$ROOT/basic/repl-list.out"
+echo "repl LIST done"
+
 echo "Running repl CODE"
 printf '10 PRINT "HI"\nCOMPILE CODE repl-code.bin\nQUIT\n' | "$BASICC" > "$ROOT/basic/repl-code.out"
 diff "$ROOT/examples/basic/repl-code.out" "$ROOT/basic/repl-code.out"
@@ -70,4 +75,10 @@ printf '10 DEF FNA(X)=X+1\n20 PRINT FNA(1)\n30 PRINT FNA(2)\n40 END\nRUN PROFILI
 grep -q 'line 20: count 1' "$ROOT/basic/repl-prof.out"
 grep -q 'func FNA: count 2' "$ROOT/basic/repl-prof.out"
 echo "repl PROFILING done"
+
+echo "Running repl PROFILING funcproc"
+printf 'LOAD %s\nRUN PROFILING\nQUIT\n' "$ROOT/examples/basic/funcproc.bas" | "$BASICC" > "$ROOT/basic/repl-prof-funcproc.out"
+grep -q 'func ADD: count 1' "$ROOT/basic/repl-prof-funcproc.out"
+grep -q 'func HELLO: count 2' "$ROOT/basic/repl-prof-funcproc.out"
+echo "repl PROFILING funcproc done"
 

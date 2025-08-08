@@ -57,12 +57,15 @@ static size_t get_func_profile (const char *name) {
   for (size_t i = 0; i < func_profiles_len; i++)
     if (strcmp (func_profiles[i].name, name) == 0) return i;
   func_profiles = realloc (func_profiles, (func_profiles_len + 1) * sizeof (FuncProfile));
-  func_profiles[func_profiles_len] = (FuncProfile) {.name = name, .count = 0, .ns = 0};
+  func_profiles[func_profiles_len] = (FuncProfile) {.name = strdup (name), .count = 0, .ns = 0};
   return func_profiles_len++;
 }
 
 void basic_profile_reset (void) {
   free (line_profiles);
+  if (func_profiles != NULL) {
+    for (size_t i = 0; i < func_profiles_len; i++) free ((char *) func_profiles[i].name);
+  }
   free (func_profiles);
   free (func_stack);
   line_profiles = NULL;
