@@ -2157,6 +2157,13 @@ static size_t get_array_dim2 (VarVec *vars, const char *name) {
   return 0;
 }
 
+static size_t get_array_size (VarVec *vars, const char *name) {
+  for (size_t i = 0; i < vars->len; i++)
+    if (vars->data[i].is_array && strcmp (vars->data[i].name, name) == 0)
+      return vars->data[i].size > 1 ? vars->data[i].size : 0;
+  return 0;
+}
+
 /* Expression code generation */
 static int tmp_id = 0;
 
@@ -2218,6 +2225,15 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                            MIR_new_insn (ctx, MIR_ADD, MIR_new_reg_op (ctx, idx),
                                          MIR_new_reg_op (ctx, tmp), MIR_new_reg_op (ctx, idx2)));
         }
+        size_t asize = get_array_size (vars, n->var);
+        MIR_label_t bad = MIR_new_label (ctx), ok = MIR_new_label (ctx);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_BLT, MIR_new_label_op (ctx, bad),
+                                       MIR_new_reg_op (ctx, idx), MIR_new_int_op (ctx, 0)));
+        if (asize != 0)
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_BGE, MIR_new_label_op (ctx, bad),
+                                         MIR_new_reg_op (ctx, idx), MIR_new_int_op (ctx, asize)));
         sprintf (buf, "$t%d", tmp_id++);
         MIR_reg_t off = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
         MIR_append_insn (ctx, func,
@@ -2233,6 +2249,12 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, val),
                                        MIR_new_mem_op (ctx, MIR_T_P, 0, addr, 0, 1)));
+        MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, ok)));
+        MIR_append_insn (ctx, func, bad);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, stop_proto),
+                                            MIR_new_ref_op (ctx, stop_import)));
+        MIR_append_insn (ctx, func, ok);
         return val;
       } else {
         return get_var (vars, ctx, func, n->var);
@@ -2415,6 +2437,15 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                          MIR_new_insn (ctx, MIR_ADD, MIR_new_reg_op (ctx, idx),
                                        MIR_new_reg_op (ctx, tmp), MIR_new_reg_op (ctx, idx2)));
       }
+      size_t asize = get_array_size (vars, n->var);
+      MIR_label_t bad = MIR_new_label (ctx), ok = MIR_new_label (ctx);
+      MIR_append_insn (ctx, func,
+                       MIR_new_insn (ctx, MIR_BLT, MIR_new_label_op (ctx, bad),
+                                     MIR_new_reg_op (ctx, idx), MIR_new_int_op (ctx, 0)));
+      if (asize != 0)
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_BGE, MIR_new_label_op (ctx, bad),
+                                       MIR_new_reg_op (ctx, idx), MIR_new_int_op (ctx, asize)));
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t off = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
       MIR_append_insn (ctx, func,
@@ -2430,6 +2461,12 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       MIR_append_insn (ctx, func,
                        MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, val),
                                      MIR_new_mem_op (ctx, MIR_T_D, 0, addr, 0, 1)));
+      MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, ok)));
+      MIR_append_insn (ctx, func, bad);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, stop_proto),
+                                          MIR_new_ref_op (ctx, stop_import)));
+      MIR_append_insn (ctx, func, ok);
       return val;
     } else {
       return get_var (vars, ctx, func, n->var);
@@ -3213,6 +3250,15 @@ static void gen_stmt (Stmt *s) {
                          MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, idx),
                                        MIR_new_reg_op (g_ctx, tmp), MIR_new_reg_op (g_ctx, idx2)));
       }
+      size_t asize = get_array_size (&g_vars, s->u.let.var->var);
+      MIR_label_t bad = MIR_new_label (g_ctx), ok = MIR_new_label (g_ctx);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_BLT, MIR_new_label_op (g_ctx, bad),
+                                     MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, 0)));
+      if (asize != 0)
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_BGE, MIR_new_label_op (g_ctx, bad),
+                                       MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, asize)));
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t off = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
       MIR_append_insn (g_ctx, g_func,
@@ -3229,6 +3275,12 @@ static void gen_stmt (Stmt *s) {
                                      MIR_new_mem_op (g_ctx, s->u.let.is_str ? MIR_T_P : MIR_T_D, 0,
                                                      addr, 0, 1),
                                      MIR_new_reg_op (g_ctx, r)));
+      MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, ok)));
+      MIR_append_insn (g_ctx, g_func, bad);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, stop_proto),
+                                          MIR_new_ref_op (g_ctx, stop_import)));
+      MIR_append_insn (g_ctx, g_func, ok);
     } else {
       MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.let.var->var);
       MIR_insn_code_t mov = s->u.let.is_str ? MIR_MOV : MIR_DMOV;
@@ -4019,7 +4071,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     }
   }
   for (size_t i = 0; i < g_vars.len; i++)
-    if (g_vars.data[i].is_array && g_vars.data[i].size == 0) {
+    if (g_vars.data[i].is_array && g_vars.data[i].size <= 1) {
       g_vars.data[i].size = 11;
       MIR_insn_t call = MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, calloc_proto),
                                            MIR_new_ref_op (ctx, calloc_import),

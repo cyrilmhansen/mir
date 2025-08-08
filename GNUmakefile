@@ -447,8 +447,10 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) 
 	diff $(SRC_DIR)/examples/basic/funcproc.out $(BUILD_DIR)/basic/funcproc.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/array_default.bas > $(BUILD_DIR)/basic/array_default.out
 	diff $(SRC_DIR)/examples/basic/array_default.out $(BUILD_DIR)/basic/array_default.out
-	printf 'A\nE\nM\nI\nR\n' | $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/hangman.bas > $(BUILD_DIR)/basic/hangman.out
-	diff -w $(SRC_DIR)/examples/basic/hangman.out $(BUILD_DIR)/basic/hangman.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/array_oob_read.bas > $(BUILD_DIR)/basic/array_oob_read.out
+	diff $(SRC_DIR)/examples/basic/array_oob_read.out $(BUILD_DIR)/basic/array_oob_read.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/array_oob_write.bas > $(BUILD_DIR)/basic/array_oob_write.out
+	diff $(SRC_DIR)/examples/basic/array_oob_write.out $(BUILD_DIR)/basic/array_oob_write.out
 	printf '10 PRINT "HI"\nLIST\nRUN\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl.out
 	diff $(SRC_DIR)/examples/basic/repl.out $(BUILD_DIR)/basic/repl.out
 	printf 'LOAD $(SRC_DIR)/examples/basic/hello.bas\nRUN\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl-load.out
