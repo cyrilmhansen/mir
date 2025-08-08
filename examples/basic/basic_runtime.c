@@ -155,6 +155,12 @@ double basic_get_line (void) {
   return (double) basic_line;
 }
 
+/* Release a string allocated by BASIC runtime helpers. */
+void basic_free (char *s) { free (s); }
+
+/* Duplicate a C string using malloc; result must be freed with basic_free. */
+char *basic_strdup (const char *s) { return strdup (s); }
+
 double basic_input (void) {
   double x = 0.0;
   if (scanf ("%lf", &x) != 1) return 0.0;
@@ -175,6 +181,8 @@ void basic_print_str (const char *s) {
 
 double basic_pos (void) { return (double) basic_pos_val; }
 
+/* Allocate a new string containing input from stdin.
+   Caller must free the returned buffer with basic_free. */
 char *basic_input_str (void) {
   char buf[256];
   if (fgets (buf, sizeof (buf), stdin) == NULL) return strdup ("");
@@ -182,7 +190,8 @@ char *basic_input_str (void) {
   if (len > 0 && buf[len - 1] == '\n') buf[len - 1] = '\0';
   return strdup (buf);
 }
-
+/* Allocate a one-character string from stdin.
+   Caller must free the returned buffer with basic_free. */
 char *basic_get (void) {
   int c = getchar ();
   if (c == EOF) c = 0;
@@ -192,6 +201,8 @@ char *basic_get (void) {
   return s;
 }
 
+/* Non-blocking check for a character from stdin.
+   Caller must free the returned buffer with basic_free. */
 char *basic_inkey (void) {
   struct timeval tv = {0, 0};
   fd_set fds;
@@ -269,6 +280,8 @@ double basic_input_hash (double n) {
   return x;
 }
 
+/* Read a line from an open file and return a newly allocated string.
+   Caller must free the result with basic_free. */
 char *basic_input_hash_str (double n) {
   int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return strdup ("");
@@ -279,6 +292,8 @@ char *basic_input_hash_str (double n) {
   return strdup (buf);
 }
 
+/* Read a single character from an open file and return it as a
+   newly allocated string. Caller must free the result with basic_free. */
 char *basic_get_hash (double n) {
   int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) {
@@ -323,9 +338,12 @@ double basic_read (void) {
   return basic_data_items[basic_data_pos++].num;
 }
 
+/* Return next DATA string as a newly allocated buffer.
+   Caller must free the result with basic_free. */
 char *basic_read_str (void) {
-  if (basic_data_pos >= basic_data_len || !basic_data_items[basic_data_pos].is_str) return "";
-  return basic_data_items[basic_data_pos++].str;
+  if (basic_data_pos >= basic_data_len || !basic_data_items[basic_data_pos].is_str)
+    return basic_strdup ("");
+  return basic_strdup (basic_data_items[basic_data_pos++].str);
 }
 
 void basic_restore (void) { basic_data_pos = 0; }
@@ -384,6 +402,7 @@ double basic_log (double x) { return log (x); }
 
 double basic_exp (double x) { return exp (x); }
 
+/* Allocate a one-character string. Caller must free with basic_free. */
 char *basic_chr (double n) {
   char *s = malloc (2);
   s[0] = (char) ((int) n);
@@ -391,6 +410,8 @@ char *basic_chr (double n) {
   return s;
 }
 
+/* Return a string of length N filled with the first character of S.
+   Caller must free the result with basic_free. */
 char *basic_string (double n, const char *s) {
   int len = (int) n;
   char ch = s != NULL && s[0] != '\0' ? s[0] : '\0';
@@ -400,6 +421,8 @@ char *basic_string (double n, const char *s) {
   return res;
 }
 
+/* Return the leftmost N characters of S as a newly allocated string.
+   Caller must free the result with basic_free. */
 char *basic_left (const char *s, double n) {
   size_t len = strlen (s);
   size_t cnt = (size_t) n;
@@ -410,6 +433,8 @@ char *basic_left (const char *s, double n) {
   return res;
 }
 
+/* Return the rightmost N characters of S as a newly allocated string.
+   Caller must free the result with basic_free. */
 char *basic_right (const char *s, double n) {
   size_t len = strlen (s);
   size_t cnt = (size_t) n;
@@ -417,6 +442,8 @@ char *basic_right (const char *s, double n) {
   return strdup (s + len - cnt);
 }
 
+/* Return a substring of S starting at START_D with length LEN_D.
+   Caller must free the result with basic_free. */
 char *basic_mid (const char *s, double start_d, double len_d) {
   size_t len = strlen (s);
   size_t start = (size_t) start_d;
@@ -441,6 +468,8 @@ double basic_len (const char *s) { return (double) strlen (s); }
 
 double basic_val (const char *s) { return strtod (s, NULL); }
 
+/* Convert a number to a newly allocated string.
+   Caller must free the result with basic_free. */
 char *basic_str (double n) {
   char buf[32];
   snprintf (buf, sizeof (buf), "%.15g", n);
@@ -461,6 +490,8 @@ double basic_time (void) {
   return (double) (tm_info->tm_hour * 3600 + tm_info->tm_min * 60 + tm_info->tm_sec);
 }
 
+/* Return current time formatted as HH:MM:SS in a newly allocated string.
+   Caller must free the result with basic_free. */
 char *basic_time_str (void) {
   time_t t = time (NULL);
   struct tm *tm_info = localtime (&t);
@@ -469,6 +500,8 @@ char *basic_time_str (void) {
   return strdup (buf);
 }
 
+/* Read N characters from stdin and return them as a newly allocated string.
+   Caller must free the result with basic_free. */
 char *basic_input_chr (double n) {
   int len = (int) n;
   char *res = malloc ((size_t) len + 1);
