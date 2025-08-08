@@ -443,6 +443,8 @@ basic-test: $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) 
 	diff $(SRC_DIR)/examples/basic/strfuncs.out $(BUILD_DIR)/basic/strfuncs.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/instr.bas > $(BUILD_DIR)/basic/instr.out
 	diff $(SRC_DIR)/examples/basic/instr.out $(BUILD_DIR)/basic/instr.out
+	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/stress_reassign.bas > $(BUILD_DIR)/basic/stress_reassign.out
+	diff $(SRC_DIR)/examples/basic/stress_reassign.out $(BUILD_DIR)/basic/stress_reassign.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/funcproc.bas > $(BUILD_DIR)/basic/funcproc.out
 	diff $(SRC_DIR)/examples/basic/funcproc.out $(BUILD_DIR)/basic/funcproc.out
 	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/array_default.bas > $(BUILD_DIR)/basic/array_default.out
@@ -543,7 +545,7 @@ clean-mir-interp-tests:
 .PHONY: gen-test1 gen-test2 gen-test3 gen-test4 gen-test5 gen-test6 gen-test7
 .PHONY: gen-test8 gen-test9 gen-test10 gen-test11 gen-test12 gen-test13 gen-test14 gen-test15 gen-test16 helper-bitmap-test
 gen-test: gen-test-loop gen-test-sieve gen-test-get-thunk-addr gen-issue219-test gen-test1 gen-test2 gen-test3 gen-test4 gen-test5 gen-test6 gen-test7\
-          gen-test8 gen-test9 gen-test10 gen-test11 gen-test12 gen-test13 gen-test14 gen-test15 gen-test16 helper-bitmap-test
+	  gen-test8 gen-test9 gen-test10 gen-test11 gen-test12 gen-test13 gen-test14 gen-test15 gen-test16 helper-bitmap-test
 gen-test-loop: $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) $(SRC_DIR)/mir-tests/loop-sieve-gen.c | $(BUILD_DIR)/mir-tests
 	$(COMPILE_AND_LINK) -DTEST_GEN_LOOP -DTEST_GEN_DEBUG=1 $^ $(LDLIBS) $(EXEO)$(BUILD_DIR)/mir-tests/gen-loop-test$(EXE)
 	$(BUILD_DIR)/mir-tests/gen-loop-test
