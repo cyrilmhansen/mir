@@ -968,164 +968,146 @@ static Node *parse_logical (Parser *p);
 static Node *parse_expr (Parser *p);
 static Relop parse_relop (Parser *p);
 
+typedef struct {
+  Node *a[5];
+} CallArgs;
+
+static void parse_call_args (Parser *p, CallArgs *a) {
+  cur++;
+  skip_ws (p);
+  for (int i = 0; i < 5 && *cur != ')'; i++) {
+    a->a[i] = parse_expr (p);
+    skip_ws (p);
+    if (*cur != ',') break;
+    cur++;
+    skip_ws (p);
+  }
+  if (*cur == ')') cur++;
+}
+
+static Node *bool_const (char *id) {
+  if (strcasecmp (id, "TRUE") && strcasecmp (id, "FALSE")) return NULL;
+  Node *n = new_node (N_NUM);
+  n->num = strcasecmp (id, "TRUE") == 0;
+  free (id);
+  return n;
+}
+
+static int builtin_func (const char *id, int *is_str) {
+  static const char *nums[]
+    = {"RND",    "INT",       "TIMER",   "TIME",    "DATE",     "PEEK",    "EOF",
+       "POS",    "ABS",       "SGN",     "SQR",     "SIN",      "COS",     "TAN",
+       "ATN",    "LOG",       "EXP",     "LEN",     "VAL",      "ASC",     "INSTR",
+       "MIRCTX", "MIRMOD",    "MIRFUNC", "MIRREG",  "MIRLABEL", "MIREMIT", "MIREMITLBL",
+       "MIRRET", "MIRFINISH", "MIRRUN",  "MIRDUMP", NULL};
+  static const char *strs[] = {"CHR$",  "STRING$", "TIME$", "DATE$", "INPUT$", "SPC",
+                               "LEFT$", "RIGHT$",  "MID$",  "STR$",  "INKEY$", NULL};
+  for (int i = 0; nums[i]; i++)
+    if (!strcasecmp (id, nums[i])) return *is_str = 0, 1;
+  for (int i = 0; strs[i]; i++)
+    if (!strcasecmp (id, strs[i])) return *is_str = 1, 1;
+  return 0;
+}
+
+static Node *make_call_node (char *id, CallArgs *a, int is_str) {
+  Node *n = new_node (N_CALL);
+  n->var = id;
+  n->left = a->a[0];
+  n->right = a->a[1];
+  n->index = a->a[2];
+  n->index2 = a->a[3];
+  n->arg4 = a->a[4];
+  n->is_str = is_str;
+  return n;
+}
+
+static Node *make_call (char *id, CallArgs *a) {
+  int is_str;
+  FuncDef *fd;
+  if (builtin_func (id, &is_str)) {
+    if (!strcasecmp (id, "RND") && a->a[0] == NULL) {
+      a->a[0] = new_node (N_NUM);
+      a->a[0]->num = 1;
+    }
+    return make_call_node (id, a, is_str);
+  }
+  if (strncasecmp (id, "FN", 2) == 0 || (fd = find_func (id)) != NULL)
+    return make_call_node (id, a, fd ? fd->is_str_ret : id[strlen (id) - 1] == '$');
+  return NULL;
+}
+
+static Node *make_var_node (char *id, CallArgs *a) {
+  Node *n = new_node (N_VAR);
+  n->var = id;
+  n->is_str = id[strlen (id) - 1] == '$';
+  n->index = a->a[0];
+  n->index2 = a->a[1];
+  return n;
+}
+
+static Node *parse_identifier (Parser *p) {
+  char *id = parse_id (p);
+  CallArgs a = {{0}};
+  skip_ws (p);
+  if (*cur == '(') parse_call_args (p, &a);
+  Node *n = bool_const (id);
+  if (n) return n;
+  n = make_call (id, &a);
+  if (n) return n;
+  return make_var_node (id, &a);
+}
+
+static Node *parse_not (Parser *p) {
+  if (strncasecmp (cur, "NOT", 3) || isalnum ((unsigned char) cur[3]) || cur[3] == '_'
+      || cur[3] == '$')
+    return NULL;
+  cur += 3;
+  Node *n = new_node (N_NOT);
+  n->left = parse_factor (p);
+  return n;
+}
+
+static Node *parse_paren (Parser *p) {
+  if (*cur != '(') return NULL;
+  cur++;
+  Node *e = parse_expr (p);
+  skip_ws (p);
+  if (*cur == ')') cur++;
+  return e;
+}
+
+static Node *parse_unary_minus (Parser *p) {
+  if (*cur != '-') return NULL;
+  cur++;
+  Node *n = new_node (N_NEG);
+  n->left = parse_factor (p);
+  return n;
+}
+
+static Node *parse_numeric_literal (Parser *p) {
+  if (!isdigit ((unsigned char) *cur) && *cur != '.') return NULL;
+  Node *n = new_node (N_NUM);
+  n->num = parse_number (p);
+  return n;
+}
+
+static Node *parse_string_literal (Parser *p) {
+  if (*cur != '"') return NULL;
+  Node *n = new_node (N_STR);
+  n->is_str = 1;
+  n->str = parse_string (p);
+  return n;
+}
+
 static Node *parse_factor (Parser *p) {
   skip_ws (p);
-  if (strncasecmp (cur, "NOT", 3) == 0 && !isalnum ((unsigned char) cur[3]) && cur[3] != '_'
-      && cur[3] != '$') {
-    cur += 3;
-    Node *n = new_node (N_NOT);
-    n->left = parse_factor (p);
-    return n;
-  }
-  if (*cur == '(') {
-    cur++;
-    Node *e = parse_expr (p);
-    skip_ws (p);
-    if (*cur == ')') cur++;
-    return e;
-  }
-  if (*cur == '-') {
-    cur++;
-    Node *n = new_node (N_NEG);
-    n->left = parse_factor (p);
-    return n;
-  }
-  if (isdigit ((unsigned char) *cur) || *cur == '.') {
-    Node *n = new_node (N_NUM);
-    n->num = parse_number (p);
-    return n;
-  }
-  if (*cur == '"') {
-    Node *n = new_node (N_STR);
-    n->is_str = 1;
-    n->str = parse_string (p);
-    return n;
-  }
-  if (isalpha ((unsigned char) *cur)) {
-    char *id = parse_id (p);
-    skip_ws (p);
-    if (strcasecmp (id, "TRUE") == 0 || strcasecmp (id, "FALSE") == 0) {
-      Node *n = new_node (N_NUM);
-      n->num = strcasecmp (id, "TRUE") == 0 ? 1.0 : 0.0;
-      free (id);
-      return n;
-    }
-    Node *arg1 = NULL, *arg2 = NULL, *arg3 = NULL, *arg4 = NULL, *arg5 = NULL;
-    if (*cur == '(') {
-      cur++;
-      skip_ws (p);
-      if (*cur != ')') {
-        arg1 = parse_expr (p);
-        skip_ws (p);
-        if (*cur == ',') {
-          cur++;
-          arg2 = parse_expr (p);
-          skip_ws (p);
-          if (*cur == ',') {
-            cur++;
-            arg3 = parse_expr (p);
-            skip_ws (p);
-            if (*cur == ',') {
-              cur++;
-              arg4 = parse_expr (p);
-              skip_ws (p);
-              if (*cur == ',') {
-                cur++;
-                arg5 = parse_expr (p);
-                skip_ws (p);
-              }
-            }
-          }
-        }
-      }
-      if (*cur == ')') cur++;
-    }
-    if (strcasecmp (id, "RND") == 0 && arg1 == NULL) {
-      arg1 = new_node (N_NUM);
-      arg1->num = 1;
-    }
-    if (strcasecmp (id, "RND") == 0 || strcasecmp (id, "CHR$") == 0
-        || strcasecmp (id, "STRING$") == 0 || strcasecmp (id, "INT") == 0
-        || strcasecmp (id, "TIMER") == 0 || strcasecmp (id, "TIME") == 0
-        || strcasecmp (id, "TIME$") == 0 || strcasecmp (id, "DATE") == 0
-        || strcasecmp (id, "DATE$") == 0 || strcasecmp (id, "INPUT$") == 0
-        || strcasecmp (id, "PEEK") == 0 || strcasecmp (id, "EOF") == 0
-        || strcasecmp (id, "SPC") == 0
-
-        || strcasecmp (id, "POS") == 0 || strcasecmp (id, "ABS") == 0 || strcasecmp (id, "SGN") == 0
-        || strcasecmp (id, "SQR") == 0 || strcasecmp (id, "SIN") == 0 || strcasecmp (id, "COS") == 0
-        || strcasecmp (id, "TAN") == 0 || strcasecmp (id, "ATN") == 0 || strcasecmp (id, "LOG") == 0
-        || strcasecmp (id, "EXP") == 0 || strcasecmp (id, "LEFT$") == 0
-        || strcasecmp (id, "RIGHT$") == 0 || strcasecmp (id, "MID$") == 0
-        || strcasecmp (id, "LEN") == 0 || strcasecmp (id, "VAL") == 0
-        || strcasecmp (id, "STR$") == 0 || strcasecmp (id, "ASC") == 0
-
-        || strcasecmp (id, "ABS") == 0 || strcasecmp (id, "SGN") == 0 || strcasecmp (id, "SQR") == 0
-        || strcasecmp (id, "SIN") == 0 || strcasecmp (id, "COS") == 0 || strcasecmp (id, "TAN") == 0
-        || strcasecmp (id, "ATN") == 0 || strcasecmp (id, "LOG") == 0 || strcasecmp (id, "EXP") == 0
-        || strcasecmp (id, "LEFT$") == 0 || strcasecmp (id, "RIGHT$") == 0
-        || strcasecmp (id, "MID$") == 0 || strcasecmp (id, "LEN") == 0
-        || strcasecmp (id, "VAL") == 0 || strcasecmp (id, "STR$") == 0
-        || strcasecmp (id, "ASC") == 0 || strcasecmp (id, "INSTR") == 0
-        || strcasecmp (id, "MIRCTX") == 0 || strcasecmp (id, "MIRMOD") == 0
-        || strcasecmp (id, "MIRFUNC") == 0 || strcasecmp (id, "MIRREG") == 0
-        || strcasecmp (id, "MIRLABEL") == 0 || strcasecmp (id, "MIREMIT") == 0
-        || strcasecmp (id, "MIREMITLBL") == 0 || strcasecmp (id, "MIRRET") == 0
-        || strcasecmp (id, "MIRFINISH") == 0 || strcasecmp (id, "MIRRUN") == 0
-        || strcasecmp (id, "MIRDUMP") == 0 || strcasecmp (id, "INKEY$") == 0
-        || strcasecmp (id, "TIME") == 0 || strcasecmp (id, "TIME$") == 0
-        || strcasecmp (id, "DATE") == 0 || strcasecmp (id, "DATE$") == 0) {
-      Node *n = new_node (N_CALL);
-      n->var = id;
-      n->left = arg1;
-      n->right = arg2;
-      n->index = arg3;
-      n->index2 = arg4;
-      n->arg4 = arg5;
-      if (strcasecmp (id, "CHR$") == 0 || strcasecmp (id, "STRING$") == 0
-          || strcasecmp (id, "INPUT$") == 0 || strcasecmp (id, "SPC") == 0
-          || strcasecmp (id, "LEFT$") == 0 || strcasecmp (id, "RIGHT$") == 0
-          || strcasecmp (id, "MID$") == 0 || strcasecmp (id, "STR$") == 0
-          || strcasecmp (id, "INKEY$") == 0 || strcasecmp (id, "TIME$") == 0
-          || strcasecmp (id, "DATE$") == 0)
-        n->is_str = 1;
-      return n;
-    } else if (strncasecmp (id, "FN", 2) == 0) {
-      Node *n = new_node (N_CALL);
-      n->var = id;
-      n->left = arg1;
-      n->right = arg2;
-      n->index = arg3;
-      n->index2 = arg4;
-      n->arg4 = arg5;
-      n->is_str = id[strlen (id) - 1] == '$';
-      return n;
-    } else if (find_func (id) != NULL) {
-      Node *n = new_node (N_CALL);
-      n->var = id;
-      n->left = arg1;
-      n->right = arg2;
-      n->index = arg3;
-      n->index2 = arg4;
-      n->arg4 = arg5;
-      FuncDef *fd = find_func (id);
-      n->is_str = fd->is_str_ret;
-      return n;
-    }
-    if (arg1 != NULL) {
-      Node *n = new_node (N_VAR);
-      n->var = id;
-      n->is_str = id[strlen (id) - 1] == '$';
-      n->index = arg1;
-      n->index2 = arg2;
-      return n;
-    } else {
-      Node *n = new_node (N_VAR);
-      n->var = id;
-      n->is_str = id[strlen (id) - 1] == '$';
-      return n;
-    }
-  }
+  Node *n;
+  if ((n = parse_not (p)) != NULL) return n;
+  if ((n = parse_paren (p)) != NULL) return n;
+  if ((n = parse_unary_minus (p)) != NULL) return n;
+  if ((n = parse_numeric_literal (p)) != NULL) return n;
+  if ((n = parse_string_literal (p)) != NULL) return n;
+  if ((n = parse_identifier (p)) != NULL) return n;
   return NULL;
 }
 
@@ -3738,18 +3720,18 @@ static void gen_stmt (Stmt *s) {
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, ri),
                                    MIR_new_reg_op (g_ctx, r)));
+    MIR_label_t after = MIR_new_label (g_ctx);
+    MIR_item_t after_ref = MIR_new_lref_data (g_ctx, NULL, after, NULL, 0);
     for (size_t k = 0; k < s->u.on_gosub.n_targets; k++) {
       MIR_label_t next = MIR_new_label (g_ctx);
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_insn (g_ctx, MIR_BNE, MIR_new_label_op (g_ctx, next),
                                      MIR_new_reg_op (g_ctx, ri), MIR_new_int_op (g_ctx, k + 1)));
-      MIR_label_t ret = MIR_new_label (g_ctx);
-      MIR_item_t ret_ref = MIR_new_lref_data (g_ctx, NULL, ret, NULL, 0);
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t tmp = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, tmp),
-                                     MIR_new_ref_op (g_ctx, ret_ref)));
+                                     MIR_new_ref_op (g_ctx, after_ref)));
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, tmp),
                                      MIR_new_mem_op (g_ctx, MIR_T_I64, 0, tmp, 0, 1)));
@@ -3765,9 +3747,9 @@ static void gen_stmt (Stmt *s) {
                                      MIR_new_label_op (g_ctx,
                                                        find_label (g_prog, g_labels,
                                                                    s->u.on_gosub.targets[k]))));
-      MIR_append_insn (g_ctx, g_func, ret);
       MIR_append_insn (g_ctx, g_func, next);
     }
+    MIR_append_insn (g_ctx, g_func, after);
     break;
   }
   case ST_HPLOT: {
