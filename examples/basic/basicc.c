@@ -4768,8 +4768,7 @@ static void repl (void) {
   }
   func_vec_clear (&func_defs);
   data_vals_clear ();
-  line_vec_clear (&prog);
-  free (prog.data);
+  line_vec_destroy (&prog);
 }
 
 int main (int argc, char **argv) {
