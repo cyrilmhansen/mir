@@ -92,14 +92,6 @@ fi
 grep -q "expected integer" "$ROOT/basic/dim_expr_error.err"
 echo "dim expression error OK"
 
-        echo "Running fleuves (no explain)"
-        timeout 10 "$BASICC" "$ROOT/examples/basic/fleuves.bas" < "$ROOT/examples/basic/fleuves.in" >/dev/null || true
-        echo "fleuves (no explain) done"
-
-        echo "Running fleuves (with explain)"
-        timeout 10 "$BASICC" "$ROOT/examples/basic/fleuves.bas" < "$ROOT/examples/basic/fleuves_explain.in" >/dev/null || true
-        echo "fleuves (with explain) done"
-
         echo "Running repl LOAD"
         printf 'LOAD %s\nRUN\nQUIT\n' "$ROOT/examples/basic/hello.bas" | "$BASICC" > "$ROOT/basic/repl-load.out"
         diff "$ROOT/examples/basic/repl-load.out" "$ROOT/basic/repl-load.out"
