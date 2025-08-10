@@ -3,7 +3,7 @@
 #include "basic_runtime.h"
 #include "basic_num.h"
 
-#if defined(BASIC_USE_LONG_DOUBLE) || defined(BASIC_USE_FLOAT128)
+#if defined(BASIC_USE_LONG_DOUBLE)
 #define MIR_T_D MIR_T_LD
 #define MIR_new_double_op MIR_new_ldouble_op
 #define MIR_D2I MIR_LD2I
