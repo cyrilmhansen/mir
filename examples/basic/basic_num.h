@@ -7,6 +7,7 @@
 #include <string.h>
 
 #if defined(BASIC_USE_LONG_DOUBLE)
+#include "ryu/ld2s.h"
 typedef long double basic_num_t;
 #define BASIC_NUM_SCANF "%Lf"
 #define BASIC_NUM_PRINTF "%.21Lg"
@@ -21,7 +22,38 @@ typedef long double basic_num_t;
 #define BASIC_EXP expl
 #define BASIC_FLOOR floorl
 static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
-  return snprintf (buf, size, BASIC_NUM_PRINTF, x);
+  (void) size;
+  ld2s_buffered (x, buf);
+  char *e = strchr (buf, 'e');
+  if (e == NULL) e = strchr (buf, 'E');
+  if (e != NULL) {
+    long exp = strtol (e + 1, NULL, 10);
+    int mant_len = (int) (e - buf);
+    char digits[64];
+    int digits_len = 0;
+    for (int i = 0; i < mant_len; i++)
+      if (buf[i] != '.') digits[digits_len++] = buf[i];
+    if (exp >= 0) {
+      if (exp >= digits_len - 1) {
+        memcpy (buf, digits, digits_len);
+        for (long k = 0; k < exp - (digits_len - 1); k++) buf[digits_len + k] = '0';
+        buf[digits_len + exp - (digits_len - 1)] = '\0';
+      } else {
+        memcpy (buf, digits, exp + 1);
+        buf[exp + 1] = '.';
+        memcpy (buf + exp + 2, digits + exp + 1, digits_len - (exp + 1));
+        buf[digits_len + 1] = '\0';
+      }
+    } else {
+      long k = -exp;
+      buf[0] = '0';
+      buf[1] = '.';
+      for (long j = 0; j < k - 1; j++) buf[2 + j] = '0';
+      memcpy (buf + 1 + k, digits, digits_len);
+      buf[1 + k + digits_len] = '\0';
+    }
+  }
+  return (int) strlen (buf);
 }
 #else
 #include "ryu/ryu.h"
