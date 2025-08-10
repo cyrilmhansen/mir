@@ -30,17 +30,57 @@ struct scan_ctx;
 struct hard_reg_ctx;
 struct interp_ctx;
 
-static const char *helper_names[] = {
-  "mir.blk_mov", "mir.i2ld",   "mir.ui2ld",        "mir.f2ld",  "mir.d2ld",  "mir.ld2i",
-  "mir.ld2f",    "mir.ld2d",   "mir.ldadd",        "mir.ldsub", "mir.ldmul", "mir.lddiv",
-  "mir.ldneg",   "mir.ldeq",   "mir.ldne",         "mir.ldlt",  "mir.ldge",  "mir.ldgt",
-  "mir.ldle",    "mir.va_arg", "mir.va_block_arg", "mir.ui2f",  "mir.ui2d",  "mir.arg_memcpy",
+static void util_error (MIR_context_t ctx, const char *message);
+#define MIR_VARR_ERROR util_error
+#define MIR_HTAB_ERROR MIR_VARR_ERROR
+
+#include "mir-hash.h"
+#include "mir-htab.h"
+#include "mir-reduce.h"
+#include "mir-bitmap.h"
+#include <string.h>
+#include <stdarg.h>
+#include <inttypes.h>
+#include <float.h>
+#include <ctype.h>
+#include <limits.h>
+
+enum helper_id {
+  MIR_HELPER_BLK_MOV,
+  MIR_HELPER_I2LD,
+  MIR_HELPER_UI2LD,
+  MIR_HELPER_F2LD,
+  MIR_HELPER_D2LD,
+  MIR_HELPER_LD2I,
+  MIR_HELPER_LD2F,
+  MIR_HELPER_LD2D,
+  MIR_HELPER_LDADD,
+  MIR_HELPER_LDSUB,
+  MIR_HELPER_LDMUL,
+  MIR_HELPER_LDDIV,
+  MIR_HELPER_LDNEG,
+  MIR_HELPER_LDEQ,
+  MIR_HELPER_LDNE,
+  MIR_HELPER_LDLT,
+  MIR_HELPER_LDGE,
+  MIR_HELPER_LDGT,
+  MIR_HELPER_LDLE,
+  MIR_HELPER_VA_ARG,
+  MIR_HELPER_VA_BLOCK_ARG,
+  MIR_HELPER_UI2F,
+  MIR_HELPER_UI2D,
+  MIR_HELPER_ARG_MEMCPY,
+  MIR_HELPER_LAST
 };
 
-#define MIR_HELPER_NUM (sizeof (helper_names) / sizeof (helper_names[0]))
+static const char *const helper_names[MIR_HELPER_LAST]
+  = {"mir.blk_mov", "mir.i2ld",   "mir.ui2ld",        "mir.f2ld",  "mir.d2ld",  "mir.ld2i",
+     "mir.ld2f",    "mir.ld2d",   "mir.ldadd",        "mir.ldsub", "mir.ldmul", "mir.lddiv",
+     "mir.ldneg",   "mir.ldeq",   "mir.ldne",         "mir.ldlt",  "mir.ldge",  "mir.ldgt",
+     "mir.ldle",    "mir.va_arg", "mir.va_block_arg", "mir.ui2f",  "mir.ui2d",  "mir.arg_memcpy"};
 
-static int helper_index (const char *name) {
-  for (int i = 0; i < (int) MIR_HELPER_NUM; i++)
+static int helper_name_to_index (const char *name) {
+  for (int i = 0; i < MIR_HELPER_LAST; i++)
     if (strcmp (helper_names[i], name) == 0) return i;
   return -1;
 }
@@ -97,19 +137,6 @@ struct MIR_context {
 #define setjmp_addr ctx->setjmp_addr
 #define wrapper_end_addr ctx->wrapper_end_addr
 #define helper_bitmap ctx->helper_bitmap
-
-static void util_error (MIR_context_t ctx, const char *message);
-#define MIR_VARR_ERROR util_error
-#define MIR_HTAB_ERROR MIR_VARR_ERROR
-
-#include "mir-hash.h"
-#include "mir-htab.h"
-#include "mir-reduce.h"
-#include <stdarg.h>
-#include <inttypes.h>
-#include <float.h>
-#include <ctype.h>
-#include <limits.h>
 
 static void interp_init (MIR_context_t ctx);
 static void finish_func_interpretation (MIR_item_t func_item, MIR_alloc_t alloc);
@@ -729,6 +756,21 @@ static void item_tab_remove (MIR_context_t ctx, MIR_item_t item) {
   HTAB_DO (MIR_item_t, module_item_tab, item, HTAB_DELETE, item);
 }
 
+static void remove_unused_builtins (MIR_context_t ctx) {
+  MIR_item_t item, next;
+
+  for (item = DLIST_HEAD (MIR_item_t, environment_module.items); item != NULL; item = next) {
+    next = DLIST_NEXT (MIR_item_t, item);
+    const char *name = MIR_item_name (ctx, item);
+    int hindex = helper_name_to_index (name);
+    if (hindex >= 0 && !bitmap_bit_p (helper_bitmap, hindex)) {
+      DLIST_REMOVE (MIR_item_t, environment_module.items, item);
+      item_tab_remove (ctx, item);
+      MIR_free (ctx->alloc, item);
+    }
+  }
+}
+
 static void init_module (MIR_context_t ctx, MIR_module_t m, const char *name) {
   m->data = NULL;
   m->last_temp_item_num = 0;
@@ -796,6 +838,7 @@ MIR_context_t _MIR_init (MIR_alloc_t alloc, MIR_code_alloc_t code_alloc) {
   VARR_CREATE (MIR_module_t, modules_to_link, alloc, 0);
   VARR_CREATE (MIR_op_t, temp_ops, alloc, 0);
   init_module (ctx, &environment_module, ".environment");
+  helper_bitmap = bitmap_create (ctx->alloc);
   HTAB_CREATE (MIR_item_t, module_item_tab, ctx->alloc, 512, item_hash, item_eq, NULL);
   setjmp_addr = NULL;
   code_init (ctx);
@@ -919,6 +962,7 @@ void MIR_finish (MIR_context_t ctx) {
   simplify_finish (ctx);
   VARR_DESTROY (size_t, insn_nops);
   code_finish (ctx);
+  bitmap_destroy (helper_bitmap);
   hard_reg_name_finish (ctx);
   bitmap_destroy (helper_bitmap);
   if (curr_func != NULL)
@@ -4304,8 +4348,10 @@ MIR_item_t _MIR_builtin_func (MIR_context_t ctx, MIR_module_t module, const char
   MIR_module_t saved_module = curr_module;
 
   name = _MIR_uniq_string (ctx, name);
-  int h_idx = helper_index (name);
-  if (h_idx >= 0) bitmap_set_bit_p (helper_bitmap, h_idx);
+  {
+    int hindex = helper_name_to_index (name);
+    if (hindex >= 0) bitmap_set_bit_p (helper_bitmap, hindex);
+  }
   if ((ref_item = item_tab_find (ctx, name, &environment_module)) != NULL) {
     if (ref_item->item_type != MIR_import_item || ref_item->addr != addr)
       MIR_get_error_func (ctx) (MIR_repeated_decl_error,
@@ -4337,6 +4383,11 @@ MIR_item_t _MIR_builtin_func (MIR_context_t ctx, MIR_module_t module, const char
     curr_module = saved_module;
   }
   return item;
+}
+
+int MIR_helper_used_p (MIR_context_t ctx, const char *name) {
+  int hindex = helper_name_to_index (name);
+  return hindex >= 0 && bitmap_bit_p (helper_bitmap, hindex);
 }
 
 /* New Page */
@@ -5090,6 +5141,7 @@ void MIR_write_module_with_func (MIR_context_t ctx, int (*const writer) (MIR_con
   size_t str_len;
 
   io_writer = writer;
+  remove_unused_builtins (ctx);
 #ifndef MIR_NO_BIN_COMPRESSION
   if ((io_reduce_data = reduce_encode_start (ctx->alloc, reduce_writer, ctx)) == NULL)
     MIR_get_error_func (ctx) (MIR_binary_io_error, "can not alloc data for MIR binary compression");

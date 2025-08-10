@@ -705,6 +705,7 @@ extern void va_end_interp_builtin (MIR_context_t ctx, void *p);
 
 extern void *_MIR_get_bstart_builtin (MIR_context_t ctx);
 extern void *_MIR_get_bend_builtin (MIR_context_t ctx);
+extern int MIR_helper_used_p (MIR_context_t ctx, const char *name);
 
 typedef struct {
   MIR_type_t type;
