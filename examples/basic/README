@@ -84,6 +84,12 @@ DIGITS?
 3.14159265358979323846
 ```
 
+Sine Wave Example
+-----------------
+The `sinewave.bas` program animates an orange sine wave across the terminal
+using escape sequences for cursor positioning and color. It showcases
+trigonometric functions, ANSI coloring, and simple timing control.
+
 Floating-Point Precision
 ------------------------
 Programs such as `pi.bas` use the host's `long double` type for calculations.

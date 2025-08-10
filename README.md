@@ -443,9 +443,9 @@ The executable is "configurable" with environment variables:
 ## BASIC example tests
 Run `make basic-test` to exercise the BASIC compiler samples. Many programs
 such as `hello.bas`, `relop.bas`, `adder.bas`, `string.bas`, `strfuncs.bas`,
-`instr.bas`, `array.bas`, `while.bas`, and `not.bas` currently pass. Some
-samples like `on.bas`, `ifcolons.bas`, and `ifmulti.bas` do not yet produce
-the expected output and will cause the test run to fail.
+`instr.bas`, `array.bas`, `while.bas`, `not.bas`, and `sinewave.bas` currently
+pass. Some samples like `on.bas`, `ifcolons.bas`, and `ifmulti.bas` do not yet
+produce the expected output and will cause the test run to fail.
 
 Graphics output from BASIC samples relies on the Kitty terminal graphics
 protocol (OSC 1337). Use a Kitty-capable terminal or tools like
