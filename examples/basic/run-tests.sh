@@ -26,7 +26,7 @@ run_test() {
         diff "$exp" "$out"
 }
 
-for t in hello relop adder string strfuncs instr gosub funcproc graphics readhplot circle box sudoku array_oob_read array_oob_write life pi baseconv mir_demo; do
+for t in hello relop adder string strfuncs instr gosub funcproc graphics readhplot circle box sudoku array_oob_read array_oob_write life pi baseconv mir_demo datediff; do
 	echo "Running $t"
 	run_test "$t"
 	echo "$t OK"
