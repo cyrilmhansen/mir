@@ -1260,6 +1260,8 @@ static Relop parse_relop (Parser *p) {
   return REL_NONE;
 }
 
+static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else);
+
 /* Parse a single line into statement */
 static int parse_stmt (Parser *p, Stmt *out) {
   skip_ws (p);
@@ -1763,142 +1765,13 @@ static int parse_stmt (Parser *p, Stmt *out) {
     cur += 4;
     skip_ws (p);
     s.u.iff.then_stmts = (StmtVec) {0};
-    for (;;) {
-      Stmt bs;
-      if (isdigit ((unsigned char) *cur)) {
-        bs.kind = ST_GOTO;
-        bs.u.target = parse_int (p);
-      } else {
-        if (!parse_stmt (p, &bs)) return 0;
-        if (bs.kind == ST_PRINT || bs.kind == ST_PRINT_HASH) {
-          size_t cap = 0;
-          if (bs.kind == ST_PRINT) {
-            bs.u.print.items = NULL;
-            bs.u.print.n = 0;
-            bs.u.print.no_nl = 0;
-          } else {
-            bs.u.printhash.items = NULL;
-            bs.u.printhash.n = 0;
-            bs.u.printhash.no_nl = 0;
-          }
-          while (1) {
-            skip_ws (p);
-            if (*cur == ':' || *cur == '\0' || strncasecmp (cur, "ELSE", 4) == 0) break;
-            Node *e = parse_expr (p);
-            if (bs.kind == ST_PRINT) {
-              if (bs.u.print.n == cap) {
-                cap = cap ? cap * 2 : 4;
-                bs.u.print.items = realloc (bs.u.print.items, cap * sizeof (Node *));
-              }
-              bs.u.print.items[bs.u.print.n++] = e;
-            } else {
-              if (bs.u.printhash.n == cap) {
-                cap = cap ? cap * 2 : 4;
-                bs.u.printhash.items = realloc (bs.u.printhash.items, cap * sizeof (Node *));
-              }
-              bs.u.printhash.items[bs.u.printhash.n++] = e;
-            }
-            skip_ws (p);
-            if (*cur == ';' || *cur == ',') {
-              cur++;
-              skip_ws (p);
-              if (*cur == ':' || *cur == '\0' || strncasecmp (cur, "ELSE", 4) == 0) {
-                if (bs.kind == ST_PRINT)
-                  bs.u.print.no_nl = 1;
-                else
-                  bs.u.printhash.no_nl = 1;
-                break;
-              }
-              continue;
-            }
-            break;
-          }
-          skip_ws (p);
-        }
-      }
-      stmt_vec_push (&s.u.iff.then_stmts, bs);
-      skip_ws (p);
-      if (*cur == ':') {
-        do {
-          cur++;
-          skip_ws (p);
-        } while (*cur == ':');
-        if (*cur == '\0') break;
-        if (strncasecmp (cur, "ELSE", 4) == 0) break;
-        continue;
-      }
-      break;
-    }
+    if (!parse_if_part (p, &s.u.iff.then_stmts, 1)) return 0;
     skip_ws (p);
     s.u.iff.else_stmts = (StmtVec) {0};
     if (strncasecmp (cur, "ELSE", 4) == 0) {
       cur += 4;
       skip_ws (p);
-      for (;;) {
-        Stmt bs;
-        if (isdigit ((unsigned char) *cur)) {
-          bs.kind = ST_GOTO;
-          bs.u.target = parse_int (p);
-        } else {
-          if (!parse_stmt (p, &bs)) return 0;
-          if (bs.kind == ST_PRINT || bs.kind == ST_PRINT_HASH) {
-            size_t cap = 0;
-            if (bs.kind == ST_PRINT) {
-              bs.u.print.items = NULL;
-              bs.u.print.n = 0;
-              bs.u.print.no_nl = 0;
-            } else {
-              bs.u.printhash.items = NULL;
-              bs.u.printhash.n = 0;
-              bs.u.printhash.no_nl = 0;
-            }
-            while (1) {
-              skip_ws (p);
-              if (*cur == ':' || *cur == '\0') break;
-              Node *e = parse_expr (p);
-              if (bs.kind == ST_PRINT) {
-                if (bs.u.print.n == cap) {
-                  cap = cap ? cap * 2 : 4;
-                  bs.u.print.items = realloc (bs.u.print.items, cap * sizeof (Node *));
-                }
-                bs.u.print.items[bs.u.print.n++] = e;
-              } else {
-                if (bs.u.printhash.n == cap) {
-                  cap = cap ? cap * 2 : 4;
-                  bs.u.printhash.items = realloc (bs.u.printhash.items, cap * sizeof (Node *));
-                }
-                bs.u.printhash.items[bs.u.printhash.n++] = e;
-              }
-              skip_ws (p);
-              if (*cur == ';' || *cur == ',') {
-                cur++;
-                skip_ws (p);
-                if (*cur == ':' || *cur == '\0') {
-                  if (bs.kind == ST_PRINT)
-                    bs.u.print.no_nl = 1;
-                  else
-                    bs.u.printhash.no_nl = 1;
-                  break;
-                }
-                continue;
-              }
-              break;
-            }
-            skip_ws (p);
-          }
-        }
-        stmt_vec_push (&s.u.iff.else_stmts, bs);
-        skip_ws (p);
-        if (*cur == ':') {
-          do {
-            cur++;
-            skip_ws (p);
-          } while (*cur == ':');
-          if (*cur == '\0') break;
-          continue;
-        }
-        break;
-      }
+      if (!parse_if_part (p, &s.u.iff.else_stmts, 0)) return 0;
     }
     *out = s;
     return 1;
@@ -2138,6 +2011,74 @@ static int parse_stmt (Parser *p, Stmt *out) {
     return 1;
   }
   return 0;
+}
+
+static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
+  while (1) {
+    Stmt bs;
+    if (isdigit ((unsigned char) *cur)) {
+      bs.kind = ST_GOTO;
+      bs.u.target = parse_int (p);
+    } else {
+      if (!parse_stmt (p, &bs)) return 0;
+      if (bs.kind == ST_PRINT || bs.kind == ST_PRINT_HASH) {
+        size_t cap = 0;
+        if (bs.kind == ST_PRINT) {
+          bs.u.print.items = NULL;
+          bs.u.print.n = 0;
+          bs.u.print.no_nl = 0;
+        } else {
+          bs.u.printhash.items = NULL;
+          bs.u.printhash.n = 0;
+          bs.u.printhash.no_nl = 0;
+        }
+        while (1) {
+          skip_ws (p);
+          if (*cur == ':' || *cur == '\0' || (stop_on_else && strncasecmp (cur, "ELSE", 4) == 0))
+            break;
+          Node *e = parse_expr (p);
+          if (bs.kind == ST_PRINT) {
+            if (bs.u.print.n == cap) {
+              cap = cap ? cap * 2 : 4;
+              bs.u.print.items = realloc (bs.u.print.items, cap * sizeof (Node *));
+            }
+            bs.u.print.items[bs.u.print.n++] = e;
+          } else {
+            if (bs.u.printhash.n == cap) {
+              cap = cap ? cap * 2 : 4;
+              bs.u.printhash.items = realloc (bs.u.printhash.items, cap * sizeof (Node *));
+            }
+            bs.u.printhash.items[bs.u.printhash.n++] = e;
+          }
+          skip_ws (p);
+          if (*cur == ';' || *cur == ',') {
+            cur++;
+            skip_ws (p);
+            if (*cur == ':' || *cur == '\0'
+                || (stop_on_else && strncasecmp (cur, "ELSE", 4) == 0)) {
+              if (bs.kind == ST_PRINT)
+                bs.u.print.no_nl = 1;
+              else
+                bs.u.printhash.no_nl = 1;
+              break;
+            }
+            continue;
+          }
+          break;
+        }
+        skip_ws (p);
+      }
+    }
+    stmt_vec_push (vec, bs);
+    skip_ws (p);
+    if (*cur != ':') break;
+    do {
+      cur++;
+      skip_ws (p);
+    } while (*cur == ':');
+    if (*cur == '\0' || (stop_on_else && strncasecmp (cur, "ELSE", 4) == 0)) break;
+  }
+  return 1;
 }
 
 /* Parse a single line into multiple statements */
