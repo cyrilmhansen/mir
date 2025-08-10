@@ -174,7 +174,7 @@ basic_num_t basic_input (void) {
 
 void basic_print (basic_num_t x) {
   char buf[128];
-  int len = BASIC_SNPRINTF (buf, sizeof (buf), BASIC_NUM_PRINTF, x);
+  int len = basic_num_to_chars (x, buf, sizeof (buf));
   basic_pos_val += len;
   fputs (buf, stdout);
 }
@@ -269,7 +269,7 @@ void basic_print_hash (basic_num_t n, basic_num_t x) {
   int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return;
   char buf[128];
-  BASIC_SNPRINTF (buf, sizeof (buf), BASIC_NUM_PRINTF, x);
+  basic_num_to_chars (x, buf, sizeof (buf));
   fputs (buf, basic_files[idx]);
 }
 
@@ -479,7 +479,7 @@ basic_num_t basic_val (const char *s) { return BASIC_STRTOF (s, NULL); }
    Caller must free the result with basic_free. */
 char *basic_str (basic_num_t n) {
   char buf[128];
-  BASIC_SNPRINTF (buf, sizeof (buf), BASIC_NUM_PRINTF, n);
+  basic_num_to_chars (n, buf, sizeof (buf));
   return strdup (buf);
 }
 
