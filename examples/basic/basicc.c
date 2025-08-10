@@ -985,76 +985,90 @@ static void parse_call_args (Parser *p, CallArgs *a) {
   if (*cur == ')') cur++;
 }
 
-static Node *bool_const (char *id) {
-  if (strcasecmp (id, "TRUE") && strcasecmp (id, "FALSE")) return NULL;
-  Node *n = new_node (N_NUM);
-  n->num = strcasecmp (id, "TRUE") == 0;
-  free (id);
-  return n;
-}
+typedef struct {
+  const char *name;
+  int returns_string;
+} Builtin;
 
-static int builtin_func (const char *id, int *is_str) {
-  static const char *nums[]
-    = {"RND",    "INT",       "TIMER",   "TIME",    "DATE",     "PEEK",    "EOF",
-       "POS",    "ABS",       "SGN",     "SQR",     "SIN",      "COS",     "TAN",
-       "ATN",    "LOG",       "EXP",     "LEN",     "VAL",      "ASC",     "INSTR",
-       "MIRCTX", "MIRMOD",    "MIRFUNC", "MIRREG",  "MIRLABEL", "MIREMIT", "MIREMITLBL",
-       "MIRRET", "MIRFINISH", "MIRRUN",  "MIRDUMP", NULL};
-  static const char *strs[] = {"CHR$",  "STRING$", "TIME$", "DATE$", "INPUT$", "SPC",
-                               "LEFT$", "RIGHT$",  "MID$",  "STR$",  "INKEY$", NULL};
-  for (int i = 0; nums[i]; i++)
-    if (!strcasecmp (id, nums[i])) return *is_str = 0, 1;
-  for (int i = 0; strs[i]; i++)
-    if (!strcasecmp (id, strs[i])) return *is_str = 1, 1;
-  return 0;
-}
+static const Builtin builtins[]
+  = {{"RND", 0},      {"INT", 0},     {"TIMER", 0},      {"TIME", 0},    {"DATE", 0},
+     {"PEEK", 0},     {"EOF", 0},     {"POS", 0},        {"ABS", 0},     {"SGN", 0},
+     {"SQR", 0},      {"SIN", 0},     {"COS", 0},        {"TAN", 0},     {"ATN", 0},
+     {"LOG", 0},      {"EXP", 0},     {"LEN", 0},        {"VAL", 0},     {"ASC", 0},
+     {"INSTR", 0},    {"MIRCTX", 0},  {"MIRMOD", 0},     {"MIRFUNC", 0}, {"MIRREG", 0},
+     {"MIRLABEL", 0}, {"MIREMIT", 0}, {"MIREMITLBL", 0}, {"MIRRET", 0},  {"MIRFINISH", 0},
+     {"MIRRUN", 0},   {"MIRDUMP", 0}, {"CHR$", 1},       {"STRING$", 1}, {"TIME$", 1},
+     {"DATE$", 1},    {"INPUT$", 1},  {"SPC", 1},        {"LEFT$", 1},   {"RIGHT$", 1},
+     {"MID$", 1},     {"STR$", 1},    {"INKEY$", 1},     {NULL, 0}};
 
-static Node *make_call_node (char *id, CallArgs *a, int is_str) {
-  Node *n = new_node (N_CALL);
-  n->var = id;
-  n->left = a->a[0];
-  n->right = a->a[1];
-  n->index = a->a[2];
-  n->index2 = a->a[3];
-  n->arg4 = a->a[4];
-  n->is_str = is_str;
-  return n;
-}
-
-static Node *make_call (char *id, CallArgs *a) {
-  int is_str;
-  FuncDef *fd;
-  if (builtin_func (id, &is_str)) {
-    if (!strcasecmp (id, "RND") && a->a[0] == NULL) {
-      a->a[0] = new_node (N_NUM);
-      a->a[0]->num = 1;
-    }
-    return make_call_node (id, a, is_str);
-  }
-  if (strncasecmp (id, "FN", 2) == 0 || (fd = find_func (id)) != NULL)
-    return make_call_node (id, a, fd ? fd->is_str_ret : id[strlen (id) - 1] == '$');
+static const Builtin *lookup_builtin (const char *id) {
+  for (int i = 0; builtins[i].name != NULL; i++)
+    if (strcasecmp (id, builtins[i].name) == 0) return &builtins[i];
   return NULL;
 }
 
-static Node *make_var_node (char *id, CallArgs *a) {
-  Node *n = new_node (N_VAR);
+static Node *parse_literal (Parser *p) {
+  if (isdigit ((unsigned char) *cur) || *cur == '.') {
+    Node *n = new_node (N_NUM);
+    n->num = parse_number (p);
+    return n;
+  }
+  if (*cur == '"') {
+    Node *n = new_node (N_STR);
+    n->is_str = 1;
+    n->str = parse_string (p);
+    return n;
+  }
+  if (strncasecmp (cur, "TRUE", 4) == 0 && !isalnum ((unsigned char) cur[4]) && cur[4] != '_'
+      && cur[4] != '$') {
+    cur += 4;
+    Node *n = new_node (N_NUM);
+    n->num = 1;
+    return n;
+  }
+  if (strncasecmp (cur, "FALSE", 5) == 0 && !isalnum ((unsigned char) cur[5]) && cur[5] != '_'
+      && cur[5] != '$') {
+    cur += 5;
+    Node *n = new_node (N_NUM);
+    n->num = 0;
+    return n;
+  }
+  return NULL;
+}
+
+static Node *parse_builtin_call (char *id, CallArgs *a) {
+  const Builtin *b = lookup_builtin (id);
+  if (b == NULL) return NULL;
+  if (!strcasecmp (id, "RND") && a->a[0] == NULL) {
+    a->a[0] = new_node (N_NUM);
+    a->a[0]->num = 1;
+  }
+  Node *n = new_node (N_CALL);
   n->var = id;
-  n->is_str = id[strlen (id) - 1] == '$';
-  n->index = a->a[0];
-  n->index2 = a->a[1];
+  n->is_str = b->returns_string;
+  Node **args[5] = {&n->left, &n->right, &n->index, &n->index2, &n->arg4};
+  for (int i = 0; i < 5; i++) *args[i] = a->a[i];
   return n;
 }
 
-static Node *parse_identifier (Parser *p) {
-  char *id = parse_id (p);
-  CallArgs a = {{0}};
-  skip_ws (p);
-  if (*cur == '(') parse_call_args (p, &a);
-  Node *n = bool_const (id);
-  if (n) return n;
-  n = make_call (id, &a);
-  if (n) return n;
-  return make_var_node (id, &a);
+static Node *parse_user_call (char *id, CallArgs *a) {
+  FuncDef *fd = find_func (id);
+  if (strncasecmp (id, "FN", 2) != 0 && fd == NULL) return NULL;
+  Node *n = new_node (N_CALL);
+  n->var = id;
+  n->is_str = fd ? fd->is_str_ret : id[strlen (id) - 1] == '$';
+  Node **args[5] = {&n->left, &n->right, &n->index, &n->index2, &n->arg4};
+  for (int i = 0; i < 5; i++) *args[i] = a->a[i];
+  return n;
+}
+
+static Node *parse_variable (char *id, CallArgs *a) {
+  Node *n = new_node (N_VAR);
+  n->var = id;
+  n->is_str = id[strlen (id) - 1] == '$';
+  Node **args[2] = {&n->index, &n->index2};
+  for (int i = 0; i < 2; i++) *args[i] = a->a[i];
+  return n;
 }
 
 static Node *parse_not (Parser *p) {
@@ -1084,31 +1098,21 @@ static Node *parse_unary_minus (Parser *p) {
   return n;
 }
 
-static Node *parse_numeric_literal (Parser *p) {
-  if (!isdigit ((unsigned char) *cur) && *cur != '.') return NULL;
-  Node *n = new_node (N_NUM);
-  n->num = parse_number (p);
-  return n;
-}
-
-static Node *parse_string_literal (Parser *p) {
-  if (*cur != '"') return NULL;
-  Node *n = new_node (N_STR);
-  n->is_str = 1;
-  n->str = parse_string (p);
-  return n;
-}
-
 static Node *parse_factor (Parser *p) {
   skip_ws (p);
   Node *n;
   if ((n = parse_not (p)) != NULL) return n;
   if ((n = parse_paren (p)) != NULL) return n;
   if ((n = parse_unary_minus (p)) != NULL) return n;
-  if ((n = parse_numeric_literal (p)) != NULL) return n;
-  if ((n = parse_string_literal (p)) != NULL) return n;
-  if ((n = parse_identifier (p)) != NULL) return n;
-  return NULL;
+  if ((n = parse_literal (p)) != NULL) return n;
+  if (!isalpha ((unsigned char) *cur) && *cur != '_') return NULL;
+  char *id = parse_id (p);
+  CallArgs a = {{0}};
+  skip_ws (p);
+  if (*cur == '(') parse_call_args (p, &a);
+  if ((n = parse_builtin_call (id, &a)) != NULL) return n;
+  if ((n = parse_user_call (id, &a)) != NULL) return n;
+  return parse_variable (id, &a);
 }
 
 static Node *parse_term (Parser *p) {
