@@ -1,0 +1,2 @@
+10 A$="10 A$="+CHR$(34)+A$+CHR$(34)+":PRINT A$"
+20 PRINT A$
