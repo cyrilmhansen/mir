@@ -520,6 +520,19 @@ char *basic_time_str (void) {
   return strdup (buf);
 }
 
+basic_num_t basic_date (void) {
+  time_t t = time (NULL);
+  return (basic_num_t) (t / 86400);
+}
+
+char *basic_date_str (void) {
+  time_t t = time (NULL);
+  struct tm *tm_info = localtime (&t);
+  char buf[11];
+  strftime (buf, sizeof (buf), "%Y-%m-%d", tm_info);
+  return strdup (buf);
+}
+
 /* Read N characters from stdin and return them as a newly allocated string.
    Caller must free the result with basic_free. */
 char *basic_input_chr (basic_num_t n) {
