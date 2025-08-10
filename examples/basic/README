@@ -54,6 +54,21 @@ Example:
 
 This program builds a function that adds its two arguments and prints `5`.
 
+DATE$ Example
+-------------
+The `DATE$` function returns the current date in `YYYY-MM-DD` format. The
+components can be extracted with `MID$` and converted with `VAL`:
+
+```
+10 d$ = DATE$
+20 y = VAL(MID$(d$, 1, 4))
+30 m = VAL(MID$(d$, 6, 2))
+40 d = VAL(MID$(d$, 9, 2))
+50 PRINT y; "/"; m; "/"; d
+```
+
+This program prints the year, month, and day as numbers.
+
 Pi Spigot Example
 -----------------
 The `pi_spigot.bas` program demonstrates generating digits of `PI` using only
