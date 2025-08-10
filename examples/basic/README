@@ -69,3 +69,11 @@ DIGITS?
 3.14159265358979323846
 ```
 
+Floating-Point Precision
+------------------------
+Programs such as `pi.bas` use the host's `long double` type for calculations.
+On x86-64, `long double` typically offers only about 19–20 decimal digits of
+precision, so requesting more digits will not produce additional accurate
+output. Users needing greater precision should compile the BASIC runtime with
+`BASIC_USE_FLOAT128` or link against an arbitrary-precision library.
+
