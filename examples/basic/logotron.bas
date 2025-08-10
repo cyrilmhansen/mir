@@ -18,7 +18,7 @@
 180 PRINT "Appuyez sur ENTREE pour generer un mot."
 190 PRINT "Tapez Q puis ENTREE pour quitter."
 200 PRINT
-210 INPUT "", R$
+210 GET R$
 220 IF R$ = "Q" OR R$ = "q" THEN END
 230 REM TIRAGE ALEATOIRE D'UN COUPLE PREFIXE/SENS
 240 I = INT(RND * NP) * 2 + 1
