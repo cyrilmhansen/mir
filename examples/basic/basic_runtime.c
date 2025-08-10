@@ -6,13 +6,14 @@
 #include <stdint.h>
 #include <sys/select.h>
 #include <unistd.h>
+#include "basic_num.h"
 #include "kitty/kitty.h"
 
 static int seeded = 0;
 static int basic_pos_val = 1;
 static int basic_error_handler = 0;
 static int basic_line = 0;
-static double last_hplot_x = 0.0, last_hplot_y = 0.0;
+static basic_num_t last_hplot_x = 0.0, last_hplot_y = 0.0;
 int basic_line_tracking_enabled = 1;
 
 typedef struct {
@@ -76,7 +77,7 @@ void basic_profile_reset (void) {
   clock_gettime (CLOCK_MONOTONIC, &last_time);
 }
 
-void basic_profile_line (double line_no) {
+void basic_profile_line (basic_num_t line_no) {
   struct timespec now;
   clock_gettime (CLOCK_MONOTONIC, &now);
   if (last_profile_line != -1) {
@@ -137,22 +138,22 @@ void basic_profile_dump (void) {
   }
 }
 
-void basic_enable_line_tracking (double on) { basic_line_tracking_enabled = on != 0; }
+void basic_enable_line_tracking (basic_num_t on) { basic_line_tracking_enabled = on != 0; }
 
-void basic_set_error_handler (double line) { basic_error_handler = (int) line; }
+void basic_set_error_handler (basic_num_t line) { basic_error_handler = (int) line; }
 
-double basic_get_error_handler (void) { return (double) basic_error_handler; }
+basic_num_t basic_get_error_handler (void) { return (basic_num_t) basic_error_handler; }
 
-void basic_set_line (double line) {
+void basic_set_line (basic_num_t line) {
   if (basic_line_tracking_enabled) basic_line = (int) line;
 }
 
-double basic_get_line (void) {
+basic_num_t basic_get_line (void) {
   if (!basic_line_tracking_enabled) {
     fprintf (stderr, "line tracking disabled\n");
     exit (1);
   }
-  return (double) basic_line;
+  return (basic_num_t) basic_line;
 }
 
 /* Release a string allocated by BASIC runtime helpers. */
@@ -161,15 +162,22 @@ void basic_free (char *s) { free (s); }
 /* Duplicate a C string using malloc; result must be freed with basic_free. */
 char *basic_strdup (const char *s) { return strdup (s); }
 
-double basic_input (void) {
-  double x = 0.0;
-  if (scanf ("%lf", &x) != 1) return 0.0;
+basic_num_t basic_input (void) {
+  basic_num_t x = 0.0;
+#if defined(BASIC_USE_FLOAT128)
+  char buf[128];
+  if (scanf ("%127s", buf) != 1) return 0.0;
+  x = BASIC_STRTOF (buf, NULL);
   return x;
+#else
+  if (scanf (BASIC_NUM_SCANF, &x) != 1) return 0.0;
+  return x;
+#endif
 }
 
-void basic_print (double x) {
-  char buf[32];
-  int len = snprintf (buf, sizeof (buf), "%.15g", x);
+void basic_print (basic_num_t x) {
+  char buf[128];
+  int len = BASIC_SNPRINTF (buf, sizeof (buf), BASIC_NUM_PRINTF, x);
   basic_pos_val += len;
   fputs (buf, stdout);
 }
@@ -179,7 +187,7 @@ void basic_print_str (const char *s) {
   fputs (s, stdout);
 }
 
-double basic_pos (void) { return (double) basic_pos_val; }
+basic_num_t basic_pos (void) { return (basic_num_t) basic_pos_val; }
 
 /* Allocate a new string containing input from stdin.
    Caller must free the returned buffer with basic_free. */
@@ -239,7 +247,7 @@ int basic_strcmp (const char *a, const char *b) {
 #define BASIC_MAX_FILES 16
 static FILE *basic_files[BASIC_MAX_FILES];
 
-void basic_open (double n, const char *path) {
+void basic_open (basic_num_t n, const char *path) {
   int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES) return;
   if (basic_files[idx] != NULL) {
@@ -251,7 +259,7 @@ void basic_open (double n, const char *path) {
   basic_files[idx] = f;
 }
 
-void basic_close (double n) {
+void basic_close (basic_num_t n) {
   int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES) return;
   if (basic_files[idx] != NULL) {
@@ -260,29 +268,37 @@ void basic_close (double n) {
   }
 }
 
-void basic_print_hash (double n, double x) {
+void basic_print_hash (basic_num_t n, basic_num_t x) {
   int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return;
-  fprintf (basic_files[idx], "%.15g", x);
+  char buf[128];
+  BASIC_SNPRINTF (buf, sizeof (buf), BASIC_NUM_PRINTF, x);
+  fputs (buf, basic_files[idx]);
 }
 
-void basic_print_hash_str (double n, const char *s) {
+void basic_print_hash_str (basic_num_t n, const char *s) {
   int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return;
   fputs (s, basic_files[idx]);
 }
 
-double basic_input_hash (double n) {
+basic_num_t basic_input_hash (basic_num_t n) {
   int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return 0.0;
-  double x = 0.0;
-  if (fscanf (basic_files[idx], "%lf", &x) != 1) return 0.0;
+#if defined(BASIC_USE_FLOAT128)
+  char buf[128];
+  if (fscanf (basic_files[idx], "%127s", buf) != 1) return 0.0;
+  return BASIC_STRTOF (buf, NULL);
+#else
+  basic_num_t x = 0.0;
+  if (fscanf (basic_files[idx], BASIC_NUM_SCANF, &x) != 1) return 0.0;
   return x;
+#endif
 }
 
 /* Read a line from an open file and return a newly allocated string.
    Caller must free the result with basic_free. */
-char *basic_input_hash_str (double n) {
+char *basic_input_hash_str (basic_num_t n) {
   int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return strdup ("");
   char buf[256];
@@ -294,7 +310,7 @@ char *basic_input_hash_str (double n) {
 
 /* Read a single character from an open file and return it as a
    newly allocated string. Caller must free the result with basic_free. */
-char *basic_get_hash (double n) {
+char *basic_get_hash (basic_num_t n) {
   int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) {
     char *s = malloc (2);
@@ -310,14 +326,14 @@ char *basic_get_hash (double n) {
   return s;
 }
 
-void basic_put_hash (double n, const char *s) {
+void basic_put_hash (basic_num_t n, const char *s) {
   int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return;
   int c = s != NULL && s[0] != '\0' ? (unsigned char) s[0] : 0;
   fputc (c, basic_files[idx]);
 }
 
-double basic_eof (double n) {
+basic_num_t basic_eof (basic_num_t n) {
   int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return -1.0;
   return feof (basic_files[idx]) ? -1.0 : 0.0;
@@ -325,7 +341,7 @@ double basic_eof (double n) {
 
 typedef struct BasicData {
   int is_str;
-  double num;
+  basic_num_t num;
   char *str;
 } BasicData;
 
@@ -333,7 +349,7 @@ BasicData *basic_data_items = NULL;
 size_t basic_data_len = 0;
 size_t basic_data_pos = 0;
 
-double basic_read (void) {
+basic_num_t basic_read (void) {
   if (basic_data_pos >= basic_data_len || basic_data_items[basic_data_pos].is_str) return 0.0;
   return basic_data_items[basic_data_pos++].num;
 }
@@ -350,22 +366,22 @@ void basic_restore (void) { basic_data_pos = 0; }
 
 void basic_home (void) { printf ("\x1b[2J\x1b[H"); }
 
-void basic_vtab (double n) { printf ("\x1b[%d;H", (int) n); }
+void basic_vtab (basic_num_t n) { printf ("\x1b[%d;H", (int) n); }
 
-void basic_screen (double m) { (void) m; }
+void basic_screen (basic_num_t m) { (void) m; }
 
 void basic_cls (void) { printf ("\x1b[2J\x1b[H"); }
 
-void basic_color (double c) { printf ("\x1b[%dm", (int) c); }
+void basic_color (basic_num_t c) { printf ("\x1b[%dm", (int) c); }
 
 void basic_key_off (void) {}
 
-void basic_locate (double r, double c) { printf ("\x1b[%d;%dH", (int) r, (int) c); }
+void basic_locate (basic_num_t r, basic_num_t c) { printf ("\x1b[%d;%dH", (int) r, (int) c); }
 
-void basic_htab (double n) { printf ("\x1b[%dG", (int) n); }
-void basic_tab (double n) { basic_htab (n); }
+void basic_htab (basic_num_t n) { printf ("\x1b[%dG", (int) n); }
+void basic_tab (basic_num_t n) { basic_htab (n); }
 
-void basic_randomize (double n, double has_seed) {
+void basic_randomize (basic_num_t n, basic_num_t has_seed) {
   if (has_seed != 0.0) {
     srand ((unsigned) n);
   } else {
@@ -374,36 +390,36 @@ void basic_randomize (double n, double has_seed) {
   seeded = 1;
 }
 
-double basic_rnd (double n) {
+basic_num_t basic_rnd (basic_num_t n) {
   if (!seeded) {
     srand ((unsigned) time (NULL));
     seeded = 1;
   }
   /* rand () can return RAND_MAX, which would make the result equal to n.
      Scale by RAND_MAX + 1.0 to keep the value in [0, n). */
-  return ((double) rand () / ((double) RAND_MAX + 1.0)) * n;
+  return ((basic_num_t) rand () / ((basic_num_t) RAND_MAX + 1.0)) * n;
 }
 
-double basic_abs (double x) { return fabs (x); }
+basic_num_t basic_abs (basic_num_t x) { return BASIC_FABS (x); }
 
-double basic_sgn (double x) { return x > 0 ? 1.0 : x < 0 ? -1.0 : 0.0; }
+basic_num_t basic_sgn (basic_num_t x) { return x > 0 ? 1.0 : x < 0 ? -1.0 : 0.0; }
 
-double basic_sqr (double x) { return sqrt (x); }
+basic_num_t basic_sqr (basic_num_t x) { return BASIC_SQRT (x); }
 
-double basic_sin (double x) { return sin (x); }
+basic_num_t basic_sin (basic_num_t x) { return BASIC_SIN (x); }
 
-double basic_cos (double x) { return cos (x); }
+basic_num_t basic_cos (basic_num_t x) { return BASIC_COS (x); }
 
-double basic_tan (double x) { return tan (x); }
+basic_num_t basic_tan (basic_num_t x) { return BASIC_TAN (x); }
 
-double basic_atn (double x) { return atan (x); }
+basic_num_t basic_atn (basic_num_t x) { return BASIC_ATAN (x); }
 
-double basic_log (double x) { return log (x); }
+basic_num_t basic_log (basic_num_t x) { return BASIC_LOG (x); }
 
-double basic_exp (double x) { return exp (x); }
+basic_num_t basic_exp (basic_num_t x) { return BASIC_EXP (x); }
 
 /* Allocate a one-character string. Caller must free with basic_free. */
-char *basic_chr (double n) {
+char *basic_chr (basic_num_t n) {
   char *s = malloc (2);
   s[0] = (char) ((int) n);
   s[1] = '\0';
@@ -412,7 +428,7 @@ char *basic_chr (double n) {
 
 /* Return a string of length N filled with the first character of S.
    Caller must free the result with basic_free. */
-char *basic_string (double n, const char *s) {
+char *basic_string (basic_num_t n, const char *s) {
   int len = (int) n;
   char ch = s != NULL && s[0] != '\0' ? s[0] : '\0';
   char *res = malloc ((size_t) len + 1);
@@ -423,7 +439,7 @@ char *basic_string (double n, const char *s) {
 
 /* Return the leftmost N characters of S as a newly allocated string.
    Caller must free the result with basic_free. */
-char *basic_left (const char *s, double n) {
+char *basic_left (const char *s, basic_num_t n) {
   size_t len = strlen (s);
   size_t cnt = (size_t) n;
   if (cnt > len) cnt = len;
@@ -435,7 +451,7 @@ char *basic_left (const char *s, double n) {
 
 /* Return the rightmost N characters of S as a newly allocated string.
    Caller must free the result with basic_free. */
-char *basic_right (const char *s, double n) {
+char *basic_right (const char *s, basic_num_t n) {
   size_t len = strlen (s);
   size_t cnt = (size_t) n;
   if (cnt > len) cnt = len;
@@ -444,7 +460,7 @@ char *basic_right (const char *s, double n) {
 
 /* Return a substring of S starting at START_D with length LEN_D.
    Caller must free the result with basic_free. */
-char *basic_mid (const char *s, double start_d, double len_d) {
+char *basic_mid (const char *s, basic_num_t start_d, basic_num_t len_d) {
   size_t len = strlen (s);
   size_t start = (size_t) start_d;
   if (start < 1) start = 1;
@@ -458,36 +474,36 @@ char *basic_mid (const char *s, double start_d, double len_d) {
   return res;
 }
 
-double basic_instr (const char *s, const char *sub) {
+basic_num_t basic_instr (const char *s, const char *sub) {
   if (s == NULL || sub == NULL || *sub == '\0') return 0.0;
   const char *p = strstr (s, sub);
-  return p == NULL ? 0.0 : (double) (p - s + 1);
+  return p == NULL ? 0.0 : (basic_num_t) (p - s + 1);
 }
 
-double basic_len (const char *s) { return (double) strlen (s); }
+basic_num_t basic_len (const char *s) { return (basic_num_t) strlen (s); }
 
-double basic_val (const char *s) { return strtod (s, NULL); }
+basic_num_t basic_val (const char *s) { return BASIC_STRTOF (s, NULL); }
 
 /* Convert a number to a newly allocated string.
    Caller must free the result with basic_free. */
-char *basic_str (double n) {
-  char buf[32];
-  snprintf (buf, sizeof (buf), "%.15g", n);
+char *basic_str (basic_num_t n) {
+  char buf[128];
+  BASIC_SNPRINTF (buf, sizeof (buf), BASIC_NUM_PRINTF, n);
   return strdup (buf);
 }
 
-double basic_asc (const char *s) {
-  return s == NULL || s[0] == '\0' ? 0.0 : (double) (unsigned char) s[0];
+basic_num_t basic_asc (const char *s) {
+  return s == NULL || s[0] == '\0' ? 0.0 : (basic_num_t) (unsigned char) s[0];
 }
 
-double basic_int (double x) { return floor (x); }
+basic_num_t basic_int (basic_num_t x) { return BASIC_FLOOR (x); }
 
-double basic_timer (void) { return (double) clock () / CLOCKS_PER_SEC; }
+basic_num_t basic_timer (void) { return (basic_num_t) clock () / CLOCKS_PER_SEC; }
 
-double basic_time (void) {
+basic_num_t basic_time (void) {
   time_t t = time (NULL);
   struct tm *tm_info = localtime (&t);
-  return (double) (tm_info->tm_hour * 3600 + tm_info->tm_min * 60 + tm_info->tm_sec);
+  return (basic_num_t) (tm_info->tm_hour * 3600 + tm_info->tm_min * 60 + tm_info->tm_sec);
 }
 
 /* Return current time formatted as HH:MM:SS in a newly allocated string.
@@ -502,7 +518,7 @@ char *basic_time_str (void) {
 
 /* Read N characters from stdin and return them as a newly allocated string.
    Caller must free the result with basic_free. */
-char *basic_input_chr (double n) {
+char *basic_input_chr (basic_num_t n) {
   int len = (int) n;
   char *res = malloc ((size_t) len + 1);
   int i = 0;
@@ -518,13 +534,13 @@ char *basic_input_chr (double n) {
 #define BASIC_MEM_SIZE 65536
 static uint8_t basic_memory[BASIC_MEM_SIZE];
 
-double basic_peek (double addr) {
+basic_num_t basic_peek (basic_num_t addr) {
   int a = (int) addr;
   if (a < 0 || a >= BASIC_MEM_SIZE) return 0.0;
-  return (double) basic_memory[a];
+  return (basic_num_t) basic_memory[a];
 }
 
-void basic_poke (double addr, double value) {
+void basic_poke (basic_num_t addr, basic_num_t value) {
   int a = (int) addr;
   int v = (int) value & 0xff;
   if (a < 0 || a >= BASIC_MEM_SIZE) return;
@@ -541,7 +557,7 @@ void basic_hgr2 (void) { printf ("\x1b[2J\x1b[H"); }
 
 static int current_hcolor = 37;
 
-void basic_hcolor (double c) { current_hcolor = 30 + ((int) c & 7); }
+void basic_hcolor (basic_num_t c) { current_hcolor = 30 + ((int) c & 7); }
 
 /* 1x1 PNGs for standard 8 terminal colors, base64-encoded.  */
 static const char *kitty_color_png[8] = {
@@ -555,7 +571,7 @@ static const char *kitty_color_png[8] = {
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC",
 };
 
-static void basic_kitty_plot (double x, double y) {
+static void basic_kitty_plot (basic_num_t x, basic_num_t y) {
   int ix = (int) x, iy = (int) y;
   int color = (current_hcolor - 30) & 7;
   const char *png = kitty_color_png[color];
@@ -565,71 +581,71 @@ static void basic_kitty_plot (double x, double y) {
   fflush (stdout);
 }
 
-static void basic_kitty_line (double x0, double y0, double x1, double y1) {
-  double dx = x1 - x0, dy = y1 - y0;
-  int steps = fabs (dx) > fabs (dy) ? fabs (dx) : fabs (dy);
-  double xi = steps ? dx / steps : 0.0;
-  double yi = steps ? dy / steps : 0.0;
+static void basic_kitty_line (basic_num_t x0, basic_num_t y0, basic_num_t x1, basic_num_t y1) {
+  basic_num_t dx = x1 - x0, dy = y1 - y0;
+  int steps = BASIC_FABS (dx) > BASIC_FABS (dy) ? BASIC_FABS (dx) : BASIC_FABS (dy);
+  basic_num_t xi = steps ? dx / steps : 0.0;
+  basic_num_t yi = steps ? dy / steps : 0.0;
   for (int i = 0; i <= steps; i++) {
     basic_kitty_plot (x0 + xi * i, y0 + yi * i);
   }
 }
 
-void basic_hplot (double x, double y) {
+void basic_hplot (basic_num_t x, basic_num_t y) {
   basic_kitty_plot (x, y);
   last_hplot_x = x;
   last_hplot_y = y;
 }
 
-void basic_hplot_to (double x0, double y0, double x1, double y1) {
+void basic_hplot_to (basic_num_t x0, basic_num_t y0, basic_num_t x1, basic_num_t y1) {
   basic_kitty_line (x0, y0, x1, y1);
   last_hplot_x = x1;
   last_hplot_y = y1;
 }
 
-void basic_hplot_to_current (double x1, double y1) {
+void basic_hplot_to_current (basic_num_t x1, basic_num_t y1) {
   basic_kitty_line (last_hplot_x, last_hplot_y, x1, y1);
   last_hplot_x = x1;
   last_hplot_y = y1;
 }
 
-void basic_move (double x, double y) {
+void basic_move (basic_num_t x, basic_num_t y) {
   last_hplot_x = x;
   last_hplot_y = y;
 }
 
-void basic_draw (double x, double y) {
+void basic_draw (basic_num_t x, basic_num_t y) {
   basic_kitty_line (last_hplot_x, last_hplot_y, x, y);
   last_hplot_x = x;
   last_hplot_y = y;
 }
 
-void basic_draw_line (double x0, double y0, double x1, double y1) {
+void basic_draw_line (basic_num_t x0, basic_num_t y0, basic_num_t x1, basic_num_t y1) {
   basic_kitty_line (x0, y0, x1, y1);
   last_hplot_x = x1;
   last_hplot_y = y1;
 }
 
-static void basic_kitty_circle (double x, double y, double r) {
-  double prev_x = x + r, prev_y = y;
+static void basic_kitty_circle (basic_num_t x, basic_num_t y, basic_num_t r) {
+  basic_num_t prev_x = x + r, prev_y = y;
   int steps = 360;
   for (int i = 1; i <= steps; i++) {
-    double ang = 2 * 3.14159265358979323846 * i / steps;
-    double nx = x + r * cos (ang);
-    double ny = y + r * sin (ang);
+    basic_num_t ang = 2 * 3.14159265358979323846 * i / steps;
+    basic_num_t nx = x + r * BASIC_COS (ang);
+    basic_num_t ny = y + r * BASIC_SIN (ang);
     basic_kitty_line (prev_x, prev_y, nx, ny);
     prev_x = nx;
     prev_y = ny;
   }
 }
 
-void basic_circle (double x, double y, double r) {
+void basic_circle (basic_num_t x, basic_num_t y, basic_num_t r) {
   basic_kitty_circle (x, y, r);
   last_hplot_x = x + r;
   last_hplot_y = y;
 }
 
-void basic_rect (double x0, double y0, double x1, double y1) {
+void basic_rect (basic_num_t x0, basic_num_t y0, basic_num_t x1, basic_num_t y1) {
   basic_kitty_line (x0, y0, x1, y0);
   basic_kitty_line (x1, y0, x1, y1);
   basic_kitty_line (x1, y1, x0, y1);
@@ -638,14 +654,14 @@ void basic_rect (double x0, double y0, double x1, double y1) {
   last_hplot_y = y0;
 }
 
-void basic_fill (double x0, double y0, double x1, double y1) {
+void basic_fill (basic_num_t x0, basic_num_t y0, basic_num_t x1, basic_num_t y1) {
   if (x0 > x1) {
-    double t = x0;
+    basic_num_t t = x0;
     x0 = x1;
     x1 = t;
   }
   if (y0 > y1) {
-    double t = y0;
+    basic_num_t t = y0;
     y0 = y1;
     y1 = t;
   }
@@ -656,14 +672,14 @@ void basic_fill (double x0, double y0, double x1, double y1) {
   last_hplot_y = y1;
 }
 
-void basic_mode (double m) { (void) m; }
+void basic_mode (basic_num_t m) { (void) m; }
 
 void basic_beep (void) {
   fputc ('\a', stdout);
   fflush (stdout);
 }
 
-void basic_sound (double f, double d) {
+void basic_sound (basic_num_t f, basic_num_t d) {
   (void) f;
   (void) d;
   basic_beep ();
