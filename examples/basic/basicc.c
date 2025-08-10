@@ -1028,6 +1028,10 @@ static Node *parse_factor (Parser *p) {
       }
       if (*cur == ')') cur++;
     }
+    if (strcasecmp (id, "RND") == 0 && arg1 == NULL) {
+      arg1 = new_node (N_NUM);
+      arg1->num = 1;
+    }
     if (strcasecmp (id, "RND") == 0 || strcasecmp (id, "CHR$") == 0
         || strcasecmp (id, "STRING$") == 0 || strcasecmp (id, "INT") == 0
         || strcasecmp (id, "TIMER") == 0 || strcasecmp (id, "TIME") == 0
