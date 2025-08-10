@@ -1,28 +1,36 @@
 10 REM Mandelbrot fractal with color and half-block graphics
-20 REM Uses ANSI escape codes for 256 colors; best in xterm-256color or xterm-kitty
-30 REM Each text cell renders two points via foreground/background colors
-40 W=80:H=48:MAXI=50:ESC$=CHR$(27)
-50 FOR PY=0 TO H-1 STEP 2
-60  Y1=PY/H*3.0-1.5
-70  Y2=(PY+1)/H*3.0-1.5
-80  FOR PX=0 TO W-1
-90   X=PX/W*3.5-2.5
-100   A=0:B=0:I=0
-110   WHILE A*A+B*B<=4 AND I<MAXI
-120    T=A*A-B*B+X
-130    B=2*A*B+Y1
-140    A=T:I=I+1
-150   WEND
-160   C1=16+INT(I*239/MAXI)
-170   A=0:B=0:I=0
-180   WHILE A*A+B*B<=4 AND I<MAXI
-190    T=A*A-B*B+X
-200    B=2*A*B+Y2
-210    A=T:I=I+1
-220   WEND
-230   C2=16+INT(I*239/MAXI)
-240   PRINT ESC$;"[38;5;";STR$(C1);";48;5;";STR$(C2);"m▀";
-250  NEXT PX
-260  PRINT ESC$;"[0m"
-270 NEXT PY
-280 END
+20 REM Animated zoom and pan
+30 W=80:H=48:MAXI=50:ESC$=CHR$(27)
+40 CX=-0.75:CY=0:SCALE=1:FRAMES=10:POFF=0
+50 FOR F=0 TO FRAMES-1
+60  PRINT ESC$;"[H";ESC$;"[2J"
+70  FOR PY=0 TO H-1 STEP 2
+80   Y1=CY+(PY/H-0.5)*(3.0/SCALE)
+90   Y2=CY+((PY+1)/H-0.5)*(3.0/SCALE)
+100   FOR PX=0 TO W-1
+110    X=CX+(PX/W-0.5)*(3.5/SCALE)
+120    A=0:B=0:I=0
+130    WHILE A*A+B*B<=4 AND I<MAXI
+140     T=A*A-B*B+X
+150     B=2*A*B+Y1
+160     A=T:I=I+1
+170    WEND
+180    C1=16+((INT(I*239/MAXI)+POFF) MOD 240)
+190    A=0:B=0:I=0
+200    WHILE A*A+B*B<=4 AND I<MAXI
+210     T=A*A-B*B+X
+220     B=2*A*B+Y2
+230     A=T:I=I+1
+240    WEND
+250    C2=16+((INT(I*239/MAXI)+POFF) MOD 240)
+260    PRINT ESC$;"[38;5;";STR$(C1);";48;5;";STR$(C2);"m▀";
+270   NEXT PX
+280   PRINT ESC$;"[0m"
+290  NEXT PY
+300  POFF=(POFF+1) MOD 240
+310  SCALE=SCALE*1.05
+320  CX=CX-0.02
+330  CY=CY+0.01
+340  FOR D=1 TO 500:NEXT D
+350 NEXT F
+360 END
