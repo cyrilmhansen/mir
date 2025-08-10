@@ -912,7 +912,12 @@ static void skip_ws (Parser *p) {
 }
 static int parse_int (Parser *p) {
   skip_ws (p);
+  char *start = cur;
   int v = strtol (cur, &cur, 10);
+  if (cur == start) {
+    fprintf (stderr, "expected integer");
+    exit (1);
+  }
   return v;
 }
 static char *parse_id (Parser *p) {
@@ -2153,7 +2158,9 @@ static int parse_stmt (Parser *p, Stmt *out) {
 static int parse_line (Parser *p, char *line, Line *out) {
   cur = line;
   out->src = strdup (line);
-  int line_no = parse_int (p);
+  skip_ws (p);
+  int line_no = 0;
+  if (isdigit ((unsigned char) *cur)) line_no = parse_int (p);
   out->line = line_no;
   out->stmts = (StmtVec) {0};
   while (1) {
