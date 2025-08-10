@@ -845,7 +845,7 @@ MIR_context_t _MIR_init (MIR_alloc_t alloc, MIR_code_alloc_t code_alloc) {
   wrapper_end_addr = _MIR_get_wrapper_end (ctx); /* should be after code_init */
   hard_reg_name_init (ctx);
   interp_init (ctx);
-  helper_bitmap = bitmap_create2 (alloc, MIR_HELPER_NUM);
+  helper_bitmap = bitmap_create2 (alloc, MIR_HELPER_LAST);
   return ctx;
 }
 
@@ -4965,7 +4965,7 @@ static size_t write_item (MIR_context_t ctx, writer_func_t writer, MIR_item_t it
   size_t i, vars_num, len = 0;
 
   if (item->item_type == MIR_import_item) {
-    int idx = helper_index (item->u.import_id);
+    int idx = helper_name_to_index (item->u.import_id);
     if (idx >= 0 && !bitmap_bit_p (helper_bitmap, idx)) return len;
     len += write_name (ctx, writer, "import");
     len += write_name (ctx, writer, item->u.import_id);
@@ -7048,7 +7048,9 @@ void *_MIR_get_module_global_var_hard_regs (MIR_context_t ctx MIR_UNUSED, MIR_mo
 
 void *_MIR_get_helpers_bitset (MIR_context_t ctx) { return helper_bitmap; }
 
-int _MIR_helper_num (MIR_context_t ctx MIR_UNUSED, const char *name) { return helper_index (name); }
+int _MIR_helper_num (MIR_context_t ctx MIR_UNUSED, const char *name) {
+  return helper_name_to_index (name);
+}
 
 /* New Page */
 
