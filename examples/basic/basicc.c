@@ -899,17 +899,20 @@ static void list_program (LineVec *prog) {
 }
 
 /* Parsing utilities */
-static char *cur;
-static void skip_ws (void) {
+typedef struct {
+  char *cur;
+} Parser;
+#define cur (p->cur)
+static void skip_ws (Parser *p) {
   while (*cur && isspace ((unsigned char) *cur)) cur++;
 }
-static int parse_int (void) {
-  skip_ws ();
+static int parse_int (Parser *p) {
+  skip_ws (p);
   int v = strtol (cur, &cur, 10);
   return v;
 }
-static char *parse_id (void) {
-  skip_ws ();
+static char *parse_id (Parser *p) {
+  skip_ws (p);
   char buf[64];
   int i = 0;
   while (*cur && (isalnum ((unsigned char) *cur) || *cur == '_')) {
@@ -923,13 +926,13 @@ static char *parse_id (void) {
   buf[i] = 0;
   return strdup (buf);
 }
-static basic_num_t parse_number (void) {
-  skip_ws ();
+static basic_num_t parse_number (Parser *p) {
+  skip_ws (p);
   basic_num_t v = BASIC_STRTOF (cur, &cur);
   return v;
 }
-static char *parse_string (void) {
-  skip_ws ();
+static char *parse_string (Parser *p) {
+  skip_ws (p);
   if (*cur != '"') return NULL;
   cur++;
   const char *start = cur;
@@ -943,52 +946,52 @@ static char *parse_string (void) {
 }
 
 /* Expression parser */
-static Node *parse_factor (void);
-static Node *parse_term (void);
-static Node *parse_add (void);
+static Node *parse_factor (Parser *p);
+static Node *parse_term (Parser *p);
+static Node *parse_add (Parser *p);
 
-static Node *parse_rel (void);
-static Node *parse_logical (void);
+static Node *parse_rel (Parser *p);
+static Node *parse_logical (Parser *p);
 
-static Node *parse_expr (void);
-static Relop parse_relop (void);
+static Node *parse_expr (Parser *p);
+static Relop parse_relop (Parser *p);
 
-static Node *parse_factor (void) {
-  skip_ws ();
+static Node *parse_factor (Parser *p) {
+  skip_ws (p);
   if (strncasecmp (cur, "NOT", 3) == 0 && !isalnum ((unsigned char) cur[3]) && cur[3] != '_'
       && cur[3] != '$') {
     cur += 3;
     Node *n = new_node (N_NOT);
-    n->left = parse_factor ();
+    n->left = parse_factor (p);
     return n;
   }
   if (*cur == '(') {
     cur++;
-    Node *e = parse_expr ();
-    skip_ws ();
+    Node *e = parse_expr (p);
+    skip_ws (p);
     if (*cur == ')') cur++;
     return e;
   }
   if (*cur == '-') {
     cur++;
     Node *n = new_node (N_NEG);
-    n->left = parse_factor ();
+    n->left = parse_factor (p);
     return n;
   }
   if (isdigit ((unsigned char) *cur) || *cur == '.') {
     Node *n = new_node (N_NUM);
-    n->num = parse_number ();
+    n->num = parse_number (p);
     return n;
   }
   if (*cur == '"') {
     Node *n = new_node (N_STR);
     n->is_str = 1;
-    n->str = parse_string ();
+    n->str = parse_string (p);
     return n;
   }
   if (isalpha ((unsigned char) *cur)) {
-    char *id = parse_id ();
-    skip_ws ();
+    char *id = parse_id (p);
+    skip_ws (p);
     if (strcasecmp (id, "TRUE") == 0 || strcasecmp (id, "FALSE") == 0) {
       Node *n = new_node (N_NUM);
       n->num = strcasecmp (id, "TRUE") == 0 ? 1.0 : 0.0;
@@ -998,26 +1001,26 @@ static Node *parse_factor (void) {
     Node *arg1 = NULL, *arg2 = NULL, *arg3 = NULL, *arg4 = NULL, *arg5 = NULL;
     if (*cur == '(') {
       cur++;
-      skip_ws ();
+      skip_ws (p);
       if (*cur != ')') {
-        arg1 = parse_expr ();
-        skip_ws ();
+        arg1 = parse_expr (p);
+        skip_ws (p);
         if (*cur == ',') {
           cur++;
-          arg2 = parse_expr ();
-          skip_ws ();
+          arg2 = parse_expr (p);
+          skip_ws (p);
           if (*cur == ',') {
             cur++;
-            arg3 = parse_expr ();
-            skip_ws ();
+            arg3 = parse_expr (p);
+            skip_ws (p);
             if (*cur == ',') {
               cur++;
-              arg4 = parse_expr ();
-              skip_ws ();
+              arg4 = parse_expr (p);
+              skip_ws (p);
               if (*cur == ',') {
                 cur++;
-                arg5 = parse_expr ();
-                skip_ws ();
+                arg5 = parse_expr (p);
+                skip_ws (p);
               }
             }
           }
@@ -1110,11 +1113,11 @@ static Node *parse_factor (void) {
   return NULL;
 }
 
-static Node *parse_term (void) {
-  Node *n = parse_factor ();
+static Node *parse_term (Parser *p) {
+  Node *n = parse_factor (p);
   if (n == NULL) return NULL;
   while (1) {
-    skip_ws ();
+    skip_ws (p);
     char op = *cur;
     if (op != '*' && op != '/' && op != '\\' && strncasecmp (cur, "MOD", 3) != 0) break;
     if (op == '\\') {
@@ -1125,7 +1128,7 @@ static Node *parse_term (void) {
       op = '%';
       cur += 3; /* skip MOD */
     }
-    Node *r = parse_factor ();
+    Node *r = parse_factor (p);
     Node *nn = new_node (N_BIN);
     nn->op = op;
     nn->left = n;
@@ -1135,15 +1138,15 @@ static Node *parse_term (void) {
   return n;
 }
 
-static Node *parse_add (void) {
-  Node *n = parse_term ();
+static Node *parse_add (Parser *p) {
+  Node *n = parse_term (p);
   if (n == NULL) return NULL;
   while (1) {
-    skip_ws ();
+    skip_ws (p);
     char op = *cur;
     if (op != '+' && op != '-') break;
     cur++;
-    Node *r = parse_term ();
+    Node *r = parse_term (p);
     Node *nn = new_node (N_BIN);
     nn->op = op;
     nn->left = n;
@@ -1153,11 +1156,11 @@ static Node *parse_add (void) {
   return n;
 }
 
-static Node *parse_rel (void) {
-  Node *n = parse_add ();
-  Relop r = parse_relop ();
+static Node *parse_rel (Parser *p) {
+  Node *n = parse_add (p);
+  Relop r = parse_relop (p);
   if (r != REL_NONE) {
-    Node *rhs = parse_add ();
+    Node *rhs = parse_add (p);
     Node *nn = new_node (N_BIN);
     switch (r) {
     case REL_EQ: nn->op = '='; break;
@@ -1175,15 +1178,15 @@ static Node *parse_rel (void) {
   return n;
 }
 
-static Node *parse_and (void) {
-  Node *n = parse_add ();
+static Node *parse_and (Parser *p) {
+  Node *n = parse_add (p);
   while (1) {
-    skip_ws ();
+    skip_ws (p);
     if (strncasecmp (cur, "AND", 3) != 0 || isalnum ((unsigned char) cur[3]) || cur[3] == '_'
         || cur[3] == '$')
       break;
     cur += 3;
-    Node *r = parse_add ();
+    Node *r = parse_add (p);
     Node *nn = new_node (N_BIN);
     nn->op = '&';
     nn->left = n;
@@ -1193,13 +1196,13 @@ static Node *parse_and (void) {
   return n;
 }
 
-static Node *parse_logical (void) {
-  Node *n = parse_rel ();
+static Node *parse_logical (Parser *p) {
+  Node *n = parse_rel (p);
   while (1) {
-    skip_ws ();
+    skip_ws (p);
     if (strncasecmp (cur, "AND", 3) == 0) {
       cur += 3;
-      Node *r = parse_rel ();
+      Node *r = parse_rel (p);
       Node *nn = new_node (N_BIN);
       nn->op = '&';
       nn->left = n;
@@ -1209,7 +1212,7 @@ static Node *parse_logical (void) {
     }
     if (strncasecmp (cur, "OR", 2) == 0) {
       cur += 2;
-      Node *r = parse_rel ();
+      Node *r = parse_rel (p);
       Node *nn = new_node (N_BIN);
       nn->op = '|';
       nn->left = n;
@@ -1222,17 +1225,17 @@ static Node *parse_logical (void) {
   return n;
 }
 
-static Node *parse_expr (void) { return parse_logical (); }
+static Node *parse_expr (Parser *p) { return parse_logical (p); }
 
-static Relop parse_relop (void) {
-  skip_ws ();
+static Relop parse_relop (Parser *p) {
+  skip_ws (p);
   if (*cur == '=') {
     cur++;
     return REL_EQ;
   }
   if (*cur == '<') {
     cur++;
-    skip_ws ();
+    skip_ws (p);
     Relop r = REL_LT;
     if (*cur == '>') {
       cur++;
@@ -1241,37 +1244,37 @@ static Relop parse_relop (void) {
       cur++;
       r = REL_LE;
     }
-    skip_ws ();
+    skip_ws (p);
     return r;
   }
   if (*cur == '>') {
     cur++;
-    skip_ws ();
+    skip_ws (p);
     Relop r = REL_GT;
     if (*cur == '=') {
       cur++;
       r = REL_GE;
     }
-    skip_ws ();
+    skip_ws (p);
     return r;
   }
   return REL_NONE;
 }
 
 /* Parse a single line into statement */
-static int parse_stmt (Stmt *out) {
-  skip_ws ();
+static int parse_stmt (Parser *p, Stmt *out) {
+  skip_ws (p);
   if (strncasecmp (cur, "REM", 3) == 0) {
     /* Comment line: ignore rest */
     out->kind = ST_REM;
     return 1;
   } else if (strncasecmp (cur, "OPTION", 6) == 0) {
     cur += 6;
-    skip_ws ();
+    skip_ws (p);
     if (strncasecmp (cur, "BASE", 4) != 0) return 0;
     cur += 4;
-    skip_ws ();
-    int base = parse_int ();
+    skip_ws (p);
+    int base = parse_int (p);
     if (base != 0 && base != 1) return 0;
     array_base = base;
     out->kind = ST_REM;
@@ -1286,20 +1289,20 @@ static int parse_stmt (Stmt *out) {
     out->u.dim.n = 0;
     size_t cap = 0;
     while (1) {
-      char *name = parse_id ();
+      char *name = parse_id (p);
       int is_str = name[strlen (name) - 1] == '$';
-      skip_ws ();
+      skip_ws (p);
       int size1 = 0, size2 = 0;
       if (*cur == '(') {
         cur++;
-        size1 = parse_int ();
+        size1 = parse_int (p);
         size1 = size1 - array_base + 1;
-        skip_ws ();
+        skip_ws (p);
         if (*cur == ',') {
           cur++;
-          size2 = parse_int ();
+          size2 = parse_int (p);
           size2 = size2 - array_base + 1;
-          skip_ws ();
+          skip_ws (p);
         }
         if (*cur == ')') cur++;
       }
@@ -1315,7 +1318,7 @@ static int parse_stmt (Stmt *out) {
       out->u.dim.sizes2[out->u.dim.n] = size2;
       out->u.dim.is_str[out->u.dim.n] = is_str;
       out->u.dim.n++;
-      skip_ws ();
+      skip_ws (p);
       if (*cur != ',') break;
       cur++;
     }
@@ -1326,26 +1329,26 @@ static int parse_stmt (Stmt *out) {
     return 1;
   } else if (strncasecmp (cur, "OPEN", 4) == 0) {
     cur += 4;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_OPEN;
-    out->u.open.num = parse_expr ();
-    skip_ws ();
+    out->u.open.num = parse_expr (p);
+    skip_ws (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.open.path = parse_expr ();
+    out->u.open.path = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "CLOSE", 5) == 0) {
     cur += 5;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_CLOSE;
-    out->u.close.num = parse_expr ();
+    out->u.close.num = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "PRINT#", 6) == 0) {
     cur += 6;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_PRINT_HASH;
-    out->u.printhash.num = parse_expr ();
-    skip_ws ();
+    out->u.printhash.num = parse_expr (p);
+    skip_ws (p);
     if (*cur != ',') return 0;
     cur++;
     out->u.printhash.items = NULL;
@@ -1361,88 +1364,88 @@ static int parse_stmt (Stmt *out) {
     return 1;
   } else if (strncasecmp (cur, "INPUT#", 6) == 0) {
     cur += 6;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_INPUT_HASH;
-    out->u.inputhash.num = parse_expr ();
-    skip_ws ();
+    out->u.inputhash.num = parse_expr (p);
+    skip_ws (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.inputhash.var = parse_id ();
+    out->u.inputhash.var = parse_id (p);
     out->u.inputhash.is_str = out->u.inputhash.var[strlen (out->u.inputhash.var) - 1] == '$';
     return 1;
   } else if (strncasecmp (cur, "INPUT", 5) == 0) {
     cur += 5;
     out->kind = ST_INPUT;
-    out->u.input.var = parse_id ();
+    out->u.input.var = parse_id (p);
     out->u.input.is_str = out->u.input.var[strlen (out->u.input.var) - 1] == '$';
     return 1;
   } else if (strncasecmp (cur, "GET#", 4) == 0) {
     cur += 4;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_GET_HASH;
-    out->u.gethash.num = parse_expr ();
-    skip_ws ();
+    out->u.gethash.num = parse_expr (p);
+    skip_ws (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.gethash.var = parse_id ();
+    out->u.gethash.var = parse_id (p);
     return 1;
   } else if (strncasecmp (cur, "GET", 3) == 0) {
     cur += 3;
     out->kind = ST_GET;
-    out->u.get.var = parse_id ();
+    out->u.get.var = parse_id (p);
     return 1;
   } else if (strncasecmp (cur, "PUT#", 4) == 0) {
     cur += 4;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_PUT_HASH;
-    out->u.puthash.num = parse_expr ();
-    skip_ws ();
+    out->u.puthash.num = parse_expr (p);
+    skip_ws (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.puthash.expr = parse_expr ();
+    out->u.puthash.expr = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "PUT", 3) == 0) {
     cur += 3;
     out->kind = ST_PUT;
-    out->u.put.expr = parse_expr ();
+    out->u.put.expr = parse_expr (p);
     return 1;
 
   } else if (strncasecmp (cur, "DEF", 3) == 0) {
     cur += 3;
-    skip_ws ();
-    char *fname = parse_id ();
+    skip_ws (p);
+    char *fname = parse_id (p);
     if (strncasecmp (fname, "FN", 2) != 0) return 0;
     int f_is_str = fname[strlen (fname) - 1] == '$';
-    skip_ws ();
+    skip_ws (p);
     if (*cur != '(') return 0;
     cur++;
     char **params = NULL;
     int *is_str = NULL;
     size_t n = 0, cap = 0;
-    skip_ws ();
+    skip_ws (p);
     if (*cur != ')') {
       while (1) {
-        char *p = parse_id ();
-        int ps = p[strlen (p) - 1] == '$';
+        char *param = parse_id (p);
+        int ps = param[strlen (param) - 1] == '$';
         if (n == cap) {
           cap = cap ? 2 * cap : 4;
           params = realloc (params, cap * sizeof (char *));
           is_str = realloc (is_str, cap * sizeof (int));
         }
-        params[n] = p;
+        params[n] = param;
         is_str[n] = ps;
         n++;
-        skip_ws ();
+        skip_ws (p);
         if (*cur != ',') break;
         cur++;
-        skip_ws ();
+        skip_ws (p);
       }
     }
     if (*cur == ')') cur++;
-    skip_ws ();
+    skip_ws (p);
     if (*cur != '=') return 0;
     cur++;
-    Node *body = parse_expr ();
+    Node *body = parse_expr (p);
     FuncDef fd
       = {fname, params, is_str, n, body, (StmtVec) {0}, f_is_str, 0, NULL, NULL, NULL, 0, 0};
     func_vec_push (&func_defs, fd);
@@ -1453,19 +1456,19 @@ static int parse_stmt (Stmt *out) {
     cur += 4;
     out->kind = ST_DATA;
     while (1) {
-      skip_ws ();
+      skip_ws (p);
       BasicData d;
       d.is_str = 0;
       d.num = 0;
       d.str = NULL;
       if (*cur == '"') {
         d.is_str = 1;
-        d.str = parse_string ();
+        d.str = parse_string (p);
       } else {
-        d.num = parse_number ();
+        d.num = parse_number (p);
       }
       data_vec_push (&data_vals, d);
-      skip_ws ();
+      skip_ws (p);
       if (*cur != ',') break;
       cur++;
     }
@@ -1477,14 +1480,14 @@ static int parse_stmt (Stmt *out) {
     out->u.read.n = 0;
     size_t cap = 0;
     while (1) {
-      Node *v = parse_factor ();
+      Node *v = parse_factor (p);
       if (v == NULL) return 0;
       if (out->u.read.n == cap) {
         cap = cap ? cap * 2 : 4;
         out->u.read.vars = realloc (out->u.read.vars, cap * sizeof (Node *));
       }
       out->u.read.vars[out->u.read.n++] = v;
-      skip_ws ();
+      skip_ws (p);
       if (*cur != ',') break;
       cur++;
     }
@@ -1495,9 +1498,9 @@ static int parse_stmt (Stmt *out) {
     return 1;
   } else if (strncasecmp (cur, "SCREEN", 6) == 0) {
     cur += 6;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_SCREEN;
-    out->u.expr = parse_expr ();
+    out->u.expr = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "CLS", 3) == 0) {
     cur += 3;
@@ -1505,42 +1508,42 @@ static int parse_stmt (Stmt *out) {
     return 1;
   } else if (strncasecmp (cur, "COLOR", 5) == 0) {
     cur += 5;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_COLOR;
-    out->u.expr = parse_expr ();
+    out->u.expr = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "KEY", 3) == 0) {
     cur += 3;
-    skip_ws ();
+    skip_ws (p);
     if (strncasecmp (cur, "OFF", 3) != 0) return 0;
     cur += 3;
     out->kind = ST_KEYOFF;
     return 1;
   } else if (strncasecmp (cur, "LOCATE", 6) == 0) {
     cur += 6;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_LOCATE;
-    out->u.locate.row = parse_expr ();
-    skip_ws ();
+    out->u.locate.row = parse_expr (p);
+    skip_ws (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.locate.col = parse_expr ();
+    out->u.locate.col = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "HTAB", 4) == 0 || strncasecmp (cur, "TAB", 3) == 0) {
     cur += strncasecmp (cur, "HTAB", 4) == 0 ? 4 : 3;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_HTAB;
-    out->u.expr = parse_expr ();
+    out->u.expr = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "POKE", 4) == 0) {
     cur += 4;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_POKE;
-    out->u.poke.addr = parse_expr ();
-    skip_ws ();
+    out->u.poke.addr = parse_expr (p);
+    skip_ws (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.poke.value = parse_expr ();
+    out->u.poke.value = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "HOME", 4) == 0) {
     cur += 4;
@@ -1548,9 +1551,9 @@ static int parse_stmt (Stmt *out) {
     return 1;
   } else if (strncasecmp (cur, "VTAB", 4) == 0) {
     cur += 4;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_VTAB;
-    out->u.expr = parse_expr ();
+    out->u.expr = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "BEEP", 4) == 0) {
     cur += 4;
@@ -1558,38 +1561,38 @@ static int parse_stmt (Stmt *out) {
     return 1;
   } else if (strncasecmp (cur, "SOUND", 5) == 0) {
     cur += 5;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_SOUND;
-    out->u.sound.freq = parse_expr ();
-    skip_ws ();
+    out->u.sound.freq = parse_expr (p);
+    skip_ws (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.sound.dur = parse_expr ();
+    out->u.sound.dur = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "SYSTEM", 6) == 0) {
     cur += 6;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_SYSTEM;
-    out->u.system.cmd = parse_expr ();
-    skip_ws ();
+    out->u.system.cmd = parse_expr (p);
+    skip_ws (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.system.status = parse_id ();
+    out->u.system.status = parse_id (p);
     if (out->u.system.status[strlen (out->u.system.status) - 1] == '$') return 0;
-    skip_ws ();
+    skip_ws (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.system.out = parse_id ();
+    out->u.system.out = parse_id (p);
     if (out->u.system.out[strlen (out->u.system.out) - 1] != '$') return 0;
     return 1;
   } else if (strncasecmp (cur, "RANDOMIZE", 9) == 0) {
     cur += 9;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_RANDOMIZE;
     if (*cur == '\0' || *cur == ':') {
       out->u.expr = NULL;
     } else {
-      out->u.expr = parse_expr ();
+      out->u.expr = parse_expr (p);
     }
     return 1;
   } else if (strncasecmp (cur, "TEXT", 4) == 0) {
@@ -1610,13 +1613,13 @@ static int parse_stmt (Stmt *out) {
     return 1;
   } else if (strncasecmp (cur, "HCOLOR=", 7) == 0) {
     cur += 7;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_HCOLOR;
-    out->u.expr = parse_expr ();
+    out->u.expr = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "HPLOT", 5) == 0) {
     cur += 5;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_HPLOT;
     size_t cap = 0;
     out->u.hplot.n = 0;
@@ -1625,7 +1628,7 @@ static int parse_stmt (Stmt *out) {
     if (strncasecmp (cur, "TO", 2) == 0) {
       out->u.hplot.from_prev = 1;
       cur += 2;
-      skip_ws ();
+      skip_ws (p);
     }
     while (1) {
       if (out->u.hplot.n >= cap) {
@@ -1633,16 +1636,16 @@ static int parse_stmt (Stmt *out) {
         out->u.hplot.xs = realloc (out->u.hplot.xs, cap * sizeof (Node *));
         out->u.hplot.ys = realloc (out->u.hplot.ys, cap * sizeof (Node *));
       }
-      out->u.hplot.xs[out->u.hplot.n] = parse_expr ();
-      skip_ws ();
+      out->u.hplot.xs[out->u.hplot.n] = parse_expr (p);
+      skip_ws (p);
       if (*cur != ',') return 0;
       cur++;
-      out->u.hplot.ys[out->u.hplot.n] = parse_expr ();
+      out->u.hplot.ys[out->u.hplot.n] = parse_expr (p);
       out->u.hplot.n++;
-      skip_ws ();
+      skip_ws (p);
       if (strncasecmp (cur, "TO", 2) == 0) {
         cur += 2;
-        skip_ws ();
+        skip_ws (p);
       } else {
         break;
       }
@@ -1650,95 +1653,95 @@ static int parse_stmt (Stmt *out) {
     return 1;
   } else if (strncasecmp (cur, "MOVE", 4) == 0) {
     cur += 4;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_MOVE;
-    out->u.move.x = parse_expr ();
+    out->u.move.x = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.move.y = parse_expr ();
+    out->u.move.y = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "DRAW", 4) == 0) {
     cur += 4;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_DRAW;
-    out->u.draw.x = parse_expr ();
+    out->u.draw.x = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.draw.y = parse_expr ();
+    out->u.draw.y = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "LINE", 4) == 0) {
     cur += 4;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_LINE;
-    out->u.line.x0 = parse_expr ();
+    out->u.line.x0 = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.line.y0 = parse_expr ();
-    skip_ws ();
+    out->u.line.y0 = parse_expr (p);
+    skip_ws (p);
     if (strncasecmp (cur, "TO", 2) == 0) {
       cur += 2;
-      skip_ws ();
+      skip_ws (p);
     }
-    out->u.line.x1 = parse_expr ();
+    out->u.line.x1 = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.line.y1 = parse_expr ();
+    out->u.line.y1 = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "CIRCLE", 6) == 0) {
     cur += 6;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_CIRCLE;
-    out->u.circle.x = parse_expr ();
+    out->u.circle.x = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.circle.y = parse_expr ();
+    out->u.circle.y = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.circle.r = parse_expr ();
+    out->u.circle.r = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "RECT", 4) == 0) {
     cur += 4;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_RECT;
-    out->u.rect.x0 = parse_expr ();
+    out->u.rect.x0 = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.rect.y0 = parse_expr ();
+    out->u.rect.y0 = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.rect.x1 = parse_expr ();
+    out->u.rect.x1 = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.rect.y1 = parse_expr ();
+    out->u.rect.y1 = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "MODE", 4) == 0) {
     cur += 4;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_MODE;
-    out->u.expr = parse_expr ();
+    out->u.expr = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "FILL", 4) == 0) {
     cur += 4;
-    skip_ws ();
+    skip_ws (p);
     out->kind = ST_FILL;
-    out->u.fill.x0 = parse_expr ();
+    out->u.fill.x0 = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.fill.y0 = parse_expr ();
+    out->u.fill.y0 = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.fill.x1 = parse_expr ();
+    out->u.fill.x1 = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
-    out->u.fill.y1 = parse_expr ();
+    out->u.fill.y1 = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "LET", 3) == 0) {
     cur += 3;
-    skip_ws ();
-    Node *v = parse_factor ();
-    skip_ws ();
+    skip_ws (p);
+    Node *v = parse_factor (p);
+    skip_ws (p);
     if (*cur == '=') cur++;
-    Node *e = parse_expr ();
+    Node *e = parse_expr (p);
     out->kind = ST_LET;
     out->u.let.var = v;
     out->u.let.expr = e;
@@ -1747,29 +1750,29 @@ static int parse_stmt (Stmt *out) {
   } else if (strncasecmp (cur, "GOTO", 4) == 0) {
     cur += 4;
     out->kind = ST_GOTO;
-    out->u.target = parse_int ();
+    out->u.target = parse_int (p);
     return 1;
   } else if (strncasecmp (cur, "GOSUB", 5) == 0) {
     cur += 5;
     out->kind = ST_GOSUB;
-    out->u.target = parse_int ();
+    out->u.target = parse_int (p);
     return 1;
   } else if (strncasecmp (cur, "IF", 2) == 0) {
     cur += 2;
     Stmt s;
     s.kind = ST_IF;
-    s.u.iff.cond = parse_expr ();
+    s.u.iff.cond = parse_expr (p);
     if (strncasecmp (cur, "THEN", 4) != 0) return 0;
     cur += 4;
-    skip_ws ();
+    skip_ws (p);
     s.u.iff.then_stmts = (StmtVec) {0};
     for (;;) {
       Stmt bs;
       if (isdigit ((unsigned char) *cur)) {
         bs.kind = ST_GOTO;
-        bs.u.target = parse_int ();
+        bs.u.target = parse_int (p);
       } else {
-        if (!parse_stmt (&bs)) return 0;
+        if (!parse_stmt (p, &bs)) return 0;
         if (bs.kind == ST_PRINT || bs.kind == ST_PRINT_HASH) {
           size_t cap = 0;
           if (bs.kind == ST_PRINT) {
@@ -1782,9 +1785,9 @@ static int parse_stmt (Stmt *out) {
             bs.u.printhash.no_nl = 0;
           }
           while (1) {
-            skip_ws ();
+            skip_ws (p);
             if (*cur == ':' || *cur == '\0' || strncasecmp (cur, "ELSE", 4) == 0) break;
-            Node *e = parse_expr ();
+            Node *e = parse_expr (p);
             if (bs.kind == ST_PRINT) {
               if (bs.u.print.n == cap) {
                 cap = cap ? cap * 2 : 4;
@@ -1798,10 +1801,10 @@ static int parse_stmt (Stmt *out) {
               }
               bs.u.printhash.items[bs.u.printhash.n++] = e;
             }
-            skip_ws ();
+            skip_ws (p);
             if (*cur == ';' || *cur == ',') {
               cur++;
-              skip_ws ();
+              skip_ws (p);
               if (*cur == ':' || *cur == '\0' || strncasecmp (cur, "ELSE", 4) == 0) {
                 if (bs.kind == ST_PRINT)
                   bs.u.print.no_nl = 1;
@@ -1813,15 +1816,15 @@ static int parse_stmt (Stmt *out) {
             }
             break;
           }
-          skip_ws ();
+          skip_ws (p);
         }
       }
       stmt_vec_push (&s.u.iff.then_stmts, bs);
-      skip_ws ();
+      skip_ws (p);
       if (*cur == ':') {
         do {
           cur++;
-          skip_ws ();
+          skip_ws (p);
         } while (*cur == ':');
         if (*cur == '\0') break;
         if (strncasecmp (cur, "ELSE", 4) == 0) break;
@@ -1829,18 +1832,18 @@ static int parse_stmt (Stmt *out) {
       }
       break;
     }
-    skip_ws ();
+    skip_ws (p);
     s.u.iff.else_stmts = (StmtVec) {0};
     if (strncasecmp (cur, "ELSE", 4) == 0) {
       cur += 4;
-      skip_ws ();
+      skip_ws (p);
       for (;;) {
         Stmt bs;
         if (isdigit ((unsigned char) *cur)) {
           bs.kind = ST_GOTO;
-          bs.u.target = parse_int ();
+          bs.u.target = parse_int (p);
         } else {
-          if (!parse_stmt (&bs)) return 0;
+          if (!parse_stmt (p, &bs)) return 0;
           if (bs.kind == ST_PRINT || bs.kind == ST_PRINT_HASH) {
             size_t cap = 0;
             if (bs.kind == ST_PRINT) {
@@ -1853,9 +1856,9 @@ static int parse_stmt (Stmt *out) {
               bs.u.printhash.no_nl = 0;
             }
             while (1) {
-              skip_ws ();
+              skip_ws (p);
               if (*cur == ':' || *cur == '\0') break;
-              Node *e = parse_expr ();
+              Node *e = parse_expr (p);
               if (bs.kind == ST_PRINT) {
                 if (bs.u.print.n == cap) {
                   cap = cap ? cap * 2 : 4;
@@ -1869,10 +1872,10 @@ static int parse_stmt (Stmt *out) {
                 }
                 bs.u.printhash.items[bs.u.printhash.n++] = e;
               }
-              skip_ws ();
+              skip_ws (p);
               if (*cur == ';' || *cur == ',') {
                 cur++;
-                skip_ws ();
+                skip_ws (p);
                 if (*cur == ':' || *cur == '\0') {
                   if (bs.kind == ST_PRINT)
                     bs.u.print.no_nl = 1;
@@ -1884,15 +1887,15 @@ static int parse_stmt (Stmt *out) {
               }
               break;
             }
-            skip_ws ();
+            skip_ws (p);
           }
         }
         stmt_vec_push (&s.u.iff.else_stmts, bs);
-        skip_ws ();
+        skip_ws (p);
         if (*cur == ':') {
           do {
             cur++;
-            skip_ws ();
+            skip_ws (p);
           } while (*cur == ':');
           if (*cur == '\0') break;
           continue;
@@ -1905,16 +1908,16 @@ static int parse_stmt (Stmt *out) {
   } else if (strncasecmp (cur, "FOR", 3) == 0) {
     cur += 3;
     out->kind = ST_FOR;
-    out->u.forto.var = parse_id ();
-    skip_ws ();
+    out->u.forto.var = parse_id (p);
+    skip_ws (p);
     if (*cur == '=') cur++;
-    out->u.forto.start = parse_expr ();
+    out->u.forto.start = parse_expr (p);
     if (strncasecmp (cur, "TO", 2) != 0) return 0;
     cur += 2;
-    out->u.forto.end = parse_expr ();
+    out->u.forto.end = parse_expr (p);
     if (strncasecmp (cur, "STEP", 4) == 0) {
       cur += 4;
-      out->u.forto.step = parse_expr ();
+      out->u.forto.step = parse_expr (p);
     } else {
       Node *one = new_node (N_NUM);
       one->num = 1;
@@ -1925,13 +1928,13 @@ static int parse_stmt (Stmt *out) {
     cur += 4;
     out->kind = ST_NEXT;
     out->u.next.var = NULL;
-    skip_ws ();
-    if (isalpha ((unsigned char) *cur)) out->u.next.var = parse_id ();
+    skip_ws (p);
+    if (isalpha ((unsigned char) *cur)) out->u.next.var = parse_id (p);
     return 1;
   } else if (strncasecmp (cur, "WHILE", 5) == 0) {
     cur += 5;
     out->kind = ST_WHILE;
-    out->u.expr = parse_expr ();
+    out->u.expr = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "WEND", 4) == 0) {
     cur += 4;
@@ -1943,17 +1946,17 @@ static int parse_stmt (Stmt *out) {
     return 1;
   } else if (strncasecmp (cur, "ON", 2) == 0) {
     cur += 2;
-    skip_ws ();
+    skip_ws (p);
     if (strncasecmp (cur, "ERROR", 5) == 0) {
       cur += 5;
-      skip_ws ();
+      skip_ws (p);
       if (strncasecmp (cur, "GOTO", 4) != 0) return 0;
       cur += 4;
       out->kind = ST_ON_ERROR;
-      out->u.target = parse_int ();
+      out->u.target = parse_int (p);
       return 1;
     }
-    Node *e = parse_expr ();
+    Node *e = parse_expr (p);
     int **targets = NULL;
     size_t *n_targets = NULL;
     if (strncasecmp (cur, "GOSUB", 5) == 0) {
@@ -1977,13 +1980,13 @@ static int parse_stmt (Stmt *out) {
     }
     size_t cap = 0;
     while (1) {
-      int t = parse_int ();
+      int t = parse_int (p);
       if (*n_targets == cap) {
         cap = cap ? cap * 2 : 4;
         *targets = realloc (*targets, cap * sizeof (int));
       }
       (*targets)[(*n_targets)++] = t;
-      skip_ws ();
+      skip_ws (p);
       if (*cur != ',') break;
       cur++;
     }
@@ -1999,10 +2002,10 @@ static int parse_stmt (Stmt *out) {
   } else if (strncasecmp (cur, "RESUME", 6) == 0) {
     cur += 6;
     out->kind = ST_RESUME;
-    skip_ws ();
+    skip_ws (p);
     if (isdigit ((unsigned char) *cur)) {
       out->u.resume.has_line = 1;
-      out->u.resume.line = parse_int ();
+      out->u.resume.line = parse_int (p);
     } else {
       out->u.resume.has_line = 0;
       out->u.resume.line = 0;
@@ -2010,32 +2013,32 @@ static int parse_stmt (Stmt *out) {
     return 1;
   } else if (strncasecmp (cur, "CALL", 4) == 0) {
     cur += 4;
-    skip_ws ();
-    char *name = parse_id ();
+    skip_ws (p);
+    char *name = parse_id (p);
     Node *arg1 = NULL, *arg2 = NULL, *arg3 = NULL, *arg4 = NULL, *arg5 = NULL;
-    skip_ws ();
+    skip_ws (p);
     if (*cur == '(') {
       cur++;
-      skip_ws ();
+      skip_ws (p);
       if (*cur != ')') {
-        arg1 = parse_expr ();
-        skip_ws ();
+        arg1 = parse_expr (p);
+        skip_ws (p);
         if (*cur == ',') {
           cur++;
-          arg2 = parse_expr ();
-          skip_ws ();
+          arg2 = parse_expr (p);
+          skip_ws (p);
           if (*cur == ',') {
             cur++;
-            arg3 = parse_expr ();
-            skip_ws ();
+            arg3 = parse_expr (p);
+            skip_ws (p);
             if (*cur == ',') {
               cur++;
-              arg4 = parse_expr ();
-              skip_ws ();
+              arg4 = parse_expr (p);
+              skip_ws (p);
               if (*cur == ',') {
                 cur++;
-                arg5 = parse_expr ();
-                skip_ws ();
+                arg5 = parse_expr (p);
+                skip_ws (p);
               }
             }
           }
@@ -2043,16 +2046,16 @@ static int parse_stmt (Stmt *out) {
       }
       if (*cur == ')') cur++;
     } else if (*cur != ':' && *cur != '\0') {
-      arg1 = parse_expr ();
-      skip_ws ();
+      arg1 = parse_expr (p);
+      skip_ws (p);
       if (*cur == ',') {
         cur++;
-        arg2 = parse_expr ();
-        skip_ws ();
+        arg2 = parse_expr (p);
+        skip_ws (p);
         if (*cur == ',') {
           cur++;
-          arg3 = parse_expr ();
-          skip_ws ();
+          arg3 = parse_expr (p);
+          skip_ws (p);
         }
       }
     }
@@ -2065,44 +2068,44 @@ static int parse_stmt (Stmt *out) {
     out->u.call.arg5 = arg5;
     return 1;
   } else if (isalpha ((unsigned char) *cur)) {
-    char *name = parse_id ();
+    char *name = parse_id (p);
     Node *arg1 = NULL, *arg2 = NULL, *arg3 = NULL, *arg4 = NULL, *arg5 = NULL;
-    skip_ws ();
+    skip_ws (p);
     int had_paren = 0;
     if (*cur == '(') {
       had_paren = 1;
       cur++;
-      skip_ws ();
+      skip_ws (p);
       if (*cur != ')') {
-        arg1 = parse_expr ();
-        skip_ws ();
+        arg1 = parse_expr (p);
+        skip_ws (p);
         if (*cur == ',') {
           cur++;
-          arg2 = parse_expr ();
-          skip_ws ();
+          arg2 = parse_expr (p);
+          skip_ws (p);
           if (*cur == ',') {
             cur++;
-            arg3 = parse_expr ();
-            skip_ws ();
+            arg3 = parse_expr (p);
+            skip_ws (p);
             if (*cur == ',') {
               cur++;
-              arg4 = parse_expr ();
-              skip_ws ();
+              arg4 = parse_expr (p);
+              skip_ws (p);
               if (*cur == ',') {
                 cur++;
-                arg5 = parse_expr ();
-                skip_ws ();
+                arg5 = parse_expr (p);
+                skip_ws (p);
               }
             }
           }
         }
       }
       if (*cur == ')') cur++;
-      skip_ws ();
+      skip_ws (p);
     }
     if (*cur == '=' && (!had_paren || (had_paren && arg3 == NULL))) {
       cur++;
-      Node *e = parse_expr ();
+      Node *e = parse_expr (p);
       Node *v = new_node (N_VAR);
       v->var = name;
       v->is_str = name[strlen (name) - 1] == '$';
@@ -2115,16 +2118,16 @@ static int parse_stmt (Stmt *out) {
       return 1;
     }
     if (!had_paren && *cur != ':' && *cur != '\0') {
-      arg1 = parse_expr ();
-      skip_ws ();
+      arg1 = parse_expr (p);
+      skip_ws (p);
       if (*cur == ',') {
         cur++;
-        arg2 = parse_expr ();
-        skip_ws ();
+        arg2 = parse_expr (p);
+        skip_ws (p);
         if (*cur == ',') {
           cur++;
-          arg3 = parse_expr ();
-          skip_ws ();
+          arg3 = parse_expr (p);
+          skip_ws (p);
         }
       }
     }
@@ -2141,21 +2144,21 @@ static int parse_stmt (Stmt *out) {
 }
 
 /* Parse a single line into multiple statements */
-static int parse_line (char *line, Line *out) {
+static int parse_line (Parser *p, char *line, Line *out) {
   cur = line;
   out->src = strdup (line);
-  int line_no = parse_int ();
+  int line_no = parse_int (p);
   out->line = line_no;
   out->stmts = (StmtVec) {0};
   while (1) {
-    skip_ws ();
+    skip_ws (p);
     while (*cur == ':') {
       cur++;
-      skip_ws ();
+      skip_ws (p);
     }
     if (*cur == '\0') break;
     Stmt s;
-    if (!parse_stmt (&s)) return 0;
+    if (!parse_stmt (p, &s)) return 0;
     if (s.kind == ST_PRINT || s.kind == ST_PRINT_HASH) {
       size_t cap = 0;
       if (s.kind == ST_PRINT) {
@@ -2168,9 +2171,9 @@ static int parse_line (char *line, Line *out) {
         s.u.printhash.no_nl = 0;
       }
       while (1) {
-        skip_ws ();
+        skip_ws (p);
         if (*cur == ':' || *cur == '\0') break;
-        Node *e = parse_expr ();
+        Node *e = parse_expr (p);
         if (s.kind == ST_PRINT) {
           if (s.u.print.n == cap) {
             cap = cap ? cap * 2 : 4;
@@ -2184,10 +2187,10 @@ static int parse_line (char *line, Line *out) {
           }
           s.u.printhash.items[s.u.printhash.n++] = e;
         }
-        skip_ws ();
+        skip_ws (p);
         if (*cur == ';' || *cur == ',') {
           cur++;
-          skip_ws ();
+          skip_ws (p);
           if (*cur == ':' || *cur == '\0') {
             if (s.kind == ST_PRINT)
               s.u.print.no_nl = 1;
@@ -2199,15 +2202,15 @@ static int parse_line (char *line, Line *out) {
         }
         break;
       }
-      skip_ws ();
+      skip_ws (p);
     }
     stmt_vec_push (&out->stmts, s);
     if (s.kind == ST_REM) break;
-    skip_ws ();
+    skip_ws (p);
     if (*cur == ':') {
       do {
         cur++;
-        skip_ws ();
+        skip_ws (p);
       } while (*cur == ':');
       if (*cur == '\0') break;
       continue;
@@ -2217,10 +2220,10 @@ static int parse_line (char *line, Line *out) {
   return 1;
 }
 
-static void parse_func (FILE *f, char *line, int is_sub) {
+static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
   cur = line + (is_sub ? 3 : 8);
-  skip_ws ();
-  char *name = parse_id ();
+  skip_ws (p);
+  char *name = parse_id (p);
   int f_is_str = name[strlen (name) - 1] == '$';
   char **params = NULL;
   int *is_str = NULL;
@@ -2235,26 +2238,26 @@ static void parse_func (FILE *f, char *line, int is_sub) {
     }
     src_lines[src_len++] = strdup (line);
   }
-  skip_ws ();
+  skip_ws (p);
   if (*cur == '(') {
     cur++;
-    skip_ws ();
+    skip_ws (p);
     if (*cur != ')') {
       while (1) {
-        char *p = parse_id ();
-        int ps = p[strlen (p) - 1] == '$';
+        char *param = parse_id (p);
+        int ps = param[strlen (param) - 1] == '$';
         if (n == cap) {
           cap = cap ? 2 * cap : 4;
           params = realloc (params, cap * sizeof (char *));
           is_str = realloc (is_str, cap * sizeof (int));
         }
-        params[n] = p;
+        params[n] = param;
         is_str[n] = ps;
         n++;
-        skip_ws ();
+        skip_ws (p);
         if (*cur != ',') break;
         cur++;
-        skip_ws ();
+        skip_ws (p);
       }
     }
     if (*cur == ')') cur++;
@@ -2262,12 +2265,12 @@ static void parse_func (FILE *f, char *line, int is_sub) {
   StmtVec body = {0};
   char buf[256];
   while (fgets (buf, sizeof (buf), f)) {
-    char *p = buf;
+    char *lp = buf;
     buf[strcspn (buf, "\n")] = '\0';
-    while (isspace ((unsigned char) *p)) p++;
-    if (*p == '\0') continue;
-    if ((is_sub && strncasecmp (p, "END SUB", 7) == 0)
-        || (!is_sub && strncasecmp (p, "END FUNCTION", 12) == 0)) {
+    while (isspace ((unsigned char) *lp)) lp++;
+    if (*lp == '\0') continue;
+    if ((is_sub && strncasecmp (lp, "END SUB", 7) == 0)
+        || (!is_sub && strncasecmp (lp, "END FUNCTION", 12) == 0)) {
       if (src_len == src_cap) {
         src_cap = src_cap ? 2 * src_cap : 4;
         src_lines = realloc (src_lines, src_cap * sizeof (char *));
@@ -2276,7 +2279,8 @@ static void parse_func (FILE *f, char *line, int is_sub) {
       break;
     }
     Line l;
-    if (parse_line (buf, &l)) {
+    Parser lp_parser;
+    if (parse_line (&lp_parser, buf, &l)) {
       if (src_len == src_cap) {
         src_cap = src_cap ? 2 * src_cap : 4;
         src_lines = realloc (src_lines, src_cap * sizeof (char *));
@@ -2303,19 +2307,22 @@ static int load_program (LineVec *prog, const char *path) {
   int auto_line = 10;
   char line[256];
   while (fgets (line, sizeof (line), f)) {
-    char *p = line;
+    char *s = line;
     line[strcspn (line, "\n")] = '\0';
-    while (isspace ((unsigned char) *p)) p++;
-    if (*p == '\0') continue;
-    if (strncasecmp (p, "FUNCTION", 8) == 0) {
-      parse_func (f, p, 0);
+    while (isspace ((unsigned char) *s)) s++;
+    if (*s == '\0') continue;
+    if (strncasecmp (s, "FUNCTION", 8) == 0) {
+      Parser p;
+      parse_func (&p, f, s, 0);
       continue;
-    } else if (strncasecmp (p, "SUB", 3) == 0) {
-      parse_func (f, p, 1);
+    } else if (strncasecmp (s, "SUB", 3) == 0) {
+      Parser p;
+      parse_func (&p, f, s, 1);
       continue;
     }
     Line l;
-    if (parse_line (line, &l)) {
+    Parser p;
+    if (parse_line (&p, line, &l)) {
       if (l.line == 0) {
         l.line = auto_line;
         auto_line += 10;
@@ -4665,33 +4672,34 @@ static void repl (void) {
     printf ("READY.\n");
     if (!fgets (line, sizeof (line), stdin)) break;
     line[strcspn (line, "\n")] = '\0';
-    char *p = line;
-    while (isspace ((unsigned char) *p)) p++;
-    if (*p == '\0') continue;
-    if (isdigit ((unsigned char) *p)) {
+    char *s = line;
+    while (isspace ((unsigned char) *s)) s++;
+    if (*s == '\0') continue;
+    if (isdigit ((unsigned char) *s)) {
       char *end;
-      long num = strtol (p, &end, 10);
+      long num = strtol (s, &end, 10);
       while (isspace ((unsigned char) *end)) end++;
       if (*end == '\0') {
         delete_line (&prog, num);
       } else {
         Line l;
-        if (parse_line (line, &l))
+        Parser p;
+        if (parse_line (&p, line, &l))
           insert_or_replace_line (&prog, l);
         else
           fprintf (stderr, "parse error: %s\n", line);
       }
       continue;
     }
-    if (strncasecmp (p, "RUN", 3) == 0) {
-      p += 3;
-      while (isspace ((unsigned char) *p)) p++;
+    if (strncasecmp (s, "RUN", 3) == 0) {
+      s += 3;
+      while (isspace ((unsigned char) *s)) s++;
       int profile_p = 0;
-      if (*p != '\0') {
-        if (strcasecmp (p, "PROFILING") == 0 || strcasecmp (p, "PROFILE") == 0) {
+      if (*s != '\0') {
+        if (strcasecmp (s, "PROFILING") == 0 || strcasecmp (s, "PROFILE") == 0) {
           profile_p = 1;
         } else {
-          fprintf (stderr, "unknown RUN option: %s\n", p);
+          fprintf (stderr, "unknown RUN option: %s\n", s);
           continue;
         }
       }
@@ -4700,30 +4708,30 @@ static void repl (void) {
       if (profile_p) basic_profile_dump ();
       continue;
     }
-    if (strncasecmp (p, "COMPILE", 7) == 0) {
-      p += 7;
-      while (isspace ((unsigned char) *p)) p++;
-      if (strncasecmp (p, "NATIVE", 6) == 0) {
-        p += 6;
-        while (isspace ((unsigned char) *p)) p++;
-        if (*p == '\0') {
+    if (strncasecmp (s, "COMPILE", 7) == 0) {
+      s += 7;
+      while (isspace ((unsigned char) *s)) s++;
+      if (strncasecmp (s, "NATIVE", 6) == 0) {
+        s += 6;
+        while (isspace ((unsigned char) *s)) s++;
+        if (*s == '\0') {
           fprintf (stderr, "missing output file\n");
         } else {
-          gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, p, "(repl)");
-          if (access (p, F_OK) == 0)
-            printf ("%s\n", p);
+          gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, s, "(repl)");
+          if (access (s, F_OK) == 0)
+            printf ("%s\n", s);
           else
-            perror (p);
+            perror (s);
         }
         continue;
-      } else if (strncasecmp (p, "BMIR", 4) == 0) {
-        p += 4;
-        while (isspace ((unsigned char) *p)) p++;
-        if (*p == '\0') {
+      } else if (strncasecmp (s, "BMIR", 4) == 0) {
+        s += 4;
+        while (isspace ((unsigned char) *s)) s++;
+        if (*s == '\0') {
           fprintf (stderr, "missing output file\n");
         } else {
-          gen_program (&prog, 0, 0, 1, 0, 0, 0, 0, line_tracking, p, "(repl)");
-          char *name = change_suffix (p, ".bmir");
+          gen_program (&prog, 0, 0, 1, 0, 0, 0, 0, line_tracking, s, "(repl)");
+          char *name = change_suffix (s, ".bmir");
           if (access (name, F_OK) == 0)
             printf ("%s\n", name);
           else
@@ -4731,59 +4739,59 @@ static void repl (void) {
           free (name);
         }
         continue;
-      } else if (strncasecmp (p, "CODE", 4) == 0) {
-        p += 4;
-        while (isspace ((unsigned char) *p)) p++;
-        if (*p == '\0') {
+      } else if (strncasecmp (s, "CODE", 4) == 0) {
+        s += 4;
+        while (isspace ((unsigned char) *s)) s++;
+        if (*s == '\0') {
           fprintf (stderr, "missing output file\n");
         } else {
-          gen_program (&prog, 0, 0, 0, 0, 1, 0, 0, line_tracking, p, "(repl)");
-          if (access (p, F_OK) == 0)
-            printf ("%s\n", p);
+          gen_program (&prog, 0, 0, 0, 0, 1, 0, 0, line_tracking, s, "(repl)");
+          if (access (s, F_OK) == 0)
+            printf ("%s\n", s);
           else
-            perror (p);
+            perror (s);
         }
         continue;
       }
       fprintf (stderr, "unknown COMPILE target\n");
       continue;
     }
-    if (strncasecmp (p, "SAVE", 4) == 0) {
-      p += 4;
-      while (isspace ((unsigned char) *p)) p++;
-      if (*p == '\0') {
+    if (strncasecmp (s, "SAVE", 4) == 0) {
+      s += 4;
+      while (isspace ((unsigned char) *s)) s++;
+      if (*s == '\0') {
         fprintf (stderr, "missing output file\n");
       } else {
-        gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, p, "(repl)");
-        if (access (p, F_OK) == 0)
-          printf ("Saved %s\n", p);
+        gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, s, "(repl)");
+        if (access (s, F_OK) == 0)
+          printf ("Saved %s\n", s);
         else
-          perror (p);
+          perror (s);
       }
       continue;
     }
-    if (strncasecmp (p, "LOAD", 4) == 0) {
-      p += 4;
-      while (isspace ((unsigned char) *p)) p++;
-      if (*p == '\0') {
+    if (strncasecmp (s, "LOAD", 4) == 0) {
+      s += 4;
+      while (isspace ((unsigned char) *s)) s++;
+      if (*s == '\0') {
         fprintf (stderr, "missing input file\n");
       } else {
         line_vec_destroy (&prog);
-        load_program (&prog, p);
+        load_program (&prog, s);
       }
       continue;
     }
-    if (strcasecmp (p, "LIST") == 0) {
+    if (strcasecmp (s, "LIST") == 0) {
       list_program (&prog);
       continue;
     }
-    if (strcasecmp (p, "NEW") == 0) {
+    if (strcasecmp (s, "NEW") == 0) {
       line_vec_destroy (&prog);
       func_vec_clear (&func_defs);
       data_vals_clear ();
       continue;
     }
-    if (strcasecmp (p, "QUIT") == 0 || strcasecmp (p, "EXIT") == 0) {
+    if (strcasecmp (s, "QUIT") == 0 || strcasecmp (s, "EXIT") == 0) {
       break;
     }
   }
