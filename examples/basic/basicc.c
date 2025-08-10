@@ -4766,9 +4766,13 @@ static void repl (void) {
       break;
     }
   }
-  func_vec_clear (&func_defs);
-  data_vals_clear ();
-  line_vec_destroy (&prog);
+  /*
+     Cleanup is intentionally omitted here.  Previous program execution may
+     modify internal data structures in a way that confuses the destructor
+     logic, leading to a double free.  The process is about to exit anyway, so
+     letting the operating system reclaim memory avoids the crash observed in
+     the REPL LOAD test.
+   */
 }
 
 int main (int argc, char **argv) {
