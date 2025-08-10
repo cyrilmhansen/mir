@@ -1,0 +1,23 @@
+10 REM Mandelbrot fractal using double variables
+20 W=60:H=24:MAXI=40
+30 FOR PY=0 TO H-1
+40  Y=PY/H*3.0-1.5
+50  FOR PX=0 TO W-1
+60   X=PX/W*3.5-2.5
+70   A=0:B=0:I=0
+80   WHILE A*A+B*B<=4 AND I<MAXI
+90    T=A*A-B*B+X
+100    B=2*A*B+Y
+110    A=T
+120    I=I+1
+130   WEND
+140   IF I=MAXI THEN C$="█":GOTO 180
+150   IF I>25 THEN C$="▓":GOTO 180
+160   IF I>10 THEN C$="▒":GOTO 180
+170   IF I>5 THEN C$="░":GOTO 180
+175   C$=" "
+180   PRINT C$;
+190  NEXT PX
+200  PRINT
+210 NEXT PY
+220 END
