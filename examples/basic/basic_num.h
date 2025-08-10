@@ -16,22 +16,6 @@ typedef long double basic_num_t;
 #define BASIC_LOG logl
 #define BASIC_EXP expl
 #define BASIC_FLOOR floorl
-#elif defined(BASIC_USE_FLOAT128)
-#include <quadmath.h>
-typedef __float128 basic_num_t;
-#define BASIC_NUM_SCANF "%Qg"
-#define BASIC_NUM_PRINTF "%.33Qg"
-#define BASIC_SNPRINTF quadmath_snprintf
-#define BASIC_STRTOF strtoflt128
-#define BASIC_FABS fabsq
-#define BASIC_SQRT sqrtq
-#define BASIC_SIN sinq
-#define BASIC_COS cosq
-#define BASIC_TAN tanq
-#define BASIC_ATAN atanq
-#define BASIC_LOG logq
-#define BASIC_EXP expq
-#define BASIC_FLOOR floorq
 #else
 typedef double basic_num_t;
 #define BASIC_NUM_SCANF "%lf"
