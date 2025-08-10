@@ -136,6 +136,8 @@ extern void basic_enable_line_tracking (double);
 
 extern void basic_beep (void);
 extern void basic_sound (double, double);
+extern double basic_system (const char *);
+extern char *basic_system_out (void);
 
 static int array_base = 0;
 static int line_tracking = 1;
@@ -234,6 +236,8 @@ static void *resolve (const char *name) {
 
   if (!strcmp (name, "basic_beep")) return basic_beep;
   if (!strcmp (name, "basic_sound")) return basic_sound;
+  if (!strcmp (name, "basic_system")) return basic_system;
+  if (!strcmp (name, "basic_system_out")) return basic_system_out;
 
   if (!strcmp (name, "basic_strdup")) return basic_strdup;
   if (!strcmp (name, "basic_free")) return basic_free;
@@ -272,8 +276,8 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   stop_import, on_error_proto, on_error_import, set_line_proto, set_line_import, get_line_proto,
   get_line_import, line_track_proto, line_track_import, profile_line_proto, profile_line_import,
   profile_func_enter_proto, profile_func_enter_import, profile_func_exit_proto,
-  profile_func_exit_import, beep_proto, beep_import, sound_proto, sound_import, free_proto,
-  free_import;
+  profile_func_exit_import, beep_proto, beep_import, sound_proto, sound_import, system_proto,
+  system_import, system_out_proto, system_out_import, free_proto, free_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL } NodeKind;
@@ -359,6 +363,7 @@ typedef enum {
   ST_VTAB,
   ST_BEEP,
   ST_SOUND,
+  ST_SYSTEM,
   ST_RANDOMIZE,
   ST_TEXT,
   ST_INVERSE,
@@ -514,6 +519,11 @@ struct Stmt {
       Node *freq;
       Node *dur;
     } sound;
+    struct {
+      Node *cmd;
+      char *status;
+      char *out;
+    } system;
     struct {
       Node *addr;
       Node *value;
@@ -728,6 +738,11 @@ static void free_stmt (Stmt *s) {
   case ST_SOUND:
     free_node (s->u.sound.freq);
     free_node (s->u.sound.dur);
+    break;
+  case ST_SYSTEM:
+    free_node (s->u.system.cmd);
+    free (s->u.system.status);
+    free (s->u.system.out);
     break;
   case ST_POKE:
     free_node (s->u.poke.addr);
@@ -1475,6 +1490,22 @@ static int parse_stmt (Stmt *out) {
     if (*cur != ',') return 0;
     cur++;
     out->u.sound.dur = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "SYSTEM", 6) == 0) {
+    cur += 6;
+    skip_ws ();
+    out->kind = ST_SYSTEM;
+    out->u.system.cmd = parse_expr ();
+    skip_ws ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.system.status = parse_id ();
+    if (out->u.system.status[strlen (out->u.system.status) - 1] == '$') return 0;
+    skip_ws ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.system.out = parse_id ();
+    if (out->u.system.out[strlen (out->u.system.out) - 1] != '$') return 0;
     return 1;
   } else if (strncasecmp (cur, "RANDOMIZE", 9) == 0) {
     cur += 9;
@@ -3694,6 +3725,25 @@ static void gen_stmt (Stmt *s) {
                                         MIR_new_reg_op (g_ctx, f), MIR_new_reg_op (g_ctx, d)));
     break;
   }
+  case ST_SYSTEM: {
+    MIR_reg_t cmd = gen_expr (g_ctx, g_func, &g_vars, s->u.system.cmd);
+    MIR_reg_t status = get_var (&g_vars, g_ctx, g_func, s->u.system.status);
+    MIR_reg_t out = get_var (&g_vars, g_ctx, g_func, s->u.system.out);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, system_proto),
+                                        MIR_new_ref_op (g_ctx, system_import),
+                                        MIR_new_reg_op (g_ctx, status),
+                                        MIR_new_reg_op (g_ctx, cmd)));
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
+                                        MIR_new_ref_op (g_ctx, free_import),
+                                        MIR_new_reg_op (g_ctx, out)));
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, system_out_proto),
+                                        MIR_new_ref_op (g_ctx, system_out_import),
+                                        MIR_new_reg_op (g_ctx, out)));
+    break;
+  }
   case ST_ON_ERROR: {
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, on_error_proto),
@@ -3922,6 +3972,10 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   beep_import = MIR_new_import (ctx, "basic_beep");
   sound_proto = MIR_new_proto (ctx, "basic_sound_p", 0, NULL, 2, MIR_T_D, "f", MIR_T_D, "d");
   sound_import = MIR_new_import (ctx, "basic_sound");
+  system_proto = MIR_new_proto (ctx, "basic_system_p", 1, &d, 1, MIR_T_P, "cmd");
+  system_import = MIR_new_import (ctx, "basic_system");
+  system_out_proto = MIR_new_proto (ctx, "basic_system_out_p", 1, &p, 0);
+  system_out_import = MIR_new_import (ctx, "basic_system_out");
   randomize_proto
     = MIR_new_proto (ctx, "basic_randomize_p", 0, NULL, 2, MIR_T_D, "n", MIR_T_D, "has_seed");
   randomize_import = MIR_new_import (ctx, "basic_randomize");

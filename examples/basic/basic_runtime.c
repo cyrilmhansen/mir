@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <sys/select.h>
 #include <unistd.h>
+#include <sys/wait.h>
 #include "kitty/kitty.h"
 
 static int seeded = 0;
@@ -14,6 +15,7 @@ static int basic_error_handler = 0;
 static int basic_line = 0;
 static double last_hplot_x = 0.0, last_hplot_y = 0.0;
 int basic_line_tracking_enabled = 1;
+static char *system_output = NULL;
 
 typedef struct {
   int line;
@@ -668,6 +670,36 @@ void basic_sound (double f, double d) {
   (void) d;
   basic_beep ();
 }
+
+double basic_system (const char *cmd) {
+  free (system_output);
+  system_output = NULL;
+  FILE *fp = popen (cmd, "r");
+  if (fp == NULL) return -1.0;
+  size_t len = 0;
+  char *out = NULL;
+  char buf[256];
+  while (fgets (buf, sizeof (buf), fp) != NULL) {
+    size_t blen = strlen (buf);
+    char *tmp = realloc (out, len + blen + 1);
+    if (tmp == NULL) {
+      free (out);
+      out = NULL;
+      len = 0;
+      break;
+    }
+    out = tmp;
+    memcpy (out + len, buf, blen);
+    len += blen;
+    out[len] = '\0';
+  }
+  int status = pclose (fp);
+  system_output = out ? out : strdup ("");
+  if (WIFEXITED (status)) return (double) WEXITSTATUS (status);
+  return -1.0;
+}
+
+char *basic_system_out (void) { return system_output ? strdup (system_output) : strdup (""); }
 
 void basic_stop (void) {
   fflush (stdout);
