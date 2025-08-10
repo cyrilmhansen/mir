@@ -3797,18 +3797,18 @@ static void gen_stmt (Stmt *s) {
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, ri),
                                    MIR_new_reg_op (g_ctx, r)));
+    MIR_label_t after = MIR_new_label (g_ctx);
+    MIR_item_t after_ref = MIR_new_lref_data (g_ctx, NULL, after, NULL, 0);
     for (size_t k = 0; k < s->u.on_gosub.n_targets; k++) {
       MIR_label_t next = MIR_new_label (g_ctx);
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_insn (g_ctx, MIR_BNE, MIR_new_label_op (g_ctx, next),
                                      MIR_new_reg_op (g_ctx, ri), MIR_new_int_op (g_ctx, k + 1)));
-      MIR_label_t ret = MIR_new_label (g_ctx);
-      MIR_item_t ret_ref = MIR_new_lref_data (g_ctx, NULL, ret, NULL, 0);
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t tmp = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, tmp),
-                                     MIR_new_ref_op (g_ctx, ret_ref)));
+                                     MIR_new_ref_op (g_ctx, after_ref)));
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, tmp),
                                      MIR_new_mem_op (g_ctx, MIR_T_I64, 0, tmp, 0, 1)));
@@ -3824,9 +3824,9 @@ static void gen_stmt (Stmt *s) {
                                      MIR_new_label_op (g_ctx,
                                                        find_label (g_prog, g_labels,
                                                                    s->u.on_gosub.targets[k]))));
-      MIR_append_insn (g_ctx, g_func, ret);
       MIR_append_insn (g_ctx, g_func, next);
     }
+    MIR_append_insn (g_ctx, g_func, after);
     break;
   }
   case ST_HPLOT: {
