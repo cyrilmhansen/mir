@@ -50,7 +50,9 @@ run_tests() {
                 fi
         }
 
-        for t in hello relop adder string strfuncs instr gosub funcproc graphics readhplot circle box sudoku array_oob_read array_oob_write mandelbrot pi baseconv mir_demo datediff date rnd_noarg; do
+        # The mandelbrot sample is a long-running animation and is intentionally
+        # excluded from automated tests.
+        for t in hello relop adder string strfuncs instr gosub funcproc graphics readhplot circle box sudoku array_oob_read array_oob_write pi baseconv mir_demo datediff date rnd_noarg; do
                 echo "Running $t"
                 run_test "$t"
                 echo "$t OK"
