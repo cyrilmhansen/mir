@@ -188,7 +188,7 @@ endif
 	-rmdir $(PREFIX)/include $(PREFIX)/lib $(PREFIX)/bin
 	-rmdir $(PREFIX)
 
-clean: clean-mir clean-c2m clean-utils clean-l2m clean-adt-tests clean-mir-tests clean-mir2c-test clean-bench
+clean: clean-mir clean-c2m clean-utils clean-l2m clean-adt-tests clean-mir-tests clean-basic clean-mir2c-test clean-bench
 	$(RM) $(EXECUTABLES) $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/$(SOLIB)
 
 test: readme-example-test mir-bin-run-test c2mir-test basic-test
@@ -420,14 +420,6 @@ endif
 $(BUILD_DIR)/basic/basicc$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
 	$(SRC_DIR)/examples/basic/basicc.c $(SRC_DIR)/examples/basic/basic_runtime.c \
 	$(SRC_DIR)/examples/basic/kitty/kitty.c $(SRC_DIR)/examples/basic/kitty/lodepng.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -DBASIC_SRC_DIR=\"$(SRC_DIR)\" $^ -lm $(EXEO)$@
-$(BUILD_DIR)/basic/basicc_ld$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
-	$(SRC_DIR)/examples/basic/basicc.c $(SRC_DIR)/examples/basic/basic_runtime.c \
-	$(SRC_DIR)/examples/basic/kitty/kitty.c $(SRC_DIR)/examples/basic/kitty/lodepng.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -DBASIC_SRC_DIR=\"$(SRC_DIR)\" -DBASIC_USE_LONG_DOUBLE $^ -lm $(EXEO)$@
-
-$(BUILD_DIR)/basic/basicc_f128$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
-	$(SRC_DIR)/examples/basic/basicc.c $(SRC_DIR)/examples/basic/basic_runtime.c \
-	$(SRC_DIR)/examples/basic/kitty/kitty.c $(SRC_DIR)/examples/basic/kitty/lodepng.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -DBASIC_SRC_DIR=\"$(SRC_DIR)\" -DBASIC_USE_FLOAT128 $^ -lm -lquadmath $(EXEO)$@
-
 
 $(BUILD_DIR)/basic/basicc-ld$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
 	$(SRC_DIR)/examples/basic/basicc.c $(SRC_DIR)/examples/basic/basic_runtime.c \
@@ -473,6 +465,12 @@ basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUI
 	$(SRC_DIR)/examples/basic/run-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
 	$(SRC_DIR)/examples/basic/run-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
 	$(SRC_DIR)/examples/basic/run-tests.sh $(BUILD_DIR)/basic/basicc-f128$(EXE)
+
+clean-basic:
+	$(RM) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/basicc-f128$(EXE)
+	$(RM) $(BUILD_DIR)/basic/basicc_ld$(EXE) $(BUILD_DIR)/basic/basicc_f128$(EXE)
+	$(RM) $(BUILD_DIR)/basic/kitty_test$(EXE)
+	$(RM) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_F128)
 
 # ------------------ MIR interp tests --------------------------
 .PHONY: clean-mir-interp-tests
