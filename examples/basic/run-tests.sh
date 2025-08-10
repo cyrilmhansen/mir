@@ -45,6 +45,9 @@ run_tests() {
                         doy=$(date -d "$y-$m-$d" +%j)
                         total=$(date -d "$y-12-31" +%j)
                         diff <(printf "Year: \nMonth: \nDay: \nDays since Jan 1: %d\nDays until Dec 31: %d\n" $((doy-1)) $((total-doy))) "$out"
+                elif [ "$name" = "pi" ]; then
+                        grep -q '^PI=3.14159265358979' "$out"
+                        grep -q '^TIME=' "$out" >/dev/null
                 else
                         diff "$exp" "$out"
                 fi
@@ -68,6 +71,14 @@ run_tests() {
         fi
         grep -q "line tracking" "$ROOT/basic/resume.err"
         echo "resume error OK"
+
+        echo "Running dim expression (expect error)"
+        if "$BASICC" "$ROOT/examples/basic/dim_expr.bas" >/dev/null 2> "$ROOT/basic/dim_expr.err"; then
+                echo "dim expression should have failed"
+                exit 1
+        fi
+        grep -q "expected integer" "$ROOT/basic/dim_expr.err"
+        echo "dim expression error OK"
 
         echo "Running fleuves (no explain)"
         timeout 10 "$BASICC" "$ROOT/examples/basic/fleuves.bas" < "$ROOT/examples/basic/fleuves.in" >/dev/null || true
