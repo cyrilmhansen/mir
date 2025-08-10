@@ -449,83 +449,30 @@ $(BUILD_DIR)/basic/kitty_test$(EXE): \
 	$(COMPILE_AND_LINK) $^ -lm $(EXEO)$@
 
 $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB): \
-	$(SRC_DIR)/examples/basic/basic_runtime.c \
+        $(SRC_DIR)/examples/basic/basic_runtime.c \
         $(SRC_DIR)/examples/basic/kitty/kitty.c \
-        $(SRC_DIR)/examples/basic/kitty/lodepng.c | $(BUILD_DIR)/basic
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BASIC_RUNTIME_FLAGS) $^ $(BUILD_DIR)/libmir.$(LIBSUFF) -lm $(EXEO)$@
+        $(SRC_DIR)/examples/basic/kitty/lodepng.c \
+        $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BASIC_RUNTIME_FLAGS) $^ -lm $(EXEO)$@
 
 $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD): \
-	$(SRC_DIR)/examples/basic/basic_runtime.c \
+        $(SRC_DIR)/examples/basic/basic_runtime.c \
         $(SRC_DIR)/examples/basic/kitty/kitty.c \
-        $(SRC_DIR)/examples/basic/kitty/lodepng.c | $(BUILD_DIR)/basic
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DBASIC_USE_LONG_DOUBLE $(BASIC_RUNTIME_FLAGS) $^ $(BUILD_DIR)/libmir.$(LIBSUFF) -lm $(EXEO)$@
+        $(SRC_DIR)/examples/basic/kitty/lodepng.c \
+        $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DBASIC_USE_LONG_DOUBLE $(BASIC_RUNTIME_FLAGS) $^ -lm $(EXEO)$@
 
 $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_F128): \
-	$(SRC_DIR)/examples/basic/basic_runtime.c \
+        $(SRC_DIR)/examples/basic/basic_runtime.c \
         $(SRC_DIR)/examples/basic/kitty/kitty.c \
-        $(SRC_DIR)/examples/basic/kitty/lodepng.c | $(BUILD_DIR)/basic
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DBASIC_USE_FLOAT128 $(BASIC_RUNTIME_FLAGS) $^ $(BUILD_DIR)/libmir.$(LIBSUFF) -lm -lquadmath $(EXEO)$@
+        $(SRC_DIR)/examples/basic/kitty/lodepng.c \
+        $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DBASIC_USE_FLOAT128 $(BASIC_RUNTIME_FLAGS) $^ -lm -lquadmath $(EXEO)$@
 
-basic-test: $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/basicc-f128$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_F128) $(BUILD_DIR)/mir-bin-run$(EXE)
-
-	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/hello.bas > $(BUILD_DIR)/basic/hello.out
-	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/hello.out
-	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/relop.bas > $(BUILD_DIR)/basic/relop.out
-	diff $(SRC_DIR)/examples/basic/relop.out $(BUILD_DIR)/basic/relop.out
-	printf '2\n3\n' | $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/adder.bas > $(BUILD_DIR)/basic/adder.out
-	diff $(SRC_DIR)/examples/basic/adder.out $(BUILD_DIR)/basic/adder.out
-	printf 'MIR\nY\n' | $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/string.bas > $(BUILD_DIR)/basic/string.out
-	diff $(SRC_DIR)/examples/basic/string.out $(BUILD_DIR)/basic/string.out
-	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/strfuncs.bas > $(BUILD_DIR)/basic/strfuncs.out
-	diff $(SRC_DIR)/examples/basic/strfuncs.out $(BUILD_DIR)/basic/strfuncs.out
-	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/instr.bas > $(BUILD_DIR)/basic/instr.out
-	diff $(SRC_DIR)/examples/basic/instr.out $(BUILD_DIR)/basic/instr.out
-	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/stress_reassign.bas > $(BUILD_DIR)/basic/stress_reassign.out
-	diff $(SRC_DIR)/examples/basic/stress_reassign.out $(BUILD_DIR)/basic/stress_reassign.out
-	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/funcproc.bas > $(BUILD_DIR)/basic/funcproc.out
-	diff $(SRC_DIR)/examples/basic/funcproc.out $(BUILD_DIR)/basic/funcproc.out
-	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/array_default.bas > $(BUILD_DIR)/basic/array_default.out
-	diff $(SRC_DIR)/examples/basic/array_default.out $(BUILD_DIR)/basic/array_default.out
-	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/array_oob_read.bas > $(BUILD_DIR)/basic/array_oob_read.out
-	diff $(SRC_DIR)/examples/basic/array_oob_read.out $(BUILD_DIR)/basic/array_oob_read.out
-	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/array_oob_write.bas > $(BUILD_DIR)/basic/array_oob_write.out
-	diff $(SRC_DIR)/examples/basic/array_oob_write.out $(BUILD_DIR)/basic/array_oob_write.out
-	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/system.bas > $(BUILD_DIR)/basic/system.out
-	diff $(SRC_DIR)/examples/basic/system.out $(BUILD_DIR)/basic/system.out
-	printf '10 PRINT "HI"\nLIST\nRUN\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl.out
-	diff $(SRC_DIR)/examples/basic/repl.out $(BUILD_DIR)/basic/repl.out
-	printf 'LOAD $(SRC_DIR)/examples/basic/hello.bas\nRUN\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl-load.out
-	diff $(SRC_DIR)/examples/basic/repl-load.out $(BUILD_DIR)/basic/repl-load.out
-	printf 'LOAD $(SRC_DIR)/examples/basic/restore.bas\nRUN\nNEW\nQUIT\n' | \
-	        valgrind --quiet --leak-check=full --error-exitcode=1 \
-	        $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl-data.out
-	diff $(SRC_DIR)/examples/basic/repl-data.out $(BUILD_DIR)/basic/repl-data.out
-	(cd $(BUILD_DIR)/basic && printf '10 PRINT "HI"\nCOMPILE CODE repl-code.bin\nQUIT\n' | ./basicc$(EXE) > repl-code.out)
-	diff $(SRC_DIR)/examples/basic/repl-code.out $(BUILD_DIR)/basic/repl-code.out
-	test -s $(BUILD_DIR)/basic/repl-code.bin
-	rm -f $(BUILD_DIR)/basic/repl-code.bin
-	printf '10 DEF FNA(X)=X+1\n20 PRINT FNA(1)\n30 PRINT FNA(2)\n40 END\nRUN PROFILING\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl-prof.out
-	grep -q 'line 20: count 1' $(BUILD_DIR)/basic/repl-prof.out
-	grep -q 'func FNA: count 2' $(BUILD_DIR)/basic/repl-prof.out
-	printf '10 PRINT "HELLO"\nSAVE $(BUILD_DIR)/basic/repl-save$(EXE)\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl-save.log
-	test -f $(BUILD_DIR)/basic/repl-save$(EXE)
-	$(BUILD_DIR)/basic/repl-save$(EXE) > $(BUILD_DIR)/basic/repl-save.out
-	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/repl-save.out
-	$(BUILD_DIR)/basic/basicc$(EXE) -b -l -o $(BUILD_DIR)/basic/hello-lean $(SRC_DIR)/examples/basic/hello.bas
-	$(BUILD_DIR)/basic/hello-lean$(EXE) > $(BUILD_DIR)/basic/hello-lean.out
-	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/hello-lean.out
-	$(BUILD_DIR)/basic/kitty_test$(EXE) > $(BUILD_DIR)/basic/kitty_test.out
-	diff $(SRC_DIR)/examples/basic/kitty/kitty_test.out $(BUILD_DIR)/basic/kitty_test.out
-	$(BUILD_DIR)/basic/basicc$(EXE) -r -o $(BUILD_DIR)/basic/hello $(SRC_DIR)/examples/basic/hello.bas
-	test -f $(BUILD_DIR)/basic/hello.bmir
-	
-	MIR_LIB_DIRS=$(BUILD_DIR)/basic MIR_LIBS=basic_runtime $(BUILD_DIR)/mir-bin-run$(EXE) $(BUILD_DIR)/basic/hello.bmir hello > $(BUILD_DIR)/basic/hello-run.out
-	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/hello-run.out
-	$(BUILD_DIR)/basic/basicc-ld$(EXE) $(SRC_DIR)/examples/basic/hello.bas > $(BUILD_DIR)/basic/hello-ld.out
-	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/hello-ld.out
-	$(BUILD_DIR)/basic/basicc-f128$(EXE) $(SRC_DIR)/examples/basic/hello.bas > $(BUILD_DIR)/basic/hello-f128.out
-	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/hello-f128.out
-
+basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/basicc-f128$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_F128) $(BUILD_DIR)/mir-bin-run$(EXE)
+	$(SRC_DIR)/examples/basic/run-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
+	$(SRC_DIR)/examples/basic/run-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
+	$(SRC_DIR)/examples/basic/run-tests.sh $(BUILD_DIR)/basic/basicc-f128$(EXE)
 
 # ------------------ MIR interp tests --------------------------
 .PHONY: clean-mir-interp-tests
