@@ -1,5 +1,33 @@
 #include "mir.h"
 #include "mir-gen.h"
+#include "basic_runtime.h"
+#include "basic_num.h"
+
+#if defined(BASIC_USE_LONG_DOUBLE)
+#define MIR_T_D MIR_T_LD
+#define MIR_new_double_op MIR_new_ldouble_op
+#define MIR_D2I MIR_LD2I
+#define MIR_I2D MIR_I2LD
+#define MIR_DMOV MIR_LDMOV
+#define MIR_DNEG MIR_LDNEG
+#define MIR_DEQ MIR_LDEQ
+#define MIR_DNE MIR_LDNE
+#define MIR_DLT MIR_LDLT
+#define MIR_DLE MIR_LDLE
+#define MIR_DGT MIR_LDGT
+#define MIR_DGE MIR_LDGE
+#define MIR_DADD MIR_LDADD
+#define MIR_DSUB MIR_LDSUB
+#define MIR_DMUL MIR_LDMUL
+#define MIR_DDIV MIR_LDDIV
+#define MIR_DBEQ MIR_LDBEQ
+#define MIR_DBNE MIR_LDBNE
+#define MIR_DBLT MIR_LDBLT
+#define MIR_DBLE MIR_LDBLE
+#define MIR_DBGT MIR_LDBGT
+#define MIR_DBGE MIR_LDBGE
+#endif
+
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,9 +41,9 @@
 #endif
 
 /* Runtime helpers defined in basic_runtime.c */
-extern void basic_print (double);
+extern void basic_print (basic_num_t);
 extern void basic_print_str (const char *);
-extern double basic_input (void);
+extern basic_num_t basic_input (void);
 extern char *basic_input_str (void);
 extern char *basic_get (void);
 
@@ -23,15 +51,23 @@ extern char *basic_inkey (void);
 
 extern void basic_put (const char *);
 
+extern void basic_profile_reset (void);
+extern void basic_profile_dump (void);
+extern void basic_profile_line (basic_num_t);
+extern void basic_profile_func_enter (const char *);
+extern void basic_profile_func_exit (const char *);
+
 extern int basic_strcmp (const char *, const char *);
 
-extern double basic_read (void);
+extern basic_num_t basic_read (void);
 extern char *basic_read_str (void);
 extern void basic_restore (void);
+extern char *basic_strdup (const char *);
+extern void basic_free (char *);
 
 typedef struct BasicData {
   int is_str;
-  double num;
+  basic_num_t num;
   char *str;
 } BasicData;
 
@@ -40,52 +76,52 @@ extern size_t basic_data_len;
 extern size_t basic_data_pos;
 
 extern void basic_home (void);
-extern void basic_vtab (double);
-extern double basic_rnd (double);
-extern void basic_randomize (double, double);
-extern double basic_abs (double);
-extern double basic_sgn (double);
-extern double basic_sqr (double);
-extern double basic_sin (double);
-extern double basic_cos (double);
-extern double basic_tan (double);
-extern double basic_atn (double);
-extern double basic_log (double);
-extern double basic_exp (double);
+extern void basic_vtab (basic_num_t);
+extern basic_num_t basic_rnd (basic_num_t);
+extern void basic_randomize (basic_num_t, basic_num_t);
+extern basic_num_t basic_abs (basic_num_t);
+extern basic_num_t basic_sgn (basic_num_t);
+extern basic_num_t basic_sqr (basic_num_t);
+extern basic_num_t basic_sin (basic_num_t);
+extern basic_num_t basic_cos (basic_num_t);
+extern basic_num_t basic_tan (basic_num_t);
+extern basic_num_t basic_atn (basic_num_t);
+extern basic_num_t basic_log (basic_num_t);
+extern basic_num_t basic_exp (basic_num_t);
 
-extern void basic_screen (double);
+extern void basic_screen (basic_num_t);
 extern void basic_cls (void);
-extern void basic_color (double);
+extern void basic_color (basic_num_t);
 extern void basic_key_off (void);
-extern void basic_locate (double, double);
-extern void basic_htab (double);
-extern double basic_pos (void);
+extern void basic_locate (basic_num_t, basic_num_t);
+extern void basic_htab (basic_num_t);
+extern basic_num_t basic_pos (void);
 extern void basic_text (void);
 extern void basic_inverse (void);
 extern void basic_normal (void);
 extern void basic_hgr2 (void);
-extern void basic_hcolor (double);
-extern void basic_hplot (double, double);
-extern void basic_hplot_to (double, double, double, double);
-extern void basic_hplot_to_current (double, double);
-extern void basic_move (double, double);
-extern void basic_draw (double, double);
-extern void basic_draw_line (double, double, double, double);
-extern void basic_circle (double, double, double);
-extern void basic_rect (double, double, double, double);
-extern void basic_fill (double, double, double, double);
-extern void basic_mode (double);
+extern void basic_hcolor (basic_num_t);
+extern void basic_hplot (basic_num_t, basic_num_t);
+extern void basic_hplot_to (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
+extern void basic_hplot_to_current (basic_num_t, basic_num_t);
+extern void basic_move (basic_num_t, basic_num_t);
+extern void basic_draw (basic_num_t, basic_num_t);
+extern void basic_draw_line (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
+extern void basic_circle (basic_num_t, basic_num_t, basic_num_t);
+extern void basic_rect (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
+extern void basic_fill (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
+extern void basic_mode (basic_num_t);
 
-extern char *basic_chr (double);
-extern char *basic_string (double, const char *);
-extern char *basic_left (const char *, double);
-extern char *basic_right (const char *, double);
-extern char *basic_mid (const char *, double, double);
-extern double basic_len (const char *);
-extern double basic_val (const char *);
-extern char *basic_str (double);
-extern double basic_asc (const char *);
-extern double basic_instr (const char *, const char *);
+extern char *basic_chr (basic_num_t);
+extern char *basic_string (basic_num_t, const char *);
+extern char *basic_left (const char *, basic_num_t);
+extern char *basic_right (const char *, basic_num_t);
+extern char *basic_mid (const char *, basic_num_t, basic_num_t);
+extern basic_num_t basic_len (const char *);
+extern basic_num_t basic_val (const char *);
+extern char *basic_str (basic_num_t);
+extern basic_num_t basic_asc (const char *);
+extern basic_num_t basic_instr (const char *, const char *);
 
 static int kitty_graphics_available (void) {
   const char *id = getenv ("KITTY_WINDOW_ID");
@@ -100,35 +136,41 @@ static void show_kitty_banner (void) {
   printf ("\x1b]1337;File=inline=1;width=70;height=7;preserveAspectRatio=0:%s\x07\n", png);
   fflush (stdout);
 }
-extern double basic_int (double);
-extern double basic_timer (void);
-extern double basic_time (void);
+extern basic_num_t basic_int (basic_num_t);
+extern basic_num_t basic_timer (void);
+extern basic_num_t basic_time (void);
 extern char *basic_time_str (void);
-extern char *basic_input_chr (double);
-extern double basic_peek (double);
-extern void basic_poke (double, double);
+extern basic_num_t basic_date (void);
+extern char *basic_date_str (void);
+extern char *basic_input_chr (basic_num_t);
+extern basic_num_t basic_peek (basic_num_t);
+extern void basic_poke (basic_num_t, basic_num_t);
 
-extern void basic_open (double, const char *);
-extern void basic_close (double);
-extern void basic_print_hash (double, double);
-extern void basic_print_hash_str (double, const char *);
-extern double basic_input_hash (double);
-extern char *basic_input_hash_str (double);
-extern char *basic_get_hash (double);
-extern void basic_put_hash (double, const char *);
-extern double basic_eof (double);
+extern void basic_open (basic_num_t, const char *);
+extern void basic_close (basic_num_t);
+extern void basic_print_hash (basic_num_t, basic_num_t);
+extern void basic_print_hash_str (basic_num_t, const char *);
+extern basic_num_t basic_input_hash (basic_num_t);
+extern char *basic_input_hash_str (basic_num_t);
+extern char *basic_get_hash (basic_num_t);
+extern void basic_put_hash (basic_num_t, const char *);
+extern basic_num_t basic_eof (basic_num_t);
 
 extern void basic_stop (void);
 
-extern void basic_set_error_handler (double);
-extern double basic_get_error_handler (void);
-extern void basic_set_line (double);
-extern double basic_get_line (void);
+extern void basic_set_error_handler (basic_num_t);
+extern basic_num_t basic_get_error_handler (void);
+extern void basic_set_line (basic_num_t);
+extern basic_num_t basic_get_line (void);
+extern void basic_enable_line_tracking (basic_num_t);
 
 extern void basic_beep (void);
-extern void basic_sound (double, double);
+extern void basic_sound (basic_num_t, basic_num_t);
+extern double basic_system (const char *);
+extern char *basic_system_out (void);
 
 static int array_base = 0;
+static int line_tracking = 1;
 
 static void *resolve (const char *name) {
   if (!strcmp (name, "basic_print")) return basic_print;
@@ -194,6 +236,9 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_rect")) return basic_rect;
   if (!strcmp (name, "basic_fill")) return basic_fill;
   if (!strcmp (name, "basic_mode")) return basic_mode;
+  if (!strcmp (name, "basic_profile_line")) return basic_profile_line;
+  if (!strcmp (name, "basic_profile_func_enter")) return basic_profile_func_enter;
+  if (!strcmp (name, "basic_profile_func_exit")) return basic_profile_func_exit;
 
   if (!strcmp (name, "basic_chr")) return basic_chr;
   if (!strcmp (name, "basic_string")) return basic_string;
@@ -208,6 +253,8 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_timer")) return basic_timer;
   if (!strcmp (name, "basic_time")) return basic_time;
   if (!strcmp (name, "basic_time_str")) return basic_time_str;
+  if (!strcmp (name, "basic_date")) return basic_date;
+  if (!strcmp (name, "basic_date_str")) return basic_date_str;
   if (!strcmp (name, "basic_input_chr")) return basic_input_chr;
   if (!strcmp (name, "basic_peek")) return basic_peek;
   if (!strcmp (name, "basic_poke")) return basic_poke;
@@ -217,24 +264,46 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_get_error_handler")) return basic_get_error_handler;
   if (!strcmp (name, "basic_set_line")) return basic_set_line;
   if (!strcmp (name, "basic_get_line")) return basic_get_line;
+  if (!strcmp (name, "basic_enable_line_tracking")) return basic_enable_line_tracking;
 
   if (!strcmp (name, "basic_beep")) return basic_beep;
   if (!strcmp (name, "basic_sound")) return basic_sound;
+  if (!strcmp (name, "basic_system")) return basic_system;
+  if (!strcmp (name, "basic_system_out")) return basic_system_out;
+
+  if (!strcmp (name, "basic_strdup")) return basic_strdup;
+  if (!strcmp (name, "basic_free")) return basic_free;
 
   if (!strcmp (name, "calloc")) return calloc;
   if (!strcmp (name, "memset")) return memset;
+  if (!strcmp (name, "basic_mir_ctx")) return basic_mir_ctx;
+  if (!strcmp (name, "basic_mir_mod")) return basic_mir_mod;
+  if (!strcmp (name, "basic_mir_func")) return basic_mir_func;
+  if (!strcmp (name, "basic_mir_reg")) return basic_mir_reg;
+  if (!strcmp (name, "basic_mir_label")) return basic_mir_label;
+  if (!strcmp (name, "basic_mir_emit")) return basic_mir_emit;
+  if (!strcmp (name, "basic_mir_emitlbl")) return basic_mir_emitlbl;
+  if (!strcmp (name, "basic_mir_ret")) return basic_mir_ret;
+  if (!strcmp (name, "basic_mir_finish")) return basic_mir_finish;
+  if (!strcmp (name, "basic_mir_run")) return basic_mir_run;
+  if (!strcmp (name, "basic_mir_dump")) return basic_mir_dump;
   return NULL;
 }
 
 /* Runtime call prototypes for expressions */
 static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, string_import,
   int_proto, int_import, timer_proto, timer_import, time_proto, time_import, time_str_proto,
-  time_str_import, input_chr_proto, input_chr_import, peek_proto, peek_import, eof_proto,
-  eof_import, abs_proto, abs_import, sgn_proto, sgn_import, inkey_proto, inkey_import, sqr_proto,
-  sqr_import, sin_proto, sin_import, cos_proto, cos_import, tan_proto, tan_import, atn_proto,
-  atn_import, log_proto, log_import, exp_proto, exp_import, left_proto, left_import, right_proto,
-  right_import, mid_proto, mid_import, len_proto, len_import, val_proto, val_import, str_proto,
-  str_import, asc_proto, asc_import, pos_proto, pos_import, instr_proto, instr_import;
+  time_str_import, date_proto, date_import, date_str_proto, date_str_import, input_chr_proto,
+  input_chr_import, peek_proto, peek_import, eof_proto, eof_import, abs_proto, abs_import,
+  sgn_proto, sgn_import, inkey_proto, inkey_import, sqr_proto, sqr_import, sin_proto, sin_import,
+  cos_proto, cos_import, tan_proto, tan_import, atn_proto, atn_import, log_proto, log_import,
+  exp_proto, exp_import, left_proto, left_import, right_proto, right_import, mid_proto, mid_import,
+  len_proto, len_import, val_proto, val_import, str_proto, str_import, asc_proto, asc_import,
+  pos_proto, pos_import, instr_proto, instr_import, strdup_proto, strdup_import, mir_ctx_proto,
+  mir_ctx_import, mir_mod_proto, mir_mod_import, mir_func_proto, mir_func_import, mir_reg_proto,
+  mir_reg_import, mir_label_proto, mir_label_import, mir_emit_proto, mir_emit_import,
+  mir_emitlbl_proto, mir_emitlbl_import, mir_ret_proto, mir_ret_import, mir_finish_proto,
+  mir_finish_import, mir_run_proto, mir_run_import, mir_dump_proto, mir_dump_import;
 
 /* Runtime call prototypes for statements */
 static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_proto, input_import,
@@ -252,7 +321,10 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   input_hash_proto, input_hash_import, input_hash_str_proto, input_hash_str_import, get_hash_proto,
   get_hash_import, put_hash_proto, put_hash_import, randomize_proto, randomize_import, stop_proto,
   stop_import, on_error_proto, on_error_import, set_line_proto, set_line_import, get_line_proto,
-  get_line_import, beep_proto, beep_import, sound_proto, sound_import;
+  get_line_import, line_track_proto, line_track_import, profile_line_proto, profile_line_import,
+  profile_func_enter_proto, profile_func_enter_import, profile_func_exit_proto,
+  profile_func_exit_import, beep_proto, beep_import, sound_proto, sound_import, system_proto,
+  system_import, system_out_proto, system_out_import, free_proto, free_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL } NodeKind;
@@ -260,12 +332,12 @@ typedef struct Node Node;
 struct Node {
   NodeKind kind;
   int is_str;
-  double num;
+  basic_num_t num;
   char *var;
   char *str;
   char op;
   Node *left, *right;
-  Node *index;
+  Node *index, *index2, *arg4;
 };
 
 static Node *new_node (NodeKind k) {
@@ -276,7 +348,7 @@ static Node *new_node (NodeKind k) {
   n->var = NULL;
   n->str = NULL;
   n->op = 0;
-  n->left = n->right = n->index = NULL;
+  n->left = n->right = n->index = n->index2 = n->arg4 = NULL;
   return n;
 }
 
@@ -295,36 +367,14 @@ static void data_vec_push (DataVec *v, BasicData d) {
   v->data[v->len++] = d;
 }
 
-typedef struct {
-  char *name;
-  char **params;
-  int *is_str;
-  size_t n;
-  Node *body;
-  int is_str_ret;
-  MIR_item_t item;
-  MIR_item_t proto;
-} FuncDef;
-
-typedef struct {
-  FuncDef *data;
-  size_t len, cap;
-} FuncVec;
-
-static FuncVec func_defs;
-
-static void func_vec_push (FuncVec *v, FuncDef f) {
-  if (v->len == v->cap) {
-    v->cap = v->cap ? 2 * v->cap : 4;
-    v->data = realloc (v->data, v->cap * sizeof (FuncDef));
-  }
-  v->data[v->len++] = f;
-}
-
-static FuncDef *find_func (const char *name) {
-  for (size_t i = 0; i < func_defs.len; i++)
-    if (strcmp (func_defs.data[i].name, name) == 0) return &func_defs.data[i];
-  return NULL;
+static void data_vals_clear (void) {
+  for (size_t i = 0; i < data_vals.len; i++)
+    if (data_vals.data[i].is_str) free (data_vals.data[i].str);
+  free (data_vals.data);
+  data_vals.data = NULL;
+  data_vals.len = data_vals.cap = 0;
+  basic_data_items = NULL;
+  basic_data_len = basic_data_pos = 0;
 }
 
 /* Statement representation */
@@ -360,6 +410,7 @@ typedef enum {
   ST_VTAB,
   ST_BEEP,
   ST_SOUND,
+  ST_SYSTEM,
   ST_RANDOMIZE,
   ST_TEXT,
   ST_INVERSE,
@@ -388,6 +439,7 @@ typedef enum {
   ST_ON_GOSUB,
   ST_ON_ERROR,
   ST_RESUME,
+  ST_CALL,
 } StmtKind;
 typedef enum { REL_NONE, REL_EQ, REL_NE, REL_LT, REL_LE, REL_GT, REL_GE } Relop;
 typedef struct Stmt Stmt;
@@ -411,7 +463,8 @@ struct Stmt {
     } let;
     struct {
       Node *cond;
-      StmtVec stmts;
+      StmtVec then_stmts;
+      StmtVec else_stmts;
     } iff;
     struct {
       char *var;
@@ -455,7 +508,8 @@ struct Stmt {
     } read;
     struct {
       char **names;
-      int *sizes;
+      int *sizes1;
+      int *sizes2;
       int *is_str;
       size_t n;
     } dim;
@@ -514,6 +568,11 @@ struct Stmt {
       Node *dur;
     } sound;
     struct {
+      Node *cmd;
+      char *status;
+      char *out;
+    } system;
+    struct {
       Node *addr;
       Node *value;
     } poke;
@@ -532,8 +591,57 @@ struct Stmt {
       int line;
       int has_line;
     } resume;
+    struct {
+      char *name;
+      Node *arg1, *arg2, *arg3, *arg4, *arg5;
+    } call;
   } u;
 };
+
+typedef struct {
+  char *name;
+  char **params;
+  int *is_str;
+  size_t n;
+  Node *body;
+  StmtVec body_stmts;
+  int is_str_ret;
+  int is_proc;
+  MIR_item_t item;
+  MIR_item_t proto;
+  char **src_lines;
+  size_t src_len, src_cap;
+} FuncDef;
+
+typedef struct {
+  FuncDef *data;
+  size_t len, cap;
+} FuncVec;
+
+static FuncVec func_defs;
+
+static void func_def_destroy (FuncDef *fd);
+
+static void func_vec_push (FuncVec *v, FuncDef f) {
+  if (v->len == v->cap) {
+    v->cap = v->cap ? 2 * v->cap : 4;
+    v->data = realloc (v->data, v->cap * sizeof (FuncDef));
+  }
+  v->data[v->len++] = f;
+}
+
+static void func_vec_clear (FuncVec *v) {
+  for (size_t i = 0; i < v->len; i++) func_def_destroy (&v->data[i]);
+  free (v->data);
+  v->data = NULL;
+  v->len = v->cap = 0;
+}
+
+static FuncDef *find_func (const char *name) {
+  for (size_t i = 0; i < func_defs.len; i++)
+    if (strcmp (func_defs.data[i].name, name) == 0) return &func_defs.data[i];
+  return NULL;
+}
 
 /* Program line containing multiple statements */
 typedef struct {
@@ -562,6 +670,7 @@ static void free_node (Node *n) {
   free_node (n->left);
   free_node (n->right);
   free_node (n->index);
+  free_node (n->index2);
   free (n->var);
   free (n->str);
   free (n);
@@ -586,7 +695,8 @@ static void free_stmt (Stmt *s) {
     break;
   case ST_IF:
     free_node (s->u.iff.cond);
-    free_stmt_vec (&s->u.iff.stmts);
+    free_stmt_vec (&s->u.iff.then_stmts);
+    free_stmt_vec (&s->u.iff.else_stmts);
     break;
   case ST_INPUT: free (s->u.input.var); break;
   case ST_GET: free (s->u.get.var); break;
@@ -620,7 +730,8 @@ static void free_stmt (Stmt *s) {
   case ST_DIM:
     for (size_t i = 0; i < s->u.dim.n; i++) free (s->u.dim.names[i]);
     free (s->u.dim.names);
-    free (s->u.dim.sizes);
+    free (s->u.dim.sizes1);
+    free (s->u.dim.sizes2);
     free (s->u.dim.is_str);
     break;
   case ST_FOR:
@@ -677,6 +788,11 @@ static void free_stmt (Stmt *s) {
     free_node (s->u.sound.freq);
     free_node (s->u.sound.dur);
     break;
+  case ST_SYSTEM:
+    free_node (s->u.system.cmd);
+    free (s->u.system.status);
+    free (s->u.system.out);
+    break;
   case ST_POKE:
     free_node (s->u.poke.addr);
     free_node (s->u.poke.value);
@@ -701,6 +817,26 @@ static void free_stmt (Stmt *s) {
   }
 }
 
+static void func_def_destroy (FuncDef *fd) {
+  free (fd->name);
+  if (fd->params != NULL) {
+    for (size_t i = 0; i < fd->n; i++) free (fd->params[i]);
+    free (fd->params);
+  }
+  free (fd->is_str);
+  free_node (fd->body);
+  free_stmt_vec (&fd->body_stmts);
+  for (size_t i = 0; i < fd->src_len; i++) free (fd->src_lines[i]);
+  free (fd->src_lines);
+  fd->name = NULL;
+  fd->params = NULL;
+  fd->is_str = NULL;
+  fd->body = NULL;
+  fd->body_stmts = (StmtVec) {0};
+  fd->src_lines = NULL;
+  fd->n = fd->src_len = fd->src_cap = 0;
+}
+
 static void free_line (Line *l) {
   free_stmt_vec (&l->stmts);
   free (l->src);
@@ -717,6 +853,13 @@ static void stmt_vec_push (StmtVec *v, Stmt s) {
 static void line_vec_clear (LineVec *v) {
   for (size_t i = 0; i < v->len; i++) free_line (&v->data[i]);
   v->len = 0;
+}
+
+static void line_vec_destroy (LineVec *v) {
+  line_vec_clear (v);
+  free (v->data);
+  v->data = NULL;
+  v->cap = 0;
 }
 
 static void insert_or_replace_line (LineVec *prog, Line l) {
@@ -747,6 +890,14 @@ static void delete_line (LineVec *prog, int line_no) {
   }
 }
 
+static void list_program (LineVec *prog) {
+  for (size_t i = 0; i < func_defs.len; i++) {
+    FuncDef *fd = &func_defs.data[i];
+    for (size_t j = 0; j < fd->src_len; j++) printf ("%s\n", fd->src_lines[j]);
+  }
+  for (size_t i = 0; i < prog->len; i++) printf ("%s\n", prog->data[i].src);
+}
+
 /* Parsing utilities */
 static char *cur;
 static void skip_ws (void) {
@@ -772,9 +923,9 @@ static char *parse_id (void) {
   buf[i] = 0;
   return strdup (buf);
 }
-static double parse_number (void) {
+static basic_num_t parse_number (void) {
   skip_ws ();
-  double v = strtod (cur, &cur);
+  basic_num_t v = BASIC_STRTOF (cur, &cur);
   return v;
 }
 static char *parse_string (void) {
@@ -844,7 +995,7 @@ static Node *parse_factor (void) {
       free (id);
       return n;
     }
-    Node *arg1 = NULL, *arg2 = NULL, *arg3 = NULL;
+    Node *arg1 = NULL, *arg2 = NULL, *arg3 = NULL, *arg4 = NULL, *arg5 = NULL;
     if (*cur == '(') {
       cur++;
       skip_ws ();
@@ -859,6 +1010,16 @@ static Node *parse_factor (void) {
             cur++;
             arg3 = parse_expr ();
             skip_ws ();
+            if (*cur == ',') {
+              cur++;
+              arg4 = parse_expr ();
+              skip_ws ();
+              if (*cur == ',') {
+                cur++;
+                arg5 = parse_expr ();
+                skip_ws ();
+              }
+            }
           }
         }
       }
@@ -867,7 +1028,8 @@ static Node *parse_factor (void) {
     if (strcasecmp (id, "RND") == 0 || strcasecmp (id, "CHR$") == 0
         || strcasecmp (id, "STRING$") == 0 || strcasecmp (id, "INT") == 0
         || strcasecmp (id, "TIMER") == 0 || strcasecmp (id, "TIME") == 0
-        || strcasecmp (id, "TIME$") == 0 || strcasecmp (id, "INPUT$") == 0
+        || strcasecmp (id, "TIME$") == 0 || strcasecmp (id, "DATE") == 0
+        || strcasecmp (id, "DATE$") == 0 || strcasecmp (id, "INPUT$") == 0
         || strcasecmp (id, "PEEK") == 0 || strcasecmp (id, "EOF") == 0
         || strcasecmp (id, "SPC") == 0
 
@@ -886,18 +1048,27 @@ static Node *parse_factor (void) {
         || strcasecmp (id, "MID$") == 0 || strcasecmp (id, "LEN") == 0
         || strcasecmp (id, "VAL") == 0 || strcasecmp (id, "STR$") == 0
         || strcasecmp (id, "ASC") == 0 || strcasecmp (id, "INSTR") == 0
-        || strcasecmp (id, "INKEY$") == 0 || strcasecmp (id, "TIME") == 0
-        || strcasecmp (id, "TIME$") == 0) {
+        || strcasecmp (id, "MIRCTX") == 0 || strcasecmp (id, "MIRMOD") == 0
+        || strcasecmp (id, "MIRFUNC") == 0 || strcasecmp (id, "MIRREG") == 0
+        || strcasecmp (id, "MIRLABEL") == 0 || strcasecmp (id, "MIREMIT") == 0
+        || strcasecmp (id, "MIREMITLBL") == 0 || strcasecmp (id, "MIRRET") == 0
+        || strcasecmp (id, "MIRFINISH") == 0 || strcasecmp (id, "MIRRUN") == 0
+        || strcasecmp (id, "MIRDUMP") == 0 || strcasecmp (id, "INKEY$") == 0
+        || strcasecmp (id, "TIME") == 0 || strcasecmp (id, "TIME$") == 0
+        || strcasecmp (id, "DATE") == 0 || strcasecmp (id, "DATE$") == 0) {
       Node *n = new_node (N_CALL);
       n->var = id;
       n->left = arg1;
       n->right = arg2;
       n->index = arg3;
+      n->index2 = arg4;
+      n->arg4 = arg5;
       if (strcasecmp (id, "CHR$") == 0 || strcasecmp (id, "STRING$") == 0
           || strcasecmp (id, "INPUT$") == 0 || strcasecmp (id, "SPC") == 0
           || strcasecmp (id, "LEFT$") == 0 || strcasecmp (id, "RIGHT$") == 0
           || strcasecmp (id, "MID$") == 0 || strcasecmp (id, "STR$") == 0
-          || strcasecmp (id, "INKEY$") == 0 || strcasecmp (id, "TIME$") == 0)
+          || strcasecmp (id, "INKEY$") == 0 || strcasecmp (id, "TIME$") == 0
+          || strcasecmp (id, "DATE$") == 0)
         n->is_str = 1;
       return n;
     } else if (strncasecmp (id, "FN", 2) == 0) {
@@ -906,7 +1077,20 @@ static Node *parse_factor (void) {
       n->left = arg1;
       n->right = arg2;
       n->index = arg3;
+      n->index2 = arg4;
+      n->arg4 = arg5;
       n->is_str = id[strlen (id) - 1] == '$';
+      return n;
+    } else if (find_func (id) != NULL) {
+      Node *n = new_node (N_CALL);
+      n->var = id;
+      n->left = arg1;
+      n->right = arg2;
+      n->index = arg3;
+      n->index2 = arg4;
+      n->arg4 = arg5;
+      FuncDef *fd = find_func (id);
+      n->is_str = fd->is_str_ret;
       return n;
     }
     if (arg1 != NULL) {
@@ -914,6 +1098,7 @@ static Node *parse_factor (void) {
       n->var = id;
       n->is_str = id[strlen (id) - 1] == '$';
       n->index = arg1;
+      n->index2 = arg2;
       return n;
     } else {
       Node *n = new_node (N_VAR);
@@ -927,6 +1112,7 @@ static Node *parse_factor (void) {
 
 static Node *parse_term (void) {
   Node *n = parse_factor ();
+  if (n == NULL) return NULL;
   while (1) {
     skip_ws ();
     char op = *cur;
@@ -951,6 +1137,7 @@ static Node *parse_term (void) {
 
 static Node *parse_add (void) {
   Node *n = parse_term ();
+  if (n == NULL) return NULL;
   while (1) {
     skip_ws ();
     char op = *cur;
@@ -1093,7 +1280,8 @@ static int parse_stmt (Stmt *out) {
     cur += 3;
     out->kind = ST_DIM;
     out->u.dim.names = NULL;
-    out->u.dim.sizes = NULL;
+    out->u.dim.sizes1 = NULL;
+    out->u.dim.sizes2 = NULL;
     out->u.dim.is_str = NULL;
     out->u.dim.n = 0;
     size_t cap = 0;
@@ -1101,22 +1289,30 @@ static int parse_stmt (Stmt *out) {
       char *name = parse_id ();
       int is_str = name[strlen (name) - 1] == '$';
       skip_ws ();
-      int size = 0;
+      int size1 = 0, size2 = 0;
       if (*cur == '(') {
         cur++;
-        size = parse_int ();
-        size = size - array_base + 1;
+        size1 = parse_int ();
+        size1 = size1 - array_base + 1;
         skip_ws ();
+        if (*cur == ',') {
+          cur++;
+          size2 = parse_int ();
+          size2 = size2 - array_base + 1;
+          skip_ws ();
+        }
         if (*cur == ')') cur++;
       }
       if (out->u.dim.n == cap) {
         cap = cap ? 2 * cap : 4;
         out->u.dim.names = realloc (out->u.dim.names, cap * sizeof (char *));
-        out->u.dim.sizes = realloc (out->u.dim.sizes, cap * sizeof (int));
+        out->u.dim.sizes1 = realloc (out->u.dim.sizes1, cap * sizeof (int));
+        out->u.dim.sizes2 = realloc (out->u.dim.sizes2, cap * sizeof (int));
         out->u.dim.is_str = realloc (out->u.dim.is_str, cap * sizeof (int));
       }
       out->u.dim.names[out->u.dim.n] = name;
-      out->u.dim.sizes[out->u.dim.n] = size;
+      out->u.dim.sizes1[out->u.dim.n] = size1;
+      out->u.dim.sizes2[out->u.dim.n] = size2;
       out->u.dim.is_str[out->u.dim.n] = is_str;
       out->u.dim.n++;
       skip_ws ();
@@ -1247,7 +1443,8 @@ static int parse_stmt (Stmt *out) {
     if (*cur != '=') return 0;
     cur++;
     Node *body = parse_expr ();
-    FuncDef fd = {fname, params, is_str, n, body, f_is_str, NULL};
+    FuncDef fd
+      = {fname, params, is_str, n, body, (StmtVec) {0}, f_is_str, 0, NULL, NULL, NULL, 0, 0};
     func_vec_push (&func_defs, fd);
     out->kind = ST_DEF;
     return 1;
@@ -1368,6 +1565,22 @@ static int parse_stmt (Stmt *out) {
     if (*cur != ',') return 0;
     cur++;
     out->u.sound.dur = parse_expr ();
+    return 1;
+  } else if (strncasecmp (cur, "SYSTEM", 6) == 0) {
+    cur += 6;
+    skip_ws ();
+    out->kind = ST_SYSTEM;
+    out->u.system.cmd = parse_expr ();
+    skip_ws ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.system.status = parse_id ();
+    if (out->u.system.status[strlen (out->u.system.status) - 1] == '$') return 0;
+    skip_ws ();
+    if (*cur != ',') return 0;
+    cur++;
+    out->u.system.out = parse_id ();
+    if (out->u.system.out[strlen (out->u.system.out) - 1] != '$') return 0;
     return 1;
   } else if (strncasecmp (cur, "RANDOMIZE", 9) == 0) {
     cur += 9;
@@ -1549,7 +1762,7 @@ static int parse_stmt (Stmt *out) {
     if (strncasecmp (cur, "THEN", 4) != 0) return 0;
     cur += 4;
     skip_ws ();
-    s.u.iff.stmts = (StmtVec) {0};
+    s.u.iff.then_stmts = (StmtVec) {0};
     for (;;) {
       Stmt bs;
       if (isdigit ((unsigned char) *cur)) {
@@ -1570,7 +1783,7 @@ static int parse_stmt (Stmt *out) {
           }
           while (1) {
             skip_ws ();
-            if (*cur == ':' || *cur == '\0') break;
+            if (*cur == ':' || *cur == '\0' || strncasecmp (cur, "ELSE", 4) == 0) break;
             Node *e = parse_expr ();
             if (bs.kind == ST_PRINT) {
               if (bs.u.print.n == cap) {
@@ -1589,7 +1802,7 @@ static int parse_stmt (Stmt *out) {
             if (*cur == ';' || *cur == ',') {
               cur++;
               skip_ws ();
-              if (*cur == ':' || *cur == '\0') {
+              if (*cur == ':' || *cur == '\0' || strncasecmp (cur, "ELSE", 4) == 0) {
                 if (bs.kind == ST_PRINT)
                   bs.u.print.no_nl = 1;
                 else
@@ -1603,7 +1816,7 @@ static int parse_stmt (Stmt *out) {
           skip_ws ();
         }
       }
-      stmt_vec_push (&s.u.iff.stmts, bs);
+      stmt_vec_push (&s.u.iff.then_stmts, bs);
       skip_ws ();
       if (*cur == ':') {
         do {
@@ -1611,9 +1824,81 @@ static int parse_stmt (Stmt *out) {
           skip_ws ();
         } while (*cur == ':');
         if (*cur == '\0') break;
+        if (strncasecmp (cur, "ELSE", 4) == 0) break;
         continue;
       }
       break;
+    }
+    skip_ws ();
+    s.u.iff.else_stmts = (StmtVec) {0};
+    if (strncasecmp (cur, "ELSE", 4) == 0) {
+      cur += 4;
+      skip_ws ();
+      for (;;) {
+        Stmt bs;
+        if (isdigit ((unsigned char) *cur)) {
+          bs.kind = ST_GOTO;
+          bs.u.target = parse_int ();
+        } else {
+          if (!parse_stmt (&bs)) return 0;
+          if (bs.kind == ST_PRINT || bs.kind == ST_PRINT_HASH) {
+            size_t cap = 0;
+            if (bs.kind == ST_PRINT) {
+              bs.u.print.items = NULL;
+              bs.u.print.n = 0;
+              bs.u.print.no_nl = 0;
+            } else {
+              bs.u.printhash.items = NULL;
+              bs.u.printhash.n = 0;
+              bs.u.printhash.no_nl = 0;
+            }
+            while (1) {
+              skip_ws ();
+              if (*cur == ':' || *cur == '\0') break;
+              Node *e = parse_expr ();
+              if (bs.kind == ST_PRINT) {
+                if (bs.u.print.n == cap) {
+                  cap = cap ? cap * 2 : 4;
+                  bs.u.print.items = realloc (bs.u.print.items, cap * sizeof (Node *));
+                }
+                bs.u.print.items[bs.u.print.n++] = e;
+              } else {
+                if (bs.u.printhash.n == cap) {
+                  cap = cap ? cap * 2 : 4;
+                  bs.u.printhash.items = realloc (bs.u.printhash.items, cap * sizeof (Node *));
+                }
+                bs.u.printhash.items[bs.u.printhash.n++] = e;
+              }
+              skip_ws ();
+              if (*cur == ';' || *cur == ',') {
+                cur++;
+                skip_ws ();
+                if (*cur == ':' || *cur == '\0') {
+                  if (bs.kind == ST_PRINT)
+                    bs.u.print.no_nl = 1;
+                  else
+                    bs.u.printhash.no_nl = 1;
+                  break;
+                }
+                continue;
+              }
+              break;
+            }
+            skip_ws ();
+          }
+        }
+        stmt_vec_push (&s.u.iff.else_stmts, bs);
+        skip_ws ();
+        if (*cur == ':') {
+          do {
+            cur++;
+            skip_ws ();
+          } while (*cur == ':');
+          if (*cur == '\0') break;
+          continue;
+        }
+        break;
+      }
     }
     *out = s;
     return 1;
@@ -1723,18 +2008,134 @@ static int parse_stmt (Stmt *out) {
       out->u.resume.line = 0;
     }
     return 1;
-  } else if (isalpha ((unsigned char) *cur)) {
-    Node *v = parse_factor ();
+  } else if (strncasecmp (cur, "CALL", 4) == 0) {
+    cur += 4;
     skip_ws ();
-    if (*cur == '=') {
+    char *name = parse_id ();
+    Node *arg1 = NULL, *arg2 = NULL, *arg3 = NULL, *arg4 = NULL, *arg5 = NULL;
+    skip_ws ();
+    if (*cur == '(') {
+      cur++;
+      skip_ws ();
+      if (*cur != ')') {
+        arg1 = parse_expr ();
+        skip_ws ();
+        if (*cur == ',') {
+          cur++;
+          arg2 = parse_expr ();
+          skip_ws ();
+          if (*cur == ',') {
+            cur++;
+            arg3 = parse_expr ();
+            skip_ws ();
+            if (*cur == ',') {
+              cur++;
+              arg4 = parse_expr ();
+              skip_ws ();
+              if (*cur == ',') {
+                cur++;
+                arg5 = parse_expr ();
+                skip_ws ();
+              }
+            }
+          }
+        }
+      }
+      if (*cur == ')') cur++;
+    } else if (*cur != ':' && *cur != '\0') {
+      arg1 = parse_expr ();
+      skip_ws ();
+      if (*cur == ',') {
+        cur++;
+        arg2 = parse_expr ();
+        skip_ws ();
+        if (*cur == ',') {
+          cur++;
+          arg3 = parse_expr ();
+          skip_ws ();
+        }
+      }
+    }
+    out->kind = ST_CALL;
+    out->u.call.name = name;
+    out->u.call.arg1 = arg1;
+    out->u.call.arg2 = arg2;
+    out->u.call.arg3 = arg3;
+    out->u.call.arg4 = arg4;
+    out->u.call.arg5 = arg5;
+    return 1;
+  } else if (isalpha ((unsigned char) *cur)) {
+    char *name = parse_id ();
+    Node *arg1 = NULL, *arg2 = NULL, *arg3 = NULL, *arg4 = NULL, *arg5 = NULL;
+    skip_ws ();
+    int had_paren = 0;
+    if (*cur == '(') {
+      had_paren = 1;
+      cur++;
+      skip_ws ();
+      if (*cur != ')') {
+        arg1 = parse_expr ();
+        skip_ws ();
+        if (*cur == ',') {
+          cur++;
+          arg2 = parse_expr ();
+          skip_ws ();
+          if (*cur == ',') {
+            cur++;
+            arg3 = parse_expr ();
+            skip_ws ();
+            if (*cur == ',') {
+              cur++;
+              arg4 = parse_expr ();
+              skip_ws ();
+              if (*cur == ',') {
+                cur++;
+                arg5 = parse_expr ();
+                skip_ws ();
+              }
+            }
+          }
+        }
+      }
+      if (*cur == ')') cur++;
+      skip_ws ();
+    }
+    if (*cur == '=' && (!had_paren || (had_paren && arg3 == NULL))) {
       cur++;
       Node *e = parse_expr ();
+      Node *v = new_node (N_VAR);
+      v->var = name;
+      v->is_str = name[strlen (name) - 1] == '$';
+      v->index = arg1;
+      v->index2 = arg2;
       out->kind = ST_LET;
       out->u.let.var = v;
       out->u.let.expr = e;
       out->u.let.is_str = v->is_str;
       return 1;
     }
+    if (!had_paren && *cur != ':' && *cur != '\0') {
+      arg1 = parse_expr ();
+      skip_ws ();
+      if (*cur == ',') {
+        cur++;
+        arg2 = parse_expr ();
+        skip_ws ();
+        if (*cur == ',') {
+          cur++;
+          arg3 = parse_expr ();
+          skip_ws ();
+        }
+      }
+    }
+    out->kind = ST_CALL;
+    out->u.call.name = name;
+    out->u.call.arg1 = arg1;
+    out->u.call.arg2 = arg2;
+    out->u.call.arg3 = arg3;
+    out->u.call.arg4 = arg4;
+    out->u.call.arg5 = arg5;
+    return 1;
   }
   return 0;
 }
@@ -1816,6 +2217,118 @@ static int parse_line (char *line, Line *out) {
   return 1;
 }
 
+static void parse_func (FILE *f, char *line, int is_sub) {
+  cur = line + (is_sub ? 3 : 8);
+  skip_ws ();
+  char *name = parse_id ();
+  int f_is_str = name[strlen (name) - 1] == '$';
+  char **params = NULL;
+  int *is_str = NULL;
+  size_t n = 0, cap = 0;
+  char **src_lines = NULL;
+  size_t src_len = 0, src_cap = 0;
+  /* store header line */
+  {
+    if (src_len == src_cap) {
+      src_cap = src_cap ? 2 * src_cap : 4;
+      src_lines = realloc (src_lines, src_cap * sizeof (char *));
+    }
+    src_lines[src_len++] = strdup (line);
+  }
+  skip_ws ();
+  if (*cur == '(') {
+    cur++;
+    skip_ws ();
+    if (*cur != ')') {
+      while (1) {
+        char *p = parse_id ();
+        int ps = p[strlen (p) - 1] == '$';
+        if (n == cap) {
+          cap = cap ? 2 * cap : 4;
+          params = realloc (params, cap * sizeof (char *));
+          is_str = realloc (is_str, cap * sizeof (int));
+        }
+        params[n] = p;
+        is_str[n] = ps;
+        n++;
+        skip_ws ();
+        if (*cur != ',') break;
+        cur++;
+        skip_ws ();
+      }
+    }
+    if (*cur == ')') cur++;
+  }
+  StmtVec body = {0};
+  char buf[256];
+  while (fgets (buf, sizeof (buf), f)) {
+    char *p = buf;
+    buf[strcspn (buf, "\n")] = '\0';
+    while (isspace ((unsigned char) *p)) p++;
+    if (*p == '\0') continue;
+    if ((is_sub && strncasecmp (p, "END SUB", 7) == 0)
+        || (!is_sub && strncasecmp (p, "END FUNCTION", 12) == 0)) {
+      if (src_len == src_cap) {
+        src_cap = src_cap ? 2 * src_cap : 4;
+        src_lines = realloc (src_lines, src_cap * sizeof (char *));
+      }
+      src_lines[src_len++] = strdup (buf);
+      break;
+    }
+    Line l;
+    if (parse_line (buf, &l)) {
+      if (src_len == src_cap) {
+        src_cap = src_cap ? 2 * src_cap : 4;
+        src_lines = realloc (src_lines, src_cap * sizeof (char *));
+      }
+      src_lines[src_len++] = l.src;
+      for (size_t i = 0; i < l.stmts.len; i++) stmt_vec_push (&body, l.stmts.data[i]);
+    } else {
+      fprintf (stderr, "parse error: %s\n", buf);
+    }
+  }
+  FuncDef fd = {name,   params, is_str, n,         NULL,    body,   f_is_str,
+                is_sub, NULL,   NULL,   src_lines, src_len, src_cap};
+  func_vec_push (&func_defs, fd);
+}
+
+static int load_program (LineVec *prog, const char *path) {
+  FILE *f = fopen (path, "r");
+  if (!f) {
+    perror (path);
+    return 0;
+  }
+  func_vec_clear (&func_defs);
+  data_vals_clear ();
+  int auto_line = 10;
+  char line[256];
+  while (fgets (line, sizeof (line), f)) {
+    char *p = line;
+    line[strcspn (line, "\n")] = '\0';
+    while (isspace ((unsigned char) *p)) p++;
+    if (*p == '\0') continue;
+    if (strncasecmp (p, "FUNCTION", 8) == 0) {
+      parse_func (f, p, 0);
+      continue;
+    } else if (strncasecmp (p, "SUB", 3) == 0) {
+      parse_func (f, p, 1);
+      continue;
+    }
+    Line l;
+    if (parse_line (line, &l)) {
+      if (l.line == 0) {
+        l.line = auto_line;
+        auto_line += 10;
+      }
+      insert_or_replace_line (prog, l);
+    } else {
+      fprintf (stderr, "parse error: %s\n", line);
+    }
+  }
+  fclose (f);
+  return 1;
+}
+
 /* Variable mapping */
 typedef struct {
   char *name;
@@ -1823,11 +2336,14 @@ typedef struct {
   int is_str;
   int is_array;
   size_t size;
+  size_t size2;
 } Var;
 typedef struct {
   Var *data;
   size_t len, cap;
 } VarVec;
+static MIR_insn_t g_var_init_anchor;
+static MIR_item_t g_func;
 static MIR_reg_t get_var (VarVec *vars, MIR_context_t ctx, MIR_item_t func, const char *name) {
   int is_str = name[strlen (name) - 1] == '$';
   for (size_t i = 0; i < vars->len; i++)
@@ -1842,14 +2358,22 @@ static MIR_reg_t get_var (VarVec *vars, MIR_context_t ctx, MIR_item_t func, cons
   vars->data[vars->len].size = 0;
   MIR_type_t t = is_str ? MIR_T_I64 : MIR_T_D;
   vars->data[vars->len].reg = MIR_new_func_reg (ctx, func->u.func, t, name);
+  if (is_str && g_var_init_anchor != NULL && func == g_func)
+    MIR_insert_insn_after (ctx, func, g_var_init_anchor,
+                           MIR_new_insn (ctx, MIR_MOV,
+                                         MIR_new_reg_op (ctx, vars->data[vars->len].reg),
+                                         MIR_new_int_op (ctx, 0)));
   return vars->data[vars->len++].reg;
 }
 
 static MIR_reg_t get_array (VarVec *vars, MIR_context_t ctx, MIR_item_t func, const char *name,
-                            size_t size, int is_str) {
+                            size_t size1, size_t size2, int is_str) {
   for (size_t i = 0; i < vars->len; i++)
     if (vars->data[i].is_array && strcmp (vars->data[i].name, name) == 0) {
-      if (size != 0) vars->data[i].size = size;
+      if (size1 != 0) {
+        vars->data[i].size = size1 * (size2 ? size2 : 1);
+        vars->data[i].size2 = size2;
+      }
       return vars->data[i].reg;
     }
   if (vars->len == vars->cap) {
@@ -1859,26 +2383,44 @@ static MIR_reg_t get_array (VarVec *vars, MIR_context_t ctx, MIR_item_t func, co
   vars->data[vars->len].name = strdup (name);
   vars->data[vars->len].is_str = is_str;
   vars->data[vars->len].is_array = 1;
-  vars->data[vars->len].size = size;
+  vars->data[vars->len].size = size1 * (size2 ? size2 : 1);
+  vars->data[vars->len].size2 = size2;
   char buf[64];
   snprintf (buf, sizeof (buf), "%s_arr", name);
   vars->data[vars->len].reg = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
   return vars->data[vars->len++].reg;
 }
 
+static size_t get_array_dim2 (VarVec *vars, const char *name) {
+  for (size_t i = 0; i < vars->len; i++)
+    if (vars->data[i].is_array && strcmp (vars->data[i].name, name) == 0)
+      return vars->data[i].size2;
+  return 0;
+}
+
+static size_t get_array_size (VarVec *vars, const char *name) {
+  for (size_t i = 0; i < vars->len; i++)
+    if (vars->data[i].is_array && strcmp (vars->data[i].name, name) == 0)
+      return vars->data[i].size > 1 ? vars->data[i].size : 0;
+  return 0;
+}
+
 /* Expression code generation */
 static int tmp_id = 0;
 
 static MIR_context_t g_ctx;
-static MIR_item_t g_func;
 static LineVec *g_prog;
 static MIR_label_t *g_labels;
 static VarVec g_vars;
 static MIR_reg_t g_ret_stack, g_ret_sp, g_ret_addr;
-static MIR_insn_t g_var_init_anchor;
 static LoopInfo *g_loop_stack;
 static size_t g_loop_len, g_loop_cap;
+static int g_line_tracking = 1;
 static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Node *n) {
+  if (n == NULL) {
+    fprintf (stderr, "parse error: null expression\n");
+    exit (1);
+  }
   if (n->is_str) {
     if (n->kind == N_STR) {
       char buf[32];
@@ -1891,19 +2433,50 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       return r;
     } else if (n->kind == N_VAR) {
       if (n->index != NULL) {
-        MIR_reg_t base = get_array (vars, ctx, func, n->var, 0, 1);
-        MIR_reg_t idxd = gen_expr (ctx, func, vars, n->index);
+        MIR_reg_t base = get_array (vars, ctx, func, n->var, 0, 0, 1);
+        MIR_reg_t idxd1 = gen_expr (ctx, func, vars, n->index);
         char buf[32];
         sprintf (buf, "$t%d", tmp_id++);
         MIR_reg_t idx = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, idx),
-                                       MIR_new_reg_op (ctx, idxd)));
+                                       MIR_new_reg_op (ctx, idxd1)));
         if (array_base != 0)
           MIR_append_insn (ctx, func,
                            MIR_new_insn (ctx, MIR_SUB, MIR_new_reg_op (ctx, idx),
                                          MIR_new_reg_op (ctx, idx),
                                          MIR_new_int_op (ctx, array_base)));
+        if (n->index2 != NULL) {
+          MIR_reg_t idxd2 = gen_expr (ctx, func, vars, n->index2);
+          sprintf (buf, "$t%d", tmp_id++);
+          MIR_reg_t idx2 = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, idx2),
+                                         MIR_new_reg_op (ctx, idxd2)));
+          if (array_base != 0)
+            MIR_append_insn (ctx, func,
+                             MIR_new_insn (ctx, MIR_SUB, MIR_new_reg_op (ctx, idx2),
+                                           MIR_new_reg_op (ctx, idx2),
+                                           MIR_new_int_op (ctx, array_base)));
+          size_t dim2 = get_array_dim2 (vars, n->var);
+          sprintf (buf, "$t%d", tmp_id++);
+          MIR_reg_t tmp = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_MUL, MIR_new_reg_op (ctx, tmp),
+                                         MIR_new_reg_op (ctx, idx), MIR_new_int_op (ctx, dim2)));
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_ADD, MIR_new_reg_op (ctx, idx),
+                                         MIR_new_reg_op (ctx, tmp), MIR_new_reg_op (ctx, idx2)));
+        }
+        size_t asize = get_array_size (vars, n->var);
+        MIR_label_t bad = MIR_new_label (ctx), ok = MIR_new_label (ctx);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_BLT, MIR_new_label_op (ctx, bad),
+                                       MIR_new_reg_op (ctx, idx), MIR_new_int_op (ctx, 0)));
+        if (asize != 0)
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_BGE, MIR_new_label_op (ctx, bad),
+                                         MIR_new_reg_op (ctx, idx), MIR_new_int_op (ctx, asize)));
         sprintf (buf, "$t%d", tmp_id++);
         MIR_reg_t off = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
         MIR_append_insn (ctx, func,
@@ -1919,6 +2492,12 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, val),
                                        MIR_new_mem_op (ctx, MIR_T_P, 0, addr, 0, 1)));
+        MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, ok)));
+        MIR_append_insn (ctx, func, bad);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, stop_proto),
+                                            MIR_new_ref_op (ctx, stop_import)));
+        MIR_append_insn (ctx, func, ok);
         return val;
       } else {
         return get_var (vars, ctx, func, n->var);
@@ -1970,6 +2549,11 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                          MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, time_str_proto),
                                             MIR_new_ref_op (ctx, time_str_import),
                                             MIR_new_reg_op (ctx, res)));
+      } else if (strcasecmp (n->var, "DATE$") == 0) {
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, date_str_proto),
+                                            MIR_new_ref_op (ctx, date_str_import),
+                                            MIR_new_reg_op (ctx, res)));
       } else if (strcasecmp (n->var, "LEFT$") == 0) {
         MIR_reg_t s = gen_expr (ctx, func, vars, n->left);
         MIR_reg_t cnt = gen_expr (ctx, func, vars, n->right);
@@ -2008,7 +2592,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                             MIR_new_ref_op (ctx, str_import),
                                             MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
       } else if (strncmp (n->var, "FN", 2) == 0) {
-        MIR_op_t args[3];
+        MIR_op_t args[5];
         size_t nargs = 0;
         if (n->left != NULL) {
           MIR_reg_t a = gen_expr (ctx, func, vars, n->left);
@@ -2066,19 +2650,50 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
     return r;
   } else if (n->kind == N_VAR) {
     if (n->index != NULL) {
-      MIR_reg_t base = get_array (vars, ctx, func, n->var, 0, 0);
-      MIR_reg_t idxd = gen_expr (ctx, func, vars, n->index);
+      MIR_reg_t base = get_array (vars, ctx, func, n->var, 0, 0, 0);
+      MIR_reg_t idxd1 = gen_expr (ctx, func, vars, n->index);
       char buf[32];
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t idx = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
       MIR_append_insn (ctx, func,
                        MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, idx),
-                                     MIR_new_reg_op (ctx, idxd)));
+                                     MIR_new_reg_op (ctx, idxd1)));
       if (array_base != 0)
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, MIR_SUB, MIR_new_reg_op (ctx, idx),
                                        MIR_new_reg_op (ctx, idx),
                                        MIR_new_int_op (ctx, array_base)));
+      if (n->index2 != NULL) {
+        MIR_reg_t idxd2 = gen_expr (ctx, func, vars, n->index2);
+        sprintf (buf, "$t%d", tmp_id++);
+        MIR_reg_t idx2 = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, idx2),
+                                       MIR_new_reg_op (ctx, idxd2)));
+        if (array_base != 0)
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_SUB, MIR_new_reg_op (ctx, idx2),
+                                         MIR_new_reg_op (ctx, idx2),
+                                         MIR_new_int_op (ctx, array_base)));
+        size_t dim2 = get_array_dim2 (vars, n->var);
+        sprintf (buf, "$t%d", tmp_id++);
+        MIR_reg_t tmp = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_MUL, MIR_new_reg_op (ctx, tmp),
+                                       MIR_new_reg_op (ctx, idx), MIR_new_int_op (ctx, dim2)));
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_ADD, MIR_new_reg_op (ctx, idx),
+                                       MIR_new_reg_op (ctx, tmp), MIR_new_reg_op (ctx, idx2)));
+      }
+      size_t asize = get_array_size (vars, n->var);
+      MIR_label_t bad = MIR_new_label (ctx), ok = MIR_new_label (ctx);
+      MIR_append_insn (ctx, func,
+                       MIR_new_insn (ctx, MIR_BLT, MIR_new_label_op (ctx, bad),
+                                     MIR_new_reg_op (ctx, idx), MIR_new_int_op (ctx, 0)));
+      if (asize != 0)
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_BGE, MIR_new_label_op (ctx, bad),
+                                       MIR_new_reg_op (ctx, idx), MIR_new_int_op (ctx, asize)));
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t off = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
       MIR_append_insn (ctx, func,
@@ -2094,6 +2709,12 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       MIR_append_insn (ctx, func,
                        MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, val),
                                      MIR_new_mem_op (ctx, MIR_T_D, 0, addr, 0, 1)));
+      MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, ok)));
+      MIR_append_insn (ctx, func, bad);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, stop_proto),
+                                          MIR_new_ref_op (ctx, stop_import)));
+      MIR_append_insn (ctx, func, ok);
       return val;
     } else {
       return get_var (vars, ctx, func, n->var);
@@ -2146,6 +2767,11 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, time_proto),
                                           MIR_new_ref_op (ctx, time_import),
+                                          MIR_new_reg_op (ctx, res)));
+    } else if (strcasecmp (n->var, "DATE") == 0) {
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, date_proto),
+                                          MIR_new_ref_op (ctx, date_import),
                                           MIR_new_reg_op (ctx, res)));
     } else if (strcasecmp (n->var, "PEEK") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
@@ -2231,6 +2857,140 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                        MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, asc_proto),
                                           MIR_new_ref_op (ctx, asc_import),
                                           MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "MIRCTX") == 0) {
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, mir_ctx_proto),
+                                          MIR_new_ref_op (ctx, mir_ctx_import),
+                                          MIR_new_reg_op (ctx, res)));
+    } else if (strcasecmp (n->var, "MIRMOD") == 0) {
+      MIR_reg_t c = gen_expr (ctx, func, vars, n->left);
+      MIR_reg_t name = gen_expr (ctx, func, vars, n->right);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, mir_mod_proto),
+                                          MIR_new_ref_op (ctx, mir_mod_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, c),
+                                          MIR_new_reg_op (ctx, name)));
+    } else if (strcasecmp (n->var, "MIRFUNC") == 0) {
+      MIR_reg_t m = gen_expr (ctx, func, vars, n->left);
+      MIR_reg_t name = gen_expr (ctx, func, vars, n->right);
+      MIR_reg_t na = gen_expr (ctx, func, vars, n->index);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 6, MIR_new_ref_op (ctx, mir_func_proto),
+                                          MIR_new_ref_op (ctx, mir_func_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, m),
+                                          MIR_new_reg_op (ctx, name), MIR_new_reg_op (ctx, na)));
+    } else if (strcasecmp (n->var, "MIRREG") == 0) {
+      MIR_reg_t f = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, mir_reg_proto),
+                                          MIR_new_ref_op (ctx, mir_reg_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, f)));
+    } else if (strcasecmp (n->var, "MIRLABEL") == 0) {
+      MIR_reg_t f = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, mir_label_proto),
+                                          MIR_new_ref_op (ctx, mir_label_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, f)));
+    } else if (strcasecmp (n->var, "MIREMIT") == 0) {
+      MIR_reg_t f = gen_expr (ctx, func, vars, n->left);
+      MIR_reg_t op = gen_expr (ctx, func, vars, n->right);
+      MIR_op_t a = n->index ? MIR_new_reg_op (ctx, gen_expr (ctx, func, vars, n->index))
+                            : MIR_new_double_op (ctx, 0.0);
+      MIR_op_t b = n->index2 ? MIR_new_reg_op (ctx, gen_expr (ctx, func, vars, n->index2))
+                             : MIR_new_double_op (ctx, 0.0);
+      MIR_op_t c = n->arg4 ? MIR_new_reg_op (ctx, gen_expr (ctx, func, vars, n->arg4))
+                           : MIR_new_double_op (ctx, 0.0);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 8, MIR_new_ref_op (ctx, mir_emit_proto),
+                                          MIR_new_ref_op (ctx, mir_emit_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, f),
+                                          MIR_new_reg_op (ctx, op), a, b, c));
+    } else if (strcasecmp (n->var, "MIREMITLBL") == 0) {
+      MIR_reg_t f = gen_expr (ctx, func, vars, n->left);
+      MIR_reg_t l = gen_expr (ctx, func, vars, n->right);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, mir_emitlbl_proto),
+                                          MIR_new_ref_op (ctx, mir_emitlbl_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, f),
+                                          MIR_new_reg_op (ctx, l)));
+    } else if (strcasecmp (n->var, "MIRRET") == 0) {
+      MIR_reg_t f = gen_expr (ctx, func, vars, n->left);
+      MIR_reg_t r = gen_expr (ctx, func, vars, n->right);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, mir_ret_proto),
+                                          MIR_new_ref_op (ctx, mir_ret_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, f),
+                                          MIR_new_reg_op (ctx, r)));
+    } else if (strcasecmp (n->var, "MIRFINISH") == 0) {
+      MIR_reg_t m = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, mir_finish_proto),
+                                          MIR_new_ref_op (ctx, mir_finish_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, m)));
+    } else if (strcasecmp (n->var, "MIRRUN") == 0) {
+      MIR_reg_t f = gen_expr (ctx, func, vars, n->left);
+      MIR_op_t a1 = n->right ? MIR_new_reg_op (ctx, gen_expr (ctx, func, vars, n->right))
+                             : MIR_new_double_op (ctx, 0.0);
+      MIR_op_t a2 = n->index ? MIR_new_reg_op (ctx, gen_expr (ctx, func, vars, n->index))
+                             : MIR_new_double_op (ctx, 0.0);
+      MIR_op_t a3 = n->index2 ? MIR_new_reg_op (ctx, gen_expr (ctx, func, vars, n->index2))
+                              : MIR_new_double_op (ctx, 0.0);
+      MIR_op_t a4 = n->arg4 ? MIR_new_reg_op (ctx, gen_expr (ctx, func, vars, n->arg4))
+                            : MIR_new_double_op (ctx, 0.0);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 8, MIR_new_ref_op (ctx, mir_run_proto),
+                                          MIR_new_ref_op (ctx, mir_run_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, f), a1,
+                                          a2, a3, a4));
+    } else if (strcasecmp (n->var, "MIRDUMP") == 0) {
+      MIR_reg_t f = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, mir_dump_proto),
+                                          MIR_new_ref_op (ctx, mir_dump_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, f)));
+    } else if (find_func (n->var) != NULL) {
+      MIR_op_t args[3];
+      size_t nargs = 0;
+      if (n->left != NULL) {
+        MIR_reg_t a = gen_expr (ctx, func, vars, n->left);
+        args[nargs++] = MIR_new_reg_op (ctx, a);
+      }
+      if (n->right != NULL) {
+        MIR_reg_t a = gen_expr (ctx, func, vars, n->right);
+        args[nargs++] = MIR_new_reg_op (ctx, a);
+      }
+      if (n->index != NULL) {
+        MIR_reg_t a = gen_expr (ctx, func, vars, n->index);
+        args[nargs++] = MIR_new_reg_op (ctx, a);
+      }
+      FuncDef *fd = find_func (n->var);
+      MIR_item_t proto = fd->proto;
+      MIR_item_t item = fd->item;
+      switch (nargs) {
+      case 0:
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, proto),
+                                            MIR_new_ref_op (ctx, item), MIR_new_reg_op (ctx, res)));
+        break;
+      case 1:
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, proto),
+                                            MIR_new_ref_op (ctx, item), MIR_new_reg_op (ctx, res),
+                                            args[0]));
+        break;
+      case 2:
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, proto),
+                                            MIR_new_ref_op (ctx, item), MIR_new_reg_op (ctx, res),
+                                            args[0], args[1]));
+        break;
+      case 3:
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 6, MIR_new_ref_op (ctx, proto),
+                                            MIR_new_ref_op (ctx, item), MIR_new_reg_op (ctx, res),
+                                            args[0], args[1], args[2]));
+        break;
+      }
 
     } else if (strcasecmp (n->var, "POS") == 0) {
       MIR_append_insn (ctx, func,
@@ -2552,6 +3312,10 @@ static void gen_stmt (Stmt *s) {
     MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.input.var);
     if (s->u.input.is_str) {
       MIR_append_insn (g_ctx, g_func,
+                       MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
+                                          MIR_new_ref_op (g_ctx, free_import),
+                                          MIR_new_reg_op (g_ctx, v)));
+      MIR_append_insn (g_ctx, g_func,
                        MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, input_str_proto),
                                           MIR_new_ref_op (g_ctx, input_str_import),
                                           MIR_new_reg_op (g_ctx, v)));
@@ -2568,6 +3332,10 @@ static void gen_stmt (Stmt *s) {
     MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.inputhash.var);
     if (s->u.inputhash.is_str) {
       MIR_append_insn (g_ctx, g_func,
+                       MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
+                                          MIR_new_ref_op (g_ctx, free_import),
+                                          MIR_new_reg_op (g_ctx, v)));
+      MIR_append_insn (g_ctx, g_func,
                        MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, input_hash_str_proto),
                                           MIR_new_ref_op (g_ctx, input_hash_str_import),
                                           MIR_new_reg_op (g_ctx, v), MIR_new_reg_op (g_ctx, fn)));
@@ -2582,6 +3350,10 @@ static void gen_stmt (Stmt *s) {
   case ST_GET: {
     MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.get.var);
     MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
+                                        MIR_new_ref_op (g_ctx, free_import),
+                                        MIR_new_reg_op (g_ctx, v)));
+    MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, get_proto),
                                         MIR_new_ref_op (g_ctx, get_import),
                                         MIR_new_reg_op (g_ctx, v)));
@@ -2590,6 +3362,10 @@ static void gen_stmt (Stmt *s) {
   case ST_GET_HASH: {
     MIR_reg_t fn = gen_expr (g_ctx, g_func, &g_vars, s->u.gethash.num);
     MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.gethash.var);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
+                                        MIR_new_ref_op (g_ctx, free_import),
+                                        MIR_new_reg_op (g_ctx, v)));
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, get_hash_proto),
                                         MIR_new_ref_op (g_ctx, get_hash_import),
@@ -2643,18 +3419,42 @@ static void gen_stmt (Stmt *s) {
                                             MIR_new_reg_op (g_ctx, res)));
       }
       if (v->index != NULL) {
-        MIR_reg_t base = get_array (&g_vars, g_ctx, g_func, v->var, 0, v->is_str);
-        MIR_reg_t idxd = gen_expr (g_ctx, g_func, &g_vars, v->index);
+        MIR_reg_t base = get_array (&g_vars, g_ctx, g_func, v->var, 0, 0, v->is_str);
+        MIR_reg_t idxd1 = gen_expr (g_ctx, g_func, &g_vars, v->index);
         sprintf (buf, "$t%d", tmp_id++);
         MIR_reg_t idx = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
         MIR_append_insn (g_ctx, g_func,
                          MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, idx),
-                                       MIR_new_reg_op (g_ctx, idxd)));
+                                       MIR_new_reg_op (g_ctx, idxd1)));
         if (array_base != 0)
           MIR_append_insn (g_ctx, g_func,
                            MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx),
                                          MIR_new_reg_op (g_ctx, idx),
                                          MIR_new_int_op (g_ctx, array_base)));
+        if (v->index2 != NULL) {
+          MIR_reg_t idxd2 = gen_expr (g_ctx, g_func, &g_vars, v->index2);
+          sprintf (buf, "$t%d", tmp_id++);
+          MIR_reg_t idx2 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+          MIR_append_insn (g_ctx, g_func,
+                           MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, idx2),
+                                         MIR_new_reg_op (g_ctx, idxd2)));
+          if (array_base != 0)
+            MIR_append_insn (g_ctx, g_func,
+                             MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx2),
+                                           MIR_new_reg_op (g_ctx, idx2),
+                                           MIR_new_int_op (g_ctx, array_base)));
+          size_t dim2 = get_array_dim2 (&g_vars, v->var);
+          sprintf (buf, "$t%d", tmp_id++);
+          MIR_reg_t tmp = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+          MIR_append_insn (g_ctx, g_func,
+                           MIR_new_insn (g_ctx, MIR_MUL, MIR_new_reg_op (g_ctx, tmp),
+                                         MIR_new_reg_op (g_ctx, idx),
+                                         MIR_new_int_op (g_ctx, dim2)));
+          MIR_append_insn (g_ctx, g_func,
+                           MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, idx),
+                                         MIR_new_reg_op (g_ctx, tmp),
+                                         MIR_new_reg_op (g_ctx, idx2)));
+        }
         sprintf (buf, "$t%d", tmp_id++);
         MIR_reg_t off = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
         MIR_append_insn (g_ctx, g_func,
@@ -2666,6 +3466,17 @@ static void gen_stmt (Stmt *s) {
                          MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, addr),
                                        MIR_new_reg_op (g_ctx, base), MIR_new_reg_op (g_ctx, off)));
         MIR_insn_code_t store_code = v->is_str ? MIR_MOV : MIR_DMOV;
+        if (v->is_str) {
+          sprintf (buf, "$t%d", tmp_id++);
+          MIR_reg_t old = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+          MIR_append_insn (g_ctx, g_func,
+                           MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, old),
+                                         MIR_new_mem_op (g_ctx, MIR_T_P, 0, addr, 0, 1)));
+          MIR_append_insn (g_ctx, g_func,
+                           MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
+                                              MIR_new_ref_op (g_ctx, free_import),
+                                              MIR_new_reg_op (g_ctx, old)));
+        }
         MIR_append_insn (g_ctx, g_func,
                          MIR_new_insn (g_ctx, store_code,
                                        MIR_new_mem_op (g_ctx, v->is_str ? MIR_T_I64 : MIR_T_D, 0,
@@ -2673,6 +3484,11 @@ static void gen_stmt (Stmt *s) {
                                        MIR_new_reg_op (g_ctx, res)));
       } else {
         MIR_reg_t dst = get_var (&g_vars, g_ctx, g_func, v->var);
+        if (v->is_str)
+          MIR_append_insn (g_ctx, g_func,
+                           MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
+                                              MIR_new_ref_op (g_ctx, free_import),
+                                              MIR_new_reg_op (g_ctx, dst)));
         MIR_append_insn (g_ctx, g_func,
                          MIR_new_insn (g_ctx, v->is_str ? MIR_MOV : MIR_DMOV,
                                        MIR_new_reg_op (g_ctx, dst), MIR_new_reg_op (g_ctx, res)));
@@ -2774,20 +3590,61 @@ static void gen_stmt (Stmt *s) {
   }
   case ST_LET: {
     MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.let.expr);
+    if (s->u.let.is_str && (s->u.let.expr->kind == N_VAR || s->u.let.expr->kind == N_STR)) {
+      char buf[32];
+      sprintf (buf, "$t%d", tmp_id++);
+      MIR_reg_t dup = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, strdup_proto),
+                                          MIR_new_ref_op (g_ctx, strdup_import),
+                                          MIR_new_reg_op (g_ctx, dup), MIR_new_reg_op (g_ctx, r)));
+      r = dup;
+    }
     if (s->u.let.var->index != NULL) {
-      MIR_reg_t base = get_array (&g_vars, g_ctx, g_func, s->u.let.var->var, 0, s->u.let.is_str);
-      MIR_reg_t idxd = gen_expr (g_ctx, g_func, &g_vars, s->u.let.var->index);
+      MIR_reg_t base = get_array (&g_vars, g_ctx, g_func, s->u.let.var->var, 0, 0, s->u.let.is_str);
+      MIR_reg_t idxd1 = gen_expr (g_ctx, g_func, &g_vars, s->u.let.var->index);
       char buf[32];
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t idx = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, idx),
-                                     MIR_new_reg_op (g_ctx, idxd)));
+                                     MIR_new_reg_op (g_ctx, idxd1)));
       if (array_base != 0)
         MIR_append_insn (g_ctx, g_func,
                          MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx),
                                        MIR_new_reg_op (g_ctx, idx),
                                        MIR_new_int_op (g_ctx, array_base)));
+      if (s->u.let.var->index2 != NULL) {
+        MIR_reg_t idxd2 = gen_expr (g_ctx, g_func, &g_vars, s->u.let.var->index2);
+        sprintf (buf, "$t%d", tmp_id++);
+        MIR_reg_t idx2 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, idx2),
+                                       MIR_new_reg_op (g_ctx, idxd2)));
+        if (array_base != 0)
+          MIR_append_insn (g_ctx, g_func,
+                           MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx2),
+                                         MIR_new_reg_op (g_ctx, idx2),
+                                         MIR_new_int_op (g_ctx, array_base)));
+        size_t dim2 = get_array_dim2 (&g_vars, s->u.let.var->var);
+        sprintf (buf, "$t%d", tmp_id++);
+        MIR_reg_t tmp = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_MUL, MIR_new_reg_op (g_ctx, tmp),
+                                       MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, dim2)));
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, idx),
+                                       MIR_new_reg_op (g_ctx, tmp), MIR_new_reg_op (g_ctx, idx2)));
+      }
+      size_t asize = get_array_size (&g_vars, s->u.let.var->var);
+      MIR_label_t bad = MIR_new_label (g_ctx), ok = MIR_new_label (g_ctx);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_BLT, MIR_new_label_op (g_ctx, bad),
+                                     MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, 0)));
+      if (asize != 0)
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_BGE, MIR_new_label_op (g_ctx, bad),
+                                       MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, asize)));
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t off = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
       MIR_append_insn (g_ctx, g_func,
@@ -2799,14 +3656,36 @@ static void gen_stmt (Stmt *s) {
                        MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, addr),
                                      MIR_new_reg_op (g_ctx, base), MIR_new_reg_op (g_ctx, off)));
       MIR_insn_code_t mov = s->u.let.is_str ? MIR_MOV : MIR_DMOV;
+      if (s->u.let.is_str) {
+        sprintf (buf, "$t%d", tmp_id++);
+        MIR_reg_t old = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, old),
+                                       MIR_new_mem_op (g_ctx, MIR_T_P, 0, addr, 0, 1)));
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
+                                            MIR_new_ref_op (g_ctx, free_import),
+                                            MIR_new_reg_op (g_ctx, old)));
+      }
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_insn (g_ctx, mov,
                                      MIR_new_mem_op (g_ctx, s->u.let.is_str ? MIR_T_P : MIR_T_D, 0,
                                                      addr, 0, 1),
                                      MIR_new_reg_op (g_ctx, r)));
+      MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, ok)));
+      MIR_append_insn (g_ctx, g_func, bad);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, stop_proto),
+                                          MIR_new_ref_op (g_ctx, stop_import)));
+      MIR_append_insn (g_ctx, g_func, ok);
     } else {
       MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.let.var->var);
       MIR_insn_code_t mov = s->u.let.is_str ? MIR_MOV : MIR_DMOV;
+      if (s->u.let.is_str)
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
+                                            MIR_new_ref_op (g_ctx, free_import),
+                                            MIR_new_reg_op (g_ctx, v)));
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_insn (g_ctx, mov, MIR_new_reg_op (g_ctx, v),
                                      MIR_new_reg_op (g_ctx, r)));
@@ -2861,13 +3740,16 @@ static void gen_stmt (Stmt *s) {
     break;
   }
   case ST_IF: {
-    MIR_label_t skip = MIR_new_label (g_ctx);
+    MIR_label_t else_label = MIR_new_label (g_ctx), end = MIR_new_label (g_ctx);
     MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.iff.cond);
     MIR_append_insn (g_ctx, g_func,
-                     MIR_new_insn (g_ctx, MIR_DBEQ, MIR_new_label_op (g_ctx, skip),
+                     MIR_new_insn (g_ctx, MIR_DBEQ, MIR_new_label_op (g_ctx, else_label),
                                    MIR_new_reg_op (g_ctx, r), MIR_new_double_op (g_ctx, 0.0)));
-    for (size_t k = 0; k < s->u.iff.stmts.len; k++) gen_stmt (&s->u.iff.stmts.data[k]);
-    MIR_append_insn (g_ctx, g_func, skip);
+    for (size_t k = 0; k < s->u.iff.then_stmts.len; k++) gen_stmt (&s->u.iff.then_stmts.data[k]);
+    MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, end)));
+    MIR_append_insn (g_ctx, g_func, else_label);
+    for (size_t k = 0; k < s->u.iff.else_stmts.len; k++) gen_stmt (&s->u.iff.else_stmts.data[k]);
+    MIR_append_insn (g_ctx, g_func, end);
     break;
   }
   case ST_ON_GOTO: {
@@ -3122,11 +4004,30 @@ static void gen_stmt (Stmt *s) {
                                         MIR_new_reg_op (g_ctx, f), MIR_new_reg_op (g_ctx, d)));
     break;
   }
+  case ST_SYSTEM: {
+    MIR_reg_t cmd = gen_expr (g_ctx, g_func, &g_vars, s->u.system.cmd);
+    MIR_reg_t status = get_var (&g_vars, g_ctx, g_func, s->u.system.status);
+    MIR_reg_t out = get_var (&g_vars, g_ctx, g_func, s->u.system.out);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, system_proto),
+                                        MIR_new_ref_op (g_ctx, system_import),
+                                        MIR_new_reg_op (g_ctx, status),
+                                        MIR_new_reg_op (g_ctx, cmd)));
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
+                                        MIR_new_ref_op (g_ctx, free_import),
+                                        MIR_new_reg_op (g_ctx, out)));
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, system_out_proto),
+                                        MIR_new_ref_op (g_ctx, system_out_import),
+                                        MIR_new_reg_op (g_ctx, out)));
+    break;
+  }
   case ST_ON_ERROR: {
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, on_error_proto),
                                         MIR_new_ref_op (g_ctx, on_error_import),
-                                        MIR_new_double_op (g_ctx, (double) s->u.target)));
+                                        MIR_new_double_op (g_ctx, (basic_num_t) s->u.target)));
     break;
   }
   case ST_RESUME: {
@@ -3136,6 +4037,10 @@ static void gen_stmt (Stmt *s) {
                                      MIR_new_label_op (g_ctx, find_label (g_prog, g_labels,
                                                                           s->u.resume.line))));
     } else {
+      if (!g_line_tracking) {
+        fprintf (stderr, "RESUME without line requires line tracking\n");
+        exit (1);
+      }
       char buf[32];
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t line = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_D, buf);
@@ -3163,6 +4068,69 @@ static void gen_stmt (Stmt *s) {
     }
     break;
   }
+  case ST_CALL: {
+    MIR_op_t args[3];
+    size_t nargs = 0;
+    if (s->u.call.arg1 != NULL)
+      args[nargs++] = MIR_new_reg_op (g_ctx, gen_expr (g_ctx, g_func, &g_vars, s->u.call.arg1));
+    if (s->u.call.arg2 != NULL)
+      args[nargs++] = MIR_new_reg_op (g_ctx, gen_expr (g_ctx, g_func, &g_vars, s->u.call.arg2));
+    if (s->u.call.arg3 != NULL)
+      args[nargs++] = MIR_new_reg_op (g_ctx, gen_expr (g_ctx, g_func, &g_vars, s->u.call.arg3));
+    if (s->u.call.arg4 != NULL)
+      args[nargs++] = MIR_new_reg_op (g_ctx, gen_expr (g_ctx, g_func, &g_vars, s->u.call.arg4));
+    if (s->u.call.arg5 != NULL)
+      args[nargs++] = MIR_new_reg_op (g_ctx, gen_expr (g_ctx, g_func, &g_vars, s->u.call.arg5));
+    FuncDef *fd = find_func (s->u.call.name);
+    MIR_item_t proto = fd->proto;
+    MIR_item_t item = fd->item;
+    int has_ret = fd->is_proc ? 0 : 1;
+    char buf[32];
+    MIR_reg_t tmp = 0;
+    if (has_ret) {
+      sprintf (buf, "$t%d", tmp_id++);
+      MIR_type_t t = fd->is_str_ret ? MIR_T_P : MIR_T_D;
+      tmp = MIR_new_func_reg (g_ctx, g_func->u.func, t, buf);
+    }
+    switch (nargs) {
+    case 0:
+      MIR_append_insn (g_ctx, g_func,
+                       has_ret ? MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, proto),
+                                                    MIR_new_ref_op (g_ctx, item),
+                                                    MIR_new_reg_op (g_ctx, tmp))
+                               : MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, proto),
+                                                    MIR_new_ref_op (g_ctx, item)));
+      break;
+    case 1:
+      MIR_append_insn (g_ctx, g_func,
+                       has_ret ? MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, proto),
+                                                    MIR_new_ref_op (g_ctx, item),
+                                                    MIR_new_reg_op (g_ctx, tmp), args[0])
+                               : MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, proto),
+                                                    MIR_new_ref_op (g_ctx, item), args[0]));
+      break;
+    case 2:
+      MIR_append_insn (g_ctx, g_func,
+                       has_ret
+                         ? MIR_new_call_insn (g_ctx, 5, MIR_new_ref_op (g_ctx, proto),
+                                              MIR_new_ref_op (g_ctx, item),
+                                              MIR_new_reg_op (g_ctx, tmp), args[0], args[1])
+                         : MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, proto),
+                                              MIR_new_ref_op (g_ctx, item), args[0], args[1]));
+      break;
+    case 3:
+      MIR_append_insn (g_ctx, g_func,
+                       has_ret ? MIR_new_call_insn (g_ctx, 6, MIR_new_ref_op (g_ctx, proto),
+                                                    MIR_new_ref_op (g_ctx, item),
+                                                    MIR_new_reg_op (g_ctx, tmp), args[0], args[1],
+                                                    args[2])
+                               : MIR_new_call_insn (g_ctx, 5, MIR_new_ref_op (g_ctx, proto),
+                                                    MIR_new_ref_op (g_ctx, item), args[0], args[1],
+                                                    args[2]));
+      break;
+    }
+    break;
+  }
   case ST_END: {
     MIR_append_insn (g_ctx, g_func, MIR_new_ret_insn (g_ctx, 1, MIR_new_int_op (g_ctx, 0)));
     break;
@@ -3175,13 +4143,14 @@ static void gen_stmt (Stmt *s) {
   }
   case ST_DIM: {
     for (size_t k = 0; k < s->u.dim.n; k++) {
-      MIR_reg_t base = get_array (&g_vars, g_ctx, g_func, s->u.dim.names[k], s->u.dim.sizes[k],
-                                  s->u.dim.is_str[k]);
+      MIR_reg_t base = get_array (&g_vars, g_ctx, g_func, s->u.dim.names[k], s->u.dim.sizes1[k],
+                                  s->u.dim.sizes2[k], s->u.dim.is_str[k]);
+      size_t total = s->u.dim.sizes1[k] * (s->u.dim.sizes2[k] ? s->u.dim.sizes2[k] : 1);
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_call_insn (g_ctx, 5, MIR_new_ref_op (g_ctx, calloc_proto),
                                           MIR_new_ref_op (g_ctx, calloc_import),
                                           MIR_new_reg_op (g_ctx, base),
-                                          MIR_new_int_op (g_ctx, s->u.dim.sizes[k]),
+                                          MIR_new_int_op (g_ctx, total),
                                           MIR_new_int_op (g_ctx, 8)));
     }
     break;
@@ -3192,8 +4161,9 @@ static void gen_stmt (Stmt *s) {
   }
 }
 
-static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p, int reduce_libs,
-                         const char *out_name, const char *src_name) {
+static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p, int code_p,
+                         int reduce_libs, int profile_p, int track_lines, const char *out_name,
+                         const char *src_name) {
   MIR_context_t ctx = MIR_init ();
   MIR_module_t module = MIR_new_module (ctx, "BASIC");
   print_proto = MIR_new_proto (ctx, "basic_print_p", 0, NULL, 1, MIR_T_D, "x");
@@ -3285,6 +4255,10 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   beep_import = MIR_new_import (ctx, "basic_beep");
   sound_proto = MIR_new_proto (ctx, "basic_sound_p", 0, NULL, 2, MIR_T_D, "f", MIR_T_D, "d");
   sound_import = MIR_new_import (ctx, "basic_sound");
+  system_proto = MIR_new_proto (ctx, "basic_system_p", 1, &d, 1, MIR_T_P, "cmd");
+  system_import = MIR_new_import (ctx, "basic_system");
+  system_out_proto = MIR_new_proto (ctx, "basic_system_out_p", 1, &p, 0);
+  system_out_import = MIR_new_import (ctx, "basic_system_out");
   randomize_proto
     = MIR_new_proto (ctx, "basic_randomize_p", 0, NULL, 2, MIR_T_D, "n", MIR_T_D, "has_seed");
   randomize_import = MIR_new_import (ctx, "basic_randomize");
@@ -3296,6 +4270,18 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   set_line_import = MIR_new_import (ctx, "basic_set_line");
   get_line_proto = MIR_new_proto (ctx, "basic_get_line_p", 1, &d, 0);
   get_line_import = MIR_new_import (ctx, "basic_get_line");
+  line_track_proto = MIR_new_proto (ctx, "basic_enable_line_tracking_p", 0, NULL, 1, MIR_T_D, "on");
+  line_track_import = MIR_new_import (ctx, "basic_enable_line_tracking");
+  if (profile_p) {
+    profile_line_proto = MIR_new_proto (ctx, "basic_profile_line_p", 0, NULL, 1, MIR_T_D, "line");
+    profile_line_import = MIR_new_import (ctx, "basic_profile_line");
+    profile_func_enter_proto
+      = MIR_new_proto (ctx, "basic_profile_func_enter_p", 0, NULL, 1, MIR_T_P, "name");
+    profile_func_enter_import = MIR_new_import (ctx, "basic_profile_func_enter");
+    profile_func_exit_proto
+      = MIR_new_proto (ctx, "basic_profile_func_exit_p", 0, NULL, 1, MIR_T_P, "name");
+    profile_func_exit_import = MIR_new_import (ctx, "basic_profile_func_exit");
+  }
   rnd_proto = MIR_new_proto (ctx, "basic_rnd_p", 1, &d, 1, MIR_T_D, "n");
   rnd_import = MIR_new_import (ctx, "basic_rnd");
   chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, MIR_T_D, "n");
@@ -3310,6 +4296,10 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   time_import = MIR_new_import (ctx, "basic_time");
   time_str_proto = MIR_new_proto (ctx, "basic_time_str_p", 1, &p, 0);
   time_str_import = MIR_new_import (ctx, "basic_time_str");
+  date_proto = MIR_new_proto (ctx, "basic_date_p", 1, &d, 0);
+  date_import = MIR_new_import (ctx, "basic_date");
+  date_str_proto = MIR_new_proto (ctx, "basic_date_str_p", 1, &p, 0);
+  date_str_import = MIR_new_import (ctx, "basic_date_str");
   input_chr_proto = MIR_new_proto (ctx, "basic_input_chr_p", 1, &p, 1, MIR_T_D, "n");
   input_chr_import = MIR_new_import (ctx, "basic_input_chr");
   inkey_proto = MIR_new_proto (ctx, "basic_inkey_p", 1, &p, 0);
@@ -3358,6 +4348,37 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   instr_proto = MIR_new_proto (ctx, "basic_instr_p", 1, &d, 2, MIR_T_P, "s", MIR_T_P, "sub");
   instr_import = MIR_new_import (ctx, "basic_instr");
 
+  strdup_proto = MIR_new_proto (ctx, "basic_strdup_p", 1, &p, 1, MIR_T_P, "s");
+  strdup_import = MIR_new_import (ctx, "basic_strdup");
+  free_proto = MIR_new_proto (ctx, "basic_free_p", 0, NULL, 1, MIR_T_P, "s");
+  free_import = MIR_new_import (ctx, "basic_free");
+  mir_ctx_proto = MIR_new_proto (ctx, "basic_mir_ctx_p", 1, &d, 0);
+  mir_ctx_import = MIR_new_import (ctx, "basic_mir_ctx");
+  mir_mod_proto = MIR_new_proto (ctx, "basic_mir_mod_p", 1, &d, 2, MIR_T_D, "ctx", MIR_T_P, "name");
+  mir_mod_import = MIR_new_import (ctx, "basic_mir_mod");
+  mir_func_proto = MIR_new_proto (ctx, "basic_mir_func_p", 1, &d, 3, MIR_T_D, "mod", MIR_T_P,
+                                  "name", MIR_T_D, "nargs");
+  mir_func_import = MIR_new_import (ctx, "basic_mir_func");
+  mir_reg_proto = MIR_new_proto (ctx, "basic_mir_reg_p", 1, &d, 1, MIR_T_D, "func");
+  mir_reg_import = MIR_new_import (ctx, "basic_mir_reg");
+  mir_label_proto = MIR_new_proto (ctx, "basic_mir_label_p", 1, &d, 1, MIR_T_D, "func");
+  mir_label_import = MIR_new_import (ctx, "basic_mir_label");
+  mir_emit_proto = MIR_new_proto (ctx, "basic_mir_emit_p", 1, &d, 5, MIR_T_D, "func", MIR_T_P, "op",
+                                  MIR_T_D, "a", MIR_T_D, "b", MIR_T_D, "c");
+  mir_emit_import = MIR_new_import (ctx, "basic_mir_emit");
+  mir_emitlbl_proto
+    = MIR_new_proto (ctx, "basic_mir_emitlbl_p", 1, &d, 2, MIR_T_D, "func", MIR_T_D, "lab");
+  mir_emitlbl_import = MIR_new_import (ctx, "basic_mir_emitlbl");
+  mir_ret_proto = MIR_new_proto (ctx, "basic_mir_ret_p", 1, &d, 2, MIR_T_D, "func", MIR_T_D, "reg");
+  mir_ret_import = MIR_new_import (ctx, "basic_mir_ret");
+  mir_finish_proto = MIR_new_proto (ctx, "basic_mir_finish_p", 1, &d, 1, MIR_T_D, "mod");
+  mir_finish_import = MIR_new_import (ctx, "basic_mir_finish");
+  mir_run_proto = MIR_new_proto (ctx, "basic_mir_run_p", 1, &d, 5, MIR_T_D, "func", MIR_T_D, "a1",
+                                 MIR_T_D, "a2", MIR_T_D, "a3", MIR_T_D, "a4");
+  mir_run_import = MIR_new_import (ctx, "basic_mir_run");
+  mir_dump_proto = MIR_new_proto (ctx, "basic_mir_dump_p", 1, &d, 1, MIR_T_D, "func");
+  mir_dump_import = MIR_new_import (ctx, "basic_mir_dump");
+
   calloc_proto = MIR_new_proto (ctx, "calloc_p", 1, &p, 2, MIR_T_I64, "n", MIR_T_I64, "sz");
   calloc_import = MIR_new_import (ctx, "calloc");
   memset_proto
@@ -3372,7 +4393,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   read_str_import = MIR_new_import (ctx, "basic_read_str");
   restore_proto = MIR_new_proto (ctx, "basic_restore_p", 0, NULL, 0);
   restore_import = MIR_new_import (ctx, "basic_restore");
-
+  g_ctx = ctx;
   for (size_t i = 0; i < func_defs.len; i++) {
     FuncDef *fd = &func_defs.data[i];
     MIR_type_t rtype = fd->is_str_ret ? MIR_T_P : MIR_T_D;
@@ -3386,8 +4407,19 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     }
     char proto_name[128];
     snprintf (proto_name, sizeof (proto_name), "%s_p", fd->name);
-    fd->proto = MIR_new_proto_arr (ctx, proto_name, 1, &rtype, fd->n, vars);
-    fd->item = MIR_new_func_arr (ctx, fd->name, 1, &rtype, fd->n, vars);
+    if (fd->is_proc) {
+      fd->proto = MIR_new_proto_arr (ctx, proto_name, 0, NULL, fd->n, vars);
+      fd->item = MIR_new_func_arr (ctx, fd->name, 0, NULL, fd->n, vars);
+    } else {
+      fd->proto = MIR_new_proto_arr (ctx, proto_name, 1, &rtype, fd->n, vars);
+      fd->item = MIR_new_func_arr (ctx, fd->name, 1, &rtype, fd->n, vars);
+    }
+    if (profile_p)
+      MIR_append_insn (ctx, fd->item,
+                       MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, profile_func_enter_proto),
+                                          MIR_new_ref_op (ctx, profile_func_enter_import),
+                                          MIR_new_str_op (ctx, (MIR_str_t) {strlen (fd->name) + 1,
+                                                                            fd->name})));
     VarVec fvars = {0};
     for (size_t j = 0; j < fd->n; j++) {
       if (fvars.len == fvars.cap) {
@@ -3401,8 +4433,48 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       fvars.data[fvars.len].reg = MIR_reg (ctx, fd->params[j], fd->item->u.func);
       fvars.len++;
     }
-    MIR_reg_t r = gen_expr (ctx, fd->item, &fvars, fd->body);
-    MIR_append_insn (ctx, fd->item, MIR_new_ret_insn (ctx, 1, MIR_new_reg_op (ctx, r)));
+    if (fd->body != NULL) {
+      MIR_reg_t r = gen_expr (ctx, fd->item, &fvars, fd->body);
+      MIR_insn_t ret_insn = MIR_new_ret_insn (ctx, 1, MIR_new_reg_op (ctx, r));
+      if (profile_p)
+        MIR_append_insn (ctx, fd->item,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, profile_func_exit_proto),
+                                            MIR_new_ref_op (ctx, profile_func_exit_import),
+                                            MIR_new_str_op (ctx, (MIR_str_t) {strlen (fd->name) + 1,
+                                                                              fd->name})));
+      MIR_append_insn (ctx, fd->item, ret_insn);
+    } else {
+      MIR_item_t saved_func = g_func;
+      VarVec saved_vars = g_vars;
+      LineVec *saved_prog = g_prog;
+      MIR_label_t *saved_labels = g_labels;
+      size_t saved_loop_len = g_loop_len;
+      g_func = fd->item;
+      g_vars = fvars;
+      g_prog = NULL;
+      g_labels = NULL;
+      g_loop_len = 0;
+      for (size_t j = 0; j < fd->body_stmts.len; j++) gen_stmt (&fd->body_stmts.data[j]);
+      MIR_insn_t ret_insn;
+      if (fd->is_proc) {
+        ret_insn = MIR_new_ret_insn (ctx, 0);
+      } else {
+        MIR_reg_t r = get_var (&g_vars, ctx, fd->item, fd->name);
+        ret_insn = MIR_new_ret_insn (ctx, 1, MIR_new_reg_op (ctx, r));
+      }
+      if (profile_p)
+        MIR_append_insn (ctx, fd->item,
+                         MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, profile_func_exit_proto),
+                                            MIR_new_ref_op (ctx, profile_func_exit_import),
+                                            MIR_new_str_op (ctx, (MIR_str_t) {strlen (fd->name) + 1,
+                                                                              fd->name})));
+      MIR_append_insn (ctx, fd->item, ret_insn);
+      g_func = saved_func;
+      g_vars = saved_vars;
+      g_prog = saved_prog;
+      g_labels = saved_labels;
+      g_loop_len = saved_loop_len;
+    }
     MIR_finish_func (ctx);
     free (vars);
   }
@@ -3436,6 +4508,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   g_loop_stack = NULL;
   g_loop_len = 0;
   g_loop_cap = 0;
+  g_line_tracking = track_lines;
+  MIR_append_insn (g_ctx, g_func,
+                   MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, line_track_proto),
+                                      MIR_new_ref_op (g_ctx, line_track_import),
+                                      MIR_new_double_op (g_ctx, (basic_num_t) g_line_tracking)));
 
   /* create labels for lines */
   size_t n = prog->len;
@@ -3446,16 +4523,22 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   for (size_t i = 0; i < n; i++) {
     Line *ln = &g_prog->data[i];
     MIR_append_insn (g_ctx, g_func, labels[i]);
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, set_line_proto),
-                                        MIR_new_ref_op (g_ctx, set_line_import),
-                                        MIR_new_double_op (g_ctx, (double) ln->line)));
+    if (profile_p)
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, profile_line_proto),
+                                          MIR_new_ref_op (g_ctx, profile_line_import),
+                                          MIR_new_double_op (g_ctx, (basic_num_t) ln->line)));
+    if (g_line_tracking)
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, set_line_proto),
+                                          MIR_new_ref_op (g_ctx, set_line_import),
+                                          MIR_new_double_op (g_ctx, (basic_num_t) ln->line)));
     for (size_t j = 0; j < ln->stmts.len; j++) {
       gen_stmt (&ln->stmts.data[j]);
     }
   }
   for (size_t i = 0; i < g_vars.len; i++)
-    if (g_vars.data[i].is_array && g_vars.data[i].size == 0) {
+    if (g_vars.data[i].is_array && g_vars.data[i].size <= 1) {
       g_vars.data[i].size = 11;
       MIR_insn_t call = MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, calloc_proto),
                                            MIR_new_ref_op (ctx, calloc_import),
@@ -3464,6 +4547,12 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       MIR_insert_insn_after (ctx, func, g_var_init_anchor, call);
       g_var_init_anchor = call;
     }
+  for (size_t i = 0; i < g_vars.len; i++)
+    if (g_vars.data[i].is_str && !g_vars.data[i].is_array)
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, free_proto),
+                                          MIR_new_ref_op (ctx, free_import),
+                                          MIR_new_reg_op (ctx, g_vars.data[i].reg)));
   /* ensure function returns 0 if no END */
   MIR_append_insn (ctx, func, MIR_new_ret_insn (ctx, 1, MIR_new_int_op (ctx, 0)));
   MIR_finish_func (ctx);
@@ -3493,6 +4582,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       free (name);
     }
     MIR_finish (ctx);
+    data_vals_clear ();
     return;
   }
   if (bin_p) {
@@ -3527,6 +4617,27 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     free (ctab_name);
     free (exe_name);
     MIR_finish (ctx);
+    data_vals_clear ();
+    return;
+  }
+  if (code_p) {
+    MIR_load_module (ctx, module);
+    MIR_gen_init (ctx);
+    MIR_link (ctx, MIR_set_gen_interface, resolve);
+    MIR_gen (ctx, func);
+    uint8_t *start = func->addr;
+    uint8_t *end = _MIR_get_new_code_addr (ctx, 0);
+    size_t len = end - start;
+    FILE *f = fopen (out_name, "wb");
+    if (f != NULL) {
+      fwrite (start, 1, len, f);
+      fclose (f);
+    } else {
+      perror (out_name);
+    }
+    MIR_gen_finish (ctx);
+    MIR_finish (ctx);
+    data_vals_clear ();
     return;
   }
   MIR_load_module (ctx, module);
@@ -3544,6 +4655,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     m ();
   }
   MIR_finish (ctx);
+  data_vals_clear ();
 }
 
 static void repl (void) {
@@ -3571,8 +4683,21 @@ static void repl (void) {
       }
       continue;
     }
-    if (strcasecmp (p, "RUN") == 0) {
-      gen_program (&prog, 0, 0, 0, 0, 0, NULL, "(repl)");
+    if (strncasecmp (p, "RUN", 3) == 0) {
+      p += 3;
+      while (isspace ((unsigned char) *p)) p++;
+      int profile_p = 0;
+      if (*p != '\0') {
+        if (strcasecmp (p, "PROFILING") == 0 || strcasecmp (p, "PROFILE") == 0) {
+          profile_p = 1;
+        } else {
+          fprintf (stderr, "unknown RUN option: %s\n", p);
+          continue;
+        }
+      }
+      if (profile_p) basic_profile_reset ();
+      gen_program (&prog, 0, 0, 0, 0, 0, 0, profile_p, line_tracking, NULL, "(repl)");
+      if (profile_p) basic_profile_dump ();
       continue;
     }
     if (strncasecmp (p, "COMPILE", 7) == 0) {
@@ -3584,7 +4709,7 @@ static void repl (void) {
         if (*p == '\0') {
           fprintf (stderr, "missing output file\n");
         } else {
-          gen_program (&prog, 0, 0, 0, 1, 0, p, "(repl)");
+          gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, p, "(repl)");
           if (access (p, F_OK) == 0)
             printf ("%s\n", p);
           else
@@ -3597,13 +4722,26 @@ static void repl (void) {
         if (*p == '\0') {
           fprintf (stderr, "missing output file\n");
         } else {
-          gen_program (&prog, 0, 0, 1, 0, 0, p, "(repl)");
+          gen_program (&prog, 0, 0, 1, 0, 0, 0, 0, line_tracking, p, "(repl)");
           char *name = change_suffix (p, ".bmir");
           if (access (name, F_OK) == 0)
             printf ("%s\n", name);
           else
             perror (name);
           free (name);
+        }
+        continue;
+      } else if (strncasecmp (p, "CODE", 4) == 0) {
+        p += 4;
+        while (isspace ((unsigned char) *p)) p++;
+        if (*p == '\0') {
+          fprintf (stderr, "missing output file\n");
+        } else {
+          gen_program (&prog, 0, 0, 0, 0, 1, 0, 0, line_tracking, p, "(repl)");
+          if (access (p, F_OK) == 0)
+            printf ("%s\n", p);
+          else
+            perror (p);
         }
         continue;
       }
@@ -3616,7 +4754,7 @@ static void repl (void) {
       if (*p == '\0') {
         fprintf (stderr, "missing output file\n");
       } else {
-        gen_program (&prog, 0, 0, 0, 1, 0, p, "(repl)");
+        gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, p, "(repl)");
         if (access (p, F_OK) == 0)
           printf ("Saved %s\n", p);
         else
@@ -3624,18 +4762,36 @@ static void repl (void) {
       }
       continue;
     }
+    if (strncasecmp (p, "LOAD", 4) == 0) {
+      p += 4;
+      while (isspace ((unsigned char) *p)) p++;
+      if (*p == '\0') {
+        fprintf (stderr, "missing input file\n");
+      } else {
+        line_vec_destroy (&prog);
+        load_program (&prog, p);
+      }
+      continue;
+    }
     if (strcasecmp (p, "LIST") == 0) {
-      for (size_t i = 0; i < prog.len; i++) printf ("%s\n", prog.data[i].src);
+      list_program (&prog);
       continue;
     }
     if (strcasecmp (p, "NEW") == 0) {
-      line_vec_clear (&prog);
+      line_vec_destroy (&prog);
+      func_vec_clear (&func_defs);
+      data_vals_clear ();
       continue;
     }
     if (strcasecmp (p, "QUIT") == 0 || strcasecmp (p, "EXIT") == 0) {
       break;
     }
   }
+  line_vec_clear (&prog);
+  free (prog.data);
+  func_vec_clear (&func_defs);
+  free (func_defs.data);
+  data_vals_clear ();
 }
 
 int main (int argc, char **argv) {
@@ -3655,6 +4811,8 @@ int main (int argc, char **argv) {
       bin_p = 1;
     } else if (strcmp (argv[i], "-l") == 0) {
       reduce_libs = 1;
+    } else if (strcmp (argv[i], "--no-line-tracking") == 0) {
+      line_tracking = 0;
     } else if (strcmp (argv[i], "-o") == 0 && i + 1 < argc) {
       out_name = argv[++i];
     } else {
@@ -3665,25 +4823,8 @@ int main (int argc, char **argv) {
     repl ();
     return 0;
   }
-  FILE *f = fopen (fname, "r");
-  if (!f) {
-    perror (fname);
-    return 1;
-  }
   LineVec prog = {0};
-  char line[256];
-  while (fgets (line, sizeof (line), f)) {
-    char *p = line;
-    line[strcspn (line, "\n")] = '\0';
-    while (isspace ((unsigned char) *p)) p++;
-    if (*p == '\0') continue;
-    Line l;
-    if (parse_line (line, &l))
-      insert_or_replace_line (&prog, l);
-    else
-      fprintf (stderr, "parse error: %s\n", line);
-  }
-  fclose (f);
-  gen_program (&prog, jit, asm_p, obj_p, bin_p, reduce_libs, out_name, fname);
+  if (!load_program (&prog, fname)) return 1;
+  gen_program (&prog, jit, asm_p, obj_p, bin_p, 0, reduce_libs, 0, line_tracking, out_name, fname);
   return 0;
 }

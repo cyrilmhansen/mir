@@ -1,0 +1,94 @@
+BASIC Compiler Notes
+====================
+
+The `basicc` compiler accepts the `--no-line-tracking` flag to skip inserting
+`basic_set_line` calls during code generation.  Disabling line tracking can
+speed up compiled programs but removes support for `RESUME` without an explicit
+line number and causes the `basic_get_line` helper to report an error if
+invoked.
+
+The REPL understands a `RUN PROFILING` command which executes the current
+program with profiling enabled. After the program finishes, it prints line
+statistics followed by function statistics, each sorted in ascending order. The
+format lists the line number or function name, the execution count, and the
+total time in seconds.
+
+Example session:
+
+```
+10 DEF FNA(X)=X+1
+20 PRINT FNA(1)
+30 PRINT FNA(2)
+40 END
+RUN PROFILING
+QUIT
+```
+
+Sample output:
+
+```
+2
+3
+line 20: count 1 time 0.000000001
+line 30: count 1 time 0.000000001
+func FNA: count 2 time 0.000000002
+```
+
+MIR Metaprogramming
+-------------------
+The BASIC runtime exposes a small API for constructing and executing MIR code at runtime. Objects such as contexts, modules, functions, registers, and labels are referenced through numeric *handles* returned by helper functions. Instructions are appended by name and operate on these handles, enabling BASIC programs to generate machine code on the fly.
+
+Example:
+
+```
+10 ctx = MIRCTX()
+20 mod = MIRMOD(ctx, "demo")
+30 f = MIRFUNC(mod, "add", 2)
+40 a = MIRREG(f)
+50 b = MIRREG(f)
+60 MIREMIT(f, "DADD", a, a, b)
+70 MIRRET(f, a)
+80 MIRFINISH(mod)
+90 PRINT MIRRUN(f, 2, 3)
+```
+
+This program builds a function that adds its two arguments and prints `5`.
+
+DATE$ Example
+-------------
+The `DATE$` function returns the current date in `YYYY-MM-DD` format. The
+components can be extracted with `MID$` and converted with `VAL`:
+
+```
+10 d$ = DATE$
+20 y = VAL(MID$(d$, 1, 4))
+30 m = VAL(MID$(d$, 6, 2))
+40 d = VAL(MID$(d$, 9, 2))
+50 PRINT y; "/"; m; "/"; d
+```
+
+This program prints the year, month, and day as numbers.
+
+Pi Spigot Example
+-----------------
+The `pi_spigot.bas` program demonstrates generating digits of `PI` using only
+integer arithmetic.  It builds the result as a string one digit at a time via a
+spigot algorithm.
+
+Run the sample with the BASIC compiler and provide the desired number of digits
+at the prompt.  For example, supplying `20` produces 20 digits after the decimal
+point:
+
+```
+DIGITS?
+3.14159265358979323846
+```
+
+Floating-Point Precision
+------------------------
+Programs such as `pi.bas` use the host's `long double` type for calculations.
+On x86-64, `long double` typically offers only about 19–20 decimal digits of
+precision, so requesting more digits will not produce additional accurate
+output. Users needing greater precision should compile the BASIC runtime with
+`BASIC_USE_FLOAT128` or link against an arbitrary-precision library.
+

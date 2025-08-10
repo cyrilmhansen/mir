@@ -1,0 +1,4 @@
+Base converter: convert numbers between bases 2-36.
+Enter source base, target base, and number.
+Source base (2-36) [10]: Target base (2-36) [16]: Number to convert: 3039
+Another conversion (Y/N)? 

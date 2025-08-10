@@ -4,6 +4,7 @@
 
 #include "mir.h"
 #include "mir-code-alloc.h"
+#include <string.h>
 
 DEF_VARR (MIR_insn_t);
 DEF_VARR (MIR_reg_t);
@@ -15,6 +16,7 @@ DEF_VARR (size_t);
 DEF_VARR (char);
 DEF_VARR (uint8_t);
 DEF_VARR (MIR_proto_t);
+#include "mir-bitmap.h"
 
 struct gen_ctx;
 struct c2mir_ctx;
@@ -843,6 +845,7 @@ MIR_context_t _MIR_init (MIR_alloc_t alloc, MIR_code_alloc_t code_alloc) {
   wrapper_end_addr = _MIR_get_wrapper_end (ctx); /* should be after code_init */
   hard_reg_name_init (ctx);
   interp_init (ctx);
+  helper_bitmap = bitmap_create2 (alloc, MIR_HELPER_NUM);
   return ctx;
 }
 
@@ -961,6 +964,7 @@ void MIR_finish (MIR_context_t ctx) {
   code_finish (ctx);
   bitmap_destroy (helper_bitmap);
   hard_reg_name_finish (ctx);
+  bitmap_destroy (helper_bitmap);
   if (curr_func != NULL)
     MIR_get_error_func (ctx) (MIR_finish_error, "finish when function %s is not finished",
                               curr_func->name);
@@ -4961,6 +4965,8 @@ static size_t write_item (MIR_context_t ctx, writer_func_t writer, MIR_item_t it
   size_t i, vars_num, len = 0;
 
   if (item->item_type == MIR_import_item) {
+    int idx = helper_index (item->u.import_id);
+    if (idx >= 0 && !bitmap_bit_p (helper_bitmap, idx)) return len;
     len += write_name (ctx, writer, "import");
     len += write_name (ctx, writer, item->u.import_id);
     return len;
@@ -7039,6 +7045,10 @@ static MIR_UNUSED const char *get_hard_reg_name (MIR_context_t ctx MIR_UNUSED, i
 void *_MIR_get_module_global_var_hard_regs (MIR_context_t ctx MIR_UNUSED, MIR_module_t module) {
   return module->data;
 }
+
+void *_MIR_get_helpers_bitset (MIR_context_t ctx) { return helper_bitmap; }
+
+int _MIR_helper_num (MIR_context_t ctx MIR_UNUSED, const char *name) { return helper_index (name); }
 
 /* New Page */
 

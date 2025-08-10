@@ -29,6 +29,7 @@
   - memory and spacing operations like `PEEK`, `POKE`, and `SPC`.
   - integer arithmetic: division (`\\`) and modulo (`MOD`).
   - input with `INPUT` and single-character `GET`.
+  - date retrieval with `DATE` and `DATE$`.
   - state reset via `CLEAR`.
   - multi-way branching with `ON...GOTO` and `ON...GOSUB`.
 

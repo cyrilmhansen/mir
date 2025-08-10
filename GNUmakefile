@@ -402,20 +402,44 @@ clean-mir-utility-tests:
 
 ifeq ($(OS),Windows_NT)
   BASIC_RUNTIME_LIB=basic_runtime.dll
+  BASIC_RUNTIME_LIB_LD=basic_runtime_ld.dll
+  BASIC_RUNTIME_LIB_F128=basic_runtime_f128.dll
   BASIC_RUNTIME_FLAGS=-shared
 else ifeq ($(UNAME_S),Darwin)
   BASIC_RUNTIME_LIB=libbasic_runtime.dylib
+  BASIC_RUNTIME_LIB_LD=libbasic_runtime_ld.dylib
+  BASIC_RUNTIME_LIB_F128=libbasic_runtime_f128.dylib
   BASIC_RUNTIME_FLAGS=-dynamiclib
 else
   BASIC_RUNTIME_LIB=libbasic_runtime.so
+  BASIC_RUNTIME_LIB_LD=libbasic_runtime_ld.so
+  BASIC_RUNTIME_LIB_F128=libbasic_runtime_f128.so
   BASIC_RUNTIME_FLAGS=-shared
 endif
 
 $(BUILD_DIR)/basic/basicc$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
 	$(SRC_DIR)/examples/basic/basicc.c $(SRC_DIR)/examples/basic/basic_runtime.c \
+	$(SRC_DIR)/examples/basic/kitty/kitty.c $(SRC_DIR)/examples/basic/kitty/lodepng.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -DBASIC_SRC_DIR=\"$(SRC_DIR)\" $^ -lm $(EXEO)$@
+$(BUILD_DIR)/basic/basicc_ld$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
+	$(SRC_DIR)/examples/basic/basicc.c $(SRC_DIR)/examples/basic/basic_runtime.c \
+	$(SRC_DIR)/examples/basic/kitty/kitty.c $(SRC_DIR)/examples/basic/kitty/lodepng.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -DBASIC_SRC_DIR=\"$(SRC_DIR)\" -DBASIC_USE_LONG_DOUBLE $^ -lm $(EXEO)$@
+
+$(BUILD_DIR)/basic/basicc_f128$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
+	$(SRC_DIR)/examples/basic/basicc.c $(SRC_DIR)/examples/basic/basic_runtime.c \
+	$(SRC_DIR)/examples/basic/kitty/kitty.c $(SRC_DIR)/examples/basic/kitty/lodepng.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -DBASIC_SRC_DIR=\"$(SRC_DIR)\" -DBASIC_USE_FLOAT128 $^ -lm -lquadmath $(EXEO)$@
+
+
+$(BUILD_DIR)/basic/basicc-ld$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
+	$(SRC_DIR)/examples/basic/basicc.c $(SRC_DIR)/examples/basic/basic_runtime.c \
 	$(SRC_DIR)/examples/basic/kitty/kitty.c $(SRC_DIR)/examples/basic/kitty/lodepng.c
 	mkdir -p $(BUILD_DIR)/basic
-	$(COMPILE_AND_LINK) -DBASIC_SRC_DIR=\"$(SRC_DIR)\" $^ -lm $(EXEO)$@
+	$(COMPILE_AND_LINK) -DBASIC_USE_LONG_DOUBLE -DBASIC_SRC_DIR=\"$(SRC_DIR)\" $^ -lm $(EXEO)$@
+
+$(BUILD_DIR)/basic/basicc-f128$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
+	$(SRC_DIR)/examples/basic/basicc.c $(SRC_DIR)/examples/basic/basic_runtime.c \
+	$(SRC_DIR)/examples/basic/kitty/kitty.c $(SRC_DIR)/examples/basic/kitty/lodepng.c
+	mkdir -p $(BUILD_DIR)/basic
+	$(COMPILE_AND_LINK) -DBASIC_USE_FLOAT128 -DBASIC_SRC_DIR=\"$(SRC_DIR)\" $^ -lm -lquadmath $(EXEO)$@
 
 $(BUILD_DIR)/basic/kitty_test$(EXE): \
 	$(SRC_DIR)/examples/basic/kitty/kitty_test.c \
@@ -425,44 +449,30 @@ $(BUILD_DIR)/basic/kitty_test$(EXE): \
 	$(COMPILE_AND_LINK) $^ -lm $(EXEO)$@
 
 $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB): \
-	$(SRC_DIR)/examples/basic/basic_runtime.c \
-	$(SRC_DIR)/examples/basic/kitty/kitty.c \
-	$(SRC_DIR)/examples/basic/kitty/lodepng.c | $(BUILD_DIR)/basic
+        $(SRC_DIR)/examples/basic/basic_runtime.c \
+        $(SRC_DIR)/examples/basic/kitty/kitty.c \
+        $(SRC_DIR)/examples/basic/kitty/lodepng.c \
+        $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BASIC_RUNTIME_FLAGS) $^ -lm $(EXEO)$@
 
-basic-test: $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/mir-bin-run$(EXE)
-	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/hello.bas > $(BUILD_DIR)/basic/hello.out
-	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/hello.out
-	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/relop.bas > $(BUILD_DIR)/basic/relop.out
-	diff $(SRC_DIR)/examples/basic/relop.out $(BUILD_DIR)/basic/relop.out
-	printf '2\n3\n' | $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/adder.bas > $(BUILD_DIR)/basic/adder.out
-	diff $(SRC_DIR)/examples/basic/adder.out $(BUILD_DIR)/basic/adder.out
-	printf 'MIR\nY\n' | $(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/string.bas > $(BUILD_DIR)/basic/string.out
-	diff $(SRC_DIR)/examples/basic/string.out $(BUILD_DIR)/basic/string.out
-	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/strfuncs.bas > $(BUILD_DIR)/basic/strfuncs.out
-	diff $(SRC_DIR)/examples/basic/strfuncs.out $(BUILD_DIR)/basic/strfuncs.out
-	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/instr.bas > $(BUILD_DIR)/basic/instr.out
-	diff $(SRC_DIR)/examples/basic/instr.out $(BUILD_DIR)/basic/instr.out
-	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/funcproc.bas > $(BUILD_DIR)/basic/funcproc.out
-	diff $(SRC_DIR)/examples/basic/funcproc.out $(BUILD_DIR)/basic/funcproc.out
-	$(BUILD_DIR)/basic/basicc$(EXE) $(SRC_DIR)/examples/basic/array_default.bas > $(BUILD_DIR)/basic/array_default.out
-	diff $(SRC_DIR)/examples/basic/array_default.out $(BUILD_DIR)/basic/array_default.out
-	printf '10 PRINT "HI"\nRUN\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl.out
-	diff $(SRC_DIR)/examples/basic/repl.out $(BUILD_DIR)/basic/repl.out
-	printf '10 PRINT "HELLO"\nSAVE $(BUILD_DIR)/basic/repl-save$(EXE)\nQUIT\n' | $(BUILD_DIR)/basic/basicc$(EXE) > $(BUILD_DIR)/basic/repl-save.log
-	test -f $(BUILD_DIR)/basic/repl-save$(EXE)
-	$(BUILD_DIR)/basic/repl-save$(EXE) > $(BUILD_DIR)/basic/repl-save.out
-	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/repl-save.out
-	$(BUILD_DIR)/basic/basicc$(EXE) -b -l -o $(BUILD_DIR)/basic/hello-lean $(SRC_DIR)/examples/basic/hello.bas
-	$(BUILD_DIR)/basic/hello-lean$(EXE) > $(BUILD_DIR)/basic/hello-lean.out
-	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/hello-lean.out
-	$(BUILD_DIR)/basic/kitty_test$(EXE) > $(BUILD_DIR)/basic/kitty_test.out
-	diff $(SRC_DIR)/examples/basic/kitty/kitty_test.out $(BUILD_DIR)/basic/kitty_test.out
-	$(BUILD_DIR)/basic/basicc$(EXE) -r -o $(BUILD_DIR)/basic/hello $(SRC_DIR)/examples/basic/hello.bas
-	test -f $(BUILD_DIR)/basic/hello.bmir
-	MIR_LIB_DIRS=$(BUILD_DIR)/basic MIR_LIBS=basic_runtime $(BUILD_DIR)/mir-bin-run$(EXE) $(BUILD_DIR)/basic/hello.bmir hello > $(BUILD_DIR)/basic/hello-run.out
-	diff $(SRC_DIR)/examples/basic/hello.out $(BUILD_DIR)/basic/hello-run.out
+$(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD): \
+        $(SRC_DIR)/examples/basic/basic_runtime.c \
+        $(SRC_DIR)/examples/basic/kitty/kitty.c \
+        $(SRC_DIR)/examples/basic/kitty/lodepng.c \
+        $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DBASIC_USE_LONG_DOUBLE $(BASIC_RUNTIME_FLAGS) $^ -lm $(EXEO)$@
 
+$(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_F128): \
+        $(SRC_DIR)/examples/basic/basic_runtime.c \
+        $(SRC_DIR)/examples/basic/kitty/kitty.c \
+        $(SRC_DIR)/examples/basic/kitty/lodepng.c \
+        $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DBASIC_USE_FLOAT128 $(BASIC_RUNTIME_FLAGS) $^ -lm -lquadmath $(EXEO)$@
+
+basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/basicc-f128$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_F128) $(BUILD_DIR)/mir-bin-run$(EXE)
+	$(SRC_DIR)/examples/basic/run-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
+	$(SRC_DIR)/examples/basic/run-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
+	$(SRC_DIR)/examples/basic/run-tests.sh $(BUILD_DIR)/basic/basicc-f128$(EXE)
 
 # ------------------ MIR interp tests --------------------------
 .PHONY: clean-mir-interp-tests
@@ -524,9 +534,9 @@ clean-mir-interp-tests:
 .PHONY: clean-mir-gen-tests
 .PHONY: gen-test gen-test-loop gen-test-sieve gen-issue219-test gen-test-get-thunk-addr helper-bitmap-test
 .PHONY: gen-test1 gen-test2 gen-test3 gen-test4 gen-test5 gen-test6 gen-test7
-.PHONY: gen-test8 gen-test9 gen-test10 gen-test11 gen-test12 gen-test13 gen-test14 gen-test15 gen-test16
+.PHONY: gen-test8 gen-test9 gen-test10 gen-test11 gen-test12 gen-test13 gen-test14 gen-test15 gen-test16 helper-bitmap-test
 gen-test: gen-test-loop gen-test-sieve gen-test-get-thunk-addr gen-issue219-test gen-test1 gen-test2 gen-test3 gen-test4 gen-test5 gen-test6 gen-test7\
-          gen-test8 gen-test9 gen-test10 gen-test11 gen-test12 gen-test13 gen-test14 gen-test15 gen-test16
+	  gen-test8 gen-test9 gen-test10 gen-test11 gen-test12 gen-test13 gen-test14 gen-test15 gen-test16 helper-bitmap-test
 gen-test-loop: $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) $(SRC_DIR)/mir-tests/loop-sieve-gen.c | $(BUILD_DIR)/mir-tests
 	$(COMPILE_AND_LINK) -DTEST_GEN_LOOP -DTEST_GEN_DEBUG=1 $^ $(LDLIBS) $(EXEO)$(BUILD_DIR)/mir-tests/gen-loop-test$(EXE)
 	$(BUILD_DIR)/mir-tests/gen-loop-test
@@ -577,10 +587,15 @@ gen-test14: $(BUILD_DIR)/run-test$(EXE)
 gen-test15: $(BUILD_DIR)/run-test$(EXE)
 	$(BUILD_DIR)/run-test$(EXE) -g $(SRC_DIR)/mir-tests/test15.mir
 gen-test16: $(BUILD_DIR)/run-test$(EXE)
-	$(BUILD_DIR)/run-test$(EXE) -g $(SRC_DIR)/mir-tests/test16.mir
+	        $(BUILD_DIR)/run-test$(EXE) -g $(SRC_DIR)/mir-tests/test16.mir
+helper-bitmap-test: $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) $(SRC_DIR)/mir-tests/helper-bitmap.c | $(BUILD_DIR)/mir-tests
+	$(COMPILE_AND_LINK) $^ $(LDLIBS) $(EXEO)$(BUILD_DIR)/mir-tests/helper-bitmap-test$(EXE)
+	$(BUILD_DIR)/mir-tests/helper-bitmap-test$(EXE)
 clean-mir-gen-tests:
 	$(RM) $(BUILD_DIR)/mir-tests/gen-loop-test$(EXE) $(BUILD_DIR)/mir-tests/gen-sieve-test$(EXE)
 	$(RM) $(BUILD_DIR)/mir-tests/issue219$(EXE) $(BUILD_DIR)/mir-tests/gen-get-thunk-addr-test $(BUILD_DIR)/mir-tests/helper-bitmap-test$(EXE)
+
+
 # ------------------ MIR run tests --------------------------
 mir-bin-run-test: $(BUILD_DIR)/mir-bin-run$(EXE) $(BUILD_DIR)/c2m$(EXE)
 	      $(BUILD_DIR)/c2m$(EXE) -c $(SRC_DIR)/sieve.c

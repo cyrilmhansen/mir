@@ -1,5 +1,7 @@
-#include "../mir.h"
-#include "../mir-gen.h"
+
+#include "mir.h"
+#include "mir-gen.h"
+#include "mir-bitmap.h"
 #include <assert.h>
 
 int main (void) {
