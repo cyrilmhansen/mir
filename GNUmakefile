@@ -514,7 +514,7 @@ clean-mir-interp-tests:
 .PHONY: clean-mir-gen-tests
 .PHONY: gen-test gen-test-loop gen-test-sieve gen-issue219-test gen-test-get-thunk-addr helper-bitmap-test
 .PHONY: gen-test1 gen-test2 gen-test3 gen-test4 gen-test5 gen-test6 gen-test7
-.PHONY: gen-test8 gen-test9 gen-test10 gen-test11 gen-test12 gen-test13 gen-test14 gen-test15 gen-test16 helper-bitmap-test
+.PHONY: gen-test8 gen-test9 gen-test10 gen-test11 gen-test12 gen-test13 gen-test14 gen-test15 gen-test16
 gen-test: gen-test-loop gen-test-sieve gen-test-get-thunk-addr gen-issue219-test gen-test1 gen-test2 gen-test3 gen-test4 gen-test5 gen-test6 gen-test7\
 	  gen-test8 gen-test9 gen-test10 gen-test11 gen-test12 gen-test13 gen-test14 gen-test15 gen-test16 helper-bitmap-test
 gen-test-loop: $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) $(SRC_DIR)/mir-tests/loop-sieve-gen.c | $(BUILD_DIR)/mir-tests
@@ -567,10 +567,7 @@ gen-test14: $(BUILD_DIR)/run-test$(EXE)
 gen-test15: $(BUILD_DIR)/run-test$(EXE)
 	$(BUILD_DIR)/run-test$(EXE) -g $(SRC_DIR)/mir-tests/test15.mir
 gen-test16: $(BUILD_DIR)/run-test$(EXE)
-	        $(BUILD_DIR)/run-test$(EXE) -g $(SRC_DIR)/mir-tests/test16.mir
-helper-bitmap-test: $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) $(SRC_DIR)/mir-tests/helper-bitmap.c | $(BUILD_DIR)/mir-tests
-	$(COMPILE_AND_LINK) $^ $(LDLIBS) $(EXEO)$(BUILD_DIR)/mir-tests/helper-bitmap-test$(EXE)
-	$(BUILD_DIR)/mir-tests/helper-bitmap-test$(EXE)
+	$(BUILD_DIR)/run-test$(EXE) -g $(SRC_DIR)/mir-tests/test16.mir
 clean-mir-gen-tests:
 	$(RM) $(BUILD_DIR)/mir-tests/gen-loop-test$(EXE) $(BUILD_DIR)/mir-tests/gen-sieve-test$(EXE)
 	$(RM) $(BUILD_DIR)/mir-tests/issue219$(EXE) $(BUILD_DIR)/mir-tests/gen-get-thunk-addr-test $(BUILD_DIR)/mir-tests/helper-bitmap-test$(EXE)
