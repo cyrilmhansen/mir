@@ -60,6 +60,25 @@ run_tests() {
         grep -q "line tracking" "$ROOT/basic/resume.err"
         echo "resume error OK"
 
+        if [ "$name" = "datediff" ]; then
+                local y m d doy total
+                y=$(sed -n '1p' "$in_file")
+                m=$(sed -n '2p' "$in_file")
+                d=$(sed -n '3p' "$in_file")
+                doy=$(date -d "$y-$m-$d" +%j)
+                total=$(date -d "$y-12-31" +%j)
+                diff <(printf "Year:\nMonth:\nDay:\nDays since Jan 1: %d\nDays until Dec 31: %d\n" $((doy-1)) $((total-doy))) "$out"
+        else
+                diff "$exp" "$out"
+        fi
+}
+
+for t in hello relop adder string strfuncs instr gosub funcproc graphics readhplot circle box sudoku array_oob_read array_oob_write life pi baseconv mir_demo datediff date; do
+	echo "Running $t"
+	run_test "$t"
+	echo "$t OK"
+done
+
         echo "Running fleuves (no explain)"
         timeout 10 "$BASICC" "$ROOT/examples/basic/fleuves.bas" < "$ROOT/examples/basic/fleuves.in" >/dev/null
         echo "fleuves (no explain) done"
