@@ -1,5 +1,30 @@
 #include "mir.h"
 #include "mir-gen.h"
+#include "basic_num.h"
+#if defined(BASIC_USE_LONG_DOUBLE) || defined(BASIC_USE_FLOAT128)
+#define MIR_T_D MIR_T_LD
+#define MIR_new_double_op MIR_new_ldouble_op
+#define MIR_D2I MIR_LD2I
+#define MIR_I2D MIR_I2LD
+#define MIR_DMOV MIR_LDMOV
+#define MIR_DNEG MIR_LDNEG
+#define MIR_DEQ MIR_LDEQ
+#define MIR_DNE MIR_LDNE
+#define MIR_DLT MIR_LDLT
+#define MIR_DLE MIR_LDLE
+#define MIR_DGT MIR_LDGT
+#define MIR_DGE MIR_LDGE
+#define MIR_DADD MIR_LDADD
+#define MIR_DSUB MIR_LDSUB
+#define MIR_DMUL MIR_LDMUL
+#define MIR_DDIV MIR_LDDIV
+#define MIR_DBEQ MIR_LDBEQ
+#define MIR_DBNE MIR_LDBNE
+#define MIR_DBLT MIR_LDBLT
+#define MIR_DBLE MIR_LDBLE
+#define MIR_DBGT MIR_LDBGT
+#define MIR_DBGE MIR_LDBGE
+#endif
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,9 +38,9 @@
 #endif
 
 /* Runtime helpers defined in basic_runtime.c */
-extern void basic_print (double);
+extern void basic_print (basic_num_t);
 extern void basic_print_str (const char *);
-extern double basic_input (void);
+extern basic_num_t basic_input (void);
 extern char *basic_input_str (void);
 extern char *basic_get (void);
 
@@ -25,13 +50,13 @@ extern void basic_put (const char *);
 
 extern void basic_profile_reset (void);
 extern void basic_profile_dump (void);
-extern void basic_profile_line (double);
+extern void basic_profile_line (basic_num_t);
 extern void basic_profile_func_enter (const char *);
 extern void basic_profile_func_exit (const char *);
 
 extern int basic_strcmp (const char *, const char *);
 
-extern double basic_read (void);
+extern basic_num_t basic_read (void);
 extern char *basic_read_str (void);
 extern void basic_restore (void);
 extern char *basic_strdup (const char *);
@@ -39,7 +64,7 @@ extern void basic_free (char *);
 
 typedef struct BasicData {
   int is_str;
-  double num;
+  basic_num_t num;
   char *str;
 } BasicData;
 
@@ -48,52 +73,52 @@ extern size_t basic_data_len;
 extern size_t basic_data_pos;
 
 extern void basic_home (void);
-extern void basic_vtab (double);
-extern double basic_rnd (double);
-extern void basic_randomize (double, double);
-extern double basic_abs (double);
-extern double basic_sgn (double);
-extern double basic_sqr (double);
-extern double basic_sin (double);
-extern double basic_cos (double);
-extern double basic_tan (double);
-extern double basic_atn (double);
-extern double basic_log (double);
-extern double basic_exp (double);
+extern void basic_vtab (basic_num_t);
+extern basic_num_t basic_rnd (basic_num_t);
+extern void basic_randomize (basic_num_t, basic_num_t);
+extern basic_num_t basic_abs (basic_num_t);
+extern basic_num_t basic_sgn (basic_num_t);
+extern basic_num_t basic_sqr (basic_num_t);
+extern basic_num_t basic_sin (basic_num_t);
+extern basic_num_t basic_cos (basic_num_t);
+extern basic_num_t basic_tan (basic_num_t);
+extern basic_num_t basic_atn (basic_num_t);
+extern basic_num_t basic_log (basic_num_t);
+extern basic_num_t basic_exp (basic_num_t);
 
-extern void basic_screen (double);
+extern void basic_screen (basic_num_t);
 extern void basic_cls (void);
-extern void basic_color (double);
+extern void basic_color (basic_num_t);
 extern void basic_key_off (void);
-extern void basic_locate (double, double);
-extern void basic_htab (double);
-extern double basic_pos (void);
+extern void basic_locate (basic_num_t, basic_num_t);
+extern void basic_htab (basic_num_t);
+extern basic_num_t basic_pos (void);
 extern void basic_text (void);
 extern void basic_inverse (void);
 extern void basic_normal (void);
 extern void basic_hgr2 (void);
-extern void basic_hcolor (double);
-extern void basic_hplot (double, double);
-extern void basic_hplot_to (double, double, double, double);
-extern void basic_hplot_to_current (double, double);
-extern void basic_move (double, double);
-extern void basic_draw (double, double);
-extern void basic_draw_line (double, double, double, double);
-extern void basic_circle (double, double, double);
-extern void basic_rect (double, double, double, double);
-extern void basic_fill (double, double, double, double);
-extern void basic_mode (double);
+extern void basic_hcolor (basic_num_t);
+extern void basic_hplot (basic_num_t, basic_num_t);
+extern void basic_hplot_to (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
+extern void basic_hplot_to_current (basic_num_t, basic_num_t);
+extern void basic_move (basic_num_t, basic_num_t);
+extern void basic_draw (basic_num_t, basic_num_t);
+extern void basic_draw_line (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
+extern void basic_circle (basic_num_t, basic_num_t, basic_num_t);
+extern void basic_rect (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
+extern void basic_fill (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
+extern void basic_mode (basic_num_t);
 
-extern char *basic_chr (double);
-extern char *basic_string (double, const char *);
-extern char *basic_left (const char *, double);
-extern char *basic_right (const char *, double);
-extern char *basic_mid (const char *, double, double);
-extern double basic_len (const char *);
-extern double basic_val (const char *);
-extern char *basic_str (double);
-extern double basic_asc (const char *);
-extern double basic_instr (const char *, const char *);
+extern char *basic_chr (basic_num_t);
+extern char *basic_string (basic_num_t, const char *);
+extern char *basic_left (const char *, basic_num_t);
+extern char *basic_right (const char *, basic_num_t);
+extern char *basic_mid (const char *, basic_num_t, basic_num_t);
+extern basic_num_t basic_len (const char *);
+extern basic_num_t basic_val (const char *);
+extern char *basic_str (basic_num_t);
+extern basic_num_t basic_asc (const char *);
+extern basic_num_t basic_instr (const char *, const char *);
 
 static int kitty_graphics_available (void) {
   const char *id = getenv ("KITTY_WINDOW_ID");
@@ -108,34 +133,34 @@ static void show_kitty_banner (void) {
   printf ("\x1b]1337;File=inline=1;width=70;height=7;preserveAspectRatio=0:%s\x07\n", png);
   fflush (stdout);
 }
-extern double basic_int (double);
-extern double basic_timer (void);
-extern double basic_time (void);
+extern basic_num_t basic_int (basic_num_t);
+extern basic_num_t basic_timer (void);
+extern basic_num_t basic_time (void);
 extern char *basic_time_str (void);
-extern char *basic_input_chr (double);
-extern double basic_peek (double);
-extern void basic_poke (double, double);
+extern char *basic_input_chr (basic_num_t);
+extern basic_num_t basic_peek (basic_num_t);
+extern void basic_poke (basic_num_t, basic_num_t);
 
-extern void basic_open (double, const char *);
-extern void basic_close (double);
-extern void basic_print_hash (double, double);
-extern void basic_print_hash_str (double, const char *);
-extern double basic_input_hash (double);
-extern char *basic_input_hash_str (double);
-extern char *basic_get_hash (double);
-extern void basic_put_hash (double, const char *);
-extern double basic_eof (double);
+extern void basic_open (basic_num_t, const char *);
+extern void basic_close (basic_num_t);
+extern void basic_print_hash (basic_num_t, basic_num_t);
+extern void basic_print_hash_str (basic_num_t, const char *);
+extern basic_num_t basic_input_hash (basic_num_t);
+extern char *basic_input_hash_str (basic_num_t);
+extern char *basic_get_hash (basic_num_t);
+extern void basic_put_hash (basic_num_t, const char *);
+extern basic_num_t basic_eof (basic_num_t);
 
 extern void basic_stop (void);
 
-extern void basic_set_error_handler (double);
-extern double basic_get_error_handler (void);
-extern void basic_set_line (double);
-extern double basic_get_line (void);
-extern void basic_enable_line_tracking (double);
+extern void basic_set_error_handler (basic_num_t);
+extern basic_num_t basic_get_error_handler (void);
+extern void basic_set_line (basic_num_t);
+extern basic_num_t basic_get_line (void);
+extern void basic_enable_line_tracking (basic_num_t);
 
 extern void basic_beep (void);
-extern void basic_sound (double, double);
+extern void basic_sound (basic_num_t, basic_num_t);
 extern double basic_system (const char *);
 extern char *basic_system_out (void);
 
@@ -285,7 +310,7 @@ typedef struct Node Node;
 struct Node {
   NodeKind kind;
   int is_str;
-  double num;
+  basic_num_t num;
   char *var;
   char *str;
   char op;
@@ -874,9 +899,9 @@ static char *parse_id (void) {
   buf[i] = 0;
   return strdup (buf);
 }
-static double parse_number (void) {
+static basic_num_t parse_number (void) {
   skip_ws ();
-  double v = strtod (cur, &cur);
+  basic_num_t v = BASIC_STRTOF (cur, &cur);
   return v;
 }
 static char *parse_string (void) {
@@ -3748,7 +3773,7 @@ static void gen_stmt (Stmt *s) {
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, on_error_proto),
                                         MIR_new_ref_op (g_ctx, on_error_import),
-                                        MIR_new_double_op (g_ctx, (double) s->u.target)));
+                                        MIR_new_double_op (g_ctx, (basic_num_t) s->u.target)));
     break;
   }
   case ST_RESUME: {
@@ -4199,7 +4224,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   MIR_append_insn (g_ctx, g_func,
                    MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, line_track_proto),
                                       MIR_new_ref_op (g_ctx, line_track_import),
-                                      MIR_new_double_op (g_ctx, (double) g_line_tracking)));
+                                      MIR_new_double_op (g_ctx, (basic_num_t) g_line_tracking)));
 
   /* create labels for lines */
   size_t n = prog->len;
@@ -4214,12 +4239,12 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, profile_line_proto),
                                           MIR_new_ref_op (g_ctx, profile_line_import),
-                                          MIR_new_double_op (g_ctx, (double) ln->line)));
+                                          MIR_new_double_op (g_ctx, (basic_num_t) ln->line)));
     if (g_line_tracking)
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, set_line_proto),
                                           MIR_new_ref_op (g_ctx, set_line_import),
-                                          MIR_new_double_op (g_ctx, (double) ln->line)));
+                                          MIR_new_double_op (g_ctx, (basic_num_t) ln->line)));
     for (size_t j = 0; j < ln->stmts.len; j++) {
       gen_stmt (&ln->stmts.data[j]);
     }
