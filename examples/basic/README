@@ -34,6 +34,26 @@ line 30: count 1 time 0.000000001
 func FNA: count 2 time 0.000000002
 ```
 
+MIR Metaprogramming
+-------------------
+The BASIC runtime exposes a small API for constructing and executing MIR code at runtime. Objects such as contexts, modules, functions, registers, and labels are referenced through numeric *handles* returned by helper functions. Instructions are appended by name and operate on these handles, enabling BASIC programs to generate machine code on the fly.
+
+Example:
+
+```
+10 ctx = MIRCTX()
+20 mod = MIRMOD(ctx, "demo")
+30 f = MIRFUNC(mod, "add", 2)
+40 a = MIRREG(f)
+50 b = MIRREG(f)
+60 MIREMIT(f, "DADD", a, a, b)
+70 MIRRET(f, a)
+80 MIRFINISH(mod)
+90 PRINT MIRRUN(f, 2, 3)
+```
+
+This program builds a function that adds its two arguments and prints `5`.
+
 Pi Spigot Example
 -----------------
 The `pi_spigot.bas` program demonstrates generating digits of `PI` using only
@@ -48,3 +68,4 @@ point:
 DIGITS?
 3.14159265358979323846
 ```
+
