@@ -4,14 +4,13 @@ set -eu
 ROOT="$(cd "$(dirname "$0")/../../" && pwd)"
 
 # Determine BASIC compiler binaries to test. If none are supplied as arguments,
-# test the double, long double, and float128 variants built by the makefile.
+# test the double and long double variants built by the makefile.
 if [ "$#" -gt 0 ]; then
         BASICCS=("$@")
 else
         BASICCS=(
                 "$ROOT/basic/basicc"
                 "$ROOT/basic/basicc-ld"
-                "$ROOT/basic/basicc-f128"
         )
 fi
 
