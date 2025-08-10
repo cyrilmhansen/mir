@@ -4747,6 +4747,8 @@ static void repl (void) {
       if (*s == '\0') {
         fprintf (stderr, "missing input file\n");
       } else {
+        func_vec_clear (&func_defs);
+        data_vals_clear ();
         line_vec_destroy (&prog);
         load_program (&prog, s);
       }
@@ -4757,20 +4759,18 @@ static void repl (void) {
       continue;
     }
     if (strcasecmp (s, "NEW") == 0) {
-      line_vec_destroy (&prog);
       func_vec_clear (&func_defs);
       data_vals_clear ();
+      line_vec_destroy (&prog);
       continue;
     }
     if (strcasecmp (s, "QUIT") == 0 || strcasecmp (s, "EXIT") == 0) {
       break;
     }
   }
-  line_vec_clear (&prog);
-  free (prog.data);
   func_vec_clear (&func_defs);
-  free (func_defs.data);
   data_vals_clear ();
+  line_vec_destroy (&prog);
 }
 
 int main (int argc, char **argv) {
