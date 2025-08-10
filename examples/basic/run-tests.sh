@@ -44,9 +44,19 @@ run_tests() {
                         y=$(sed -n '1p' "$in_file")
                         m=$(sed -n '2p' "$in_file")
                         d=$(sed -n '3p' "$in_file")
-                        doy=$(date -d "$y-$m-$d" +%j)
-                        total=$(date -d "$y-12-31" +%j)
-                        diff <(printf "Year: \nMonth: \nDay: \nDays since Jan 1: %d\nDays until Dec 31: %d\n" $((doy-1)) $((total-doy))) "$out"
+                        set -- $(python3 - "$y" "$m" "$d" <<'PY'
+import sys, datetime
+y, m, d = map(int, sys.argv[1:])
+dt = datetime.date(y, m, d)
+print(dt.timetuple().tm_yday, datetime.date(y, 12, 31).timetuple().tm_yday)
+PY
+)
+                        doy=$1
+                        total=$2
+                        exp="$out.expected"
+                        printf "Year: \nMonth: \nDay: \nDays since Jan 1: %d\nDays until Dec 31: %d\n" $((doy-1)) $((total-doy)) > "$exp"
+                        diff "$exp" "$out"
+                        rm -f "$exp"
                 elif [ "$name" = "pi" ]; then
                         grep -q '^PI=3.14159265358979' "$out"
                         grep -q '^TIME=' "$out" >/dev/null
