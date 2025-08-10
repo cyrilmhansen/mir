@@ -1103,6 +1103,7 @@ static Node *parse_factor (void) {
 
 static Node *parse_term (void) {
   Node *n = parse_factor ();
+  if (n == NULL) return NULL;
   while (1) {
     skip_ws ();
     char op = *cur;
@@ -1127,6 +1128,7 @@ static Node *parse_term (void) {
 
 static Node *parse_add (void) {
   Node *n = parse_term ();
+  if (n == NULL) return NULL;
   while (1) {
     skip_ws ();
     char op = *cur;
@@ -2334,6 +2336,10 @@ static LoopInfo *g_loop_stack;
 static size_t g_loop_len, g_loop_cap;
 static int g_line_tracking = 1;
 static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Node *n) {
+  if (n == NULL) {
+    fprintf (stderr, "parse error: null expression\n");
+    exit (1);
+  }
   if (n->is_str) {
     if (n->kind == N_STR) {
       char buf[32];
