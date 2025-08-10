@@ -84,6 +84,13 @@ PY
         grep -q "line tracking" "$ROOT/basic/resume.err"
         echo "resume error OK"
 
+echo "Running dim expression (expect error)"
+if "$BASICC" "$ROOT/examples/basic/dim_expr_error.bas" >/dev/null 2> "$ROOT/basic/dim_expr_error.err"; then
+echo "dim expression should have failed"
+exit 1
+fi
+grep -q "expected integer" "$ROOT/basic/dim_expr_error.err"
+echo "dim expression error OK"
 
         echo "Running fleuves (no explain)"
         timeout 10 "$BASICC" "$ROOT/examples/basic/fleuves.bas" < "$ROOT/examples/basic/fleuves.in" >/dev/null || true
