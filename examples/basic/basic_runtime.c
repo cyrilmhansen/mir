@@ -790,10 +790,10 @@ double basic_mir_func (double mod_h, const char *name, double nargs_d) {
   MIR_type_t res = MIR_T_D;
   MIR_var_t *vars = nargs ? malloc (nargs * sizeof (MIR_var_t)) : NULL;
   for (size_t i = 0; i < nargs; i++) {
-    char *arg_name = malloc (16);
-    sprintf (arg_name, "a%zu", i);
+    char buf[32];
+    snprintf (buf, sizeof (buf), "a%zu", i);
     vars[i].type = MIR_T_D;
-    vars[i].name = arg_name;
+    vars[i].name = strdup (buf);
   }
   MIR_item_t func = MIR_new_func_arr (ctx, name, 1, &res, nargs, vars);
   free (vars); /* arg names are kept by MIR */
@@ -811,8 +811,8 @@ double basic_mir_reg (double func_h) {
   MIR_context_t ctx = h->ctx;
   MIR_reg_t r;
   if (fh->next_arg < fh->nargs) {
-    char name[16];
-    sprintf (name, "a%zu", fh->next_arg++);
+    char name[32];
+    snprintf (name, sizeof (name), "a%zu", fh->next_arg++);
     r = MIR_reg (ctx, name, fh->item->u.func);
   } else {
     r = MIR_new_func_reg (ctx, fh->item->u.func, MIR_T_D, NULL);
