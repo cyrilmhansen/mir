@@ -168,15 +168,8 @@ char *basic_strdup (const char *s) { return strdup (s); }
 
 basic_num_t basic_input (void) {
   basic_num_t x = 0.0;
-#if defined(BASIC_USE_FLOAT128)
-  char buf[128];
-  if (scanf ("%127s", buf) != 1) return 0.0;
-  x = BASIC_STRTOF (buf, NULL);
-  return x;
-#else
   if (scanf (BASIC_NUM_SCANF, &x) != 1) return 0.0;
   return x;
-#endif
 }
 
 void basic_print (basic_num_t x) {
@@ -289,15 +282,9 @@ void basic_print_hash_str (basic_num_t n, const char *s) {
 basic_num_t basic_input_hash (basic_num_t n) {
   int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return 0.0;
-#if defined(BASIC_USE_FLOAT128)
-  char buf[128];
-  if (fscanf (basic_files[idx], "%127s", buf) != 1) return 0.0;
-  return BASIC_STRTOF (buf, NULL);
-#else
   basic_num_t x = 0.0;
   if (fscanf (basic_files[idx], BASIC_NUM_SCANF, &x) != 1) return 0.0;
   return x;
-#endif
 }
 
 /* Read a line from an open file and return a newly allocated string.
