@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 #include <math.h>
 #include <stdint.h>
@@ -823,7 +824,7 @@ double basic_mir_emit (double func_h, const char *op, double a, double b, double
   MIR_context_t ctx = h->ctx;
   MIR_insn_code_t code;
   for (code = 0; code < MIR_INSN_BOUND; code++)
-    if (strcmp (op, MIR_insn_name (ctx, code)) == 0) break;
+    if (strcasecmp (op, MIR_insn_name (ctx, code)) == 0) break;
   if (code >= MIR_INSN_BOUND) return 0.0;
   double vals[3] = {a, b, c};
   MIR_op_t ops[3];
