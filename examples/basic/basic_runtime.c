@@ -428,6 +428,17 @@ char *basic_string (basic_num_t n, const char *s) {
   return res;
 }
 
+/* Concatenate A and B into a newly allocated string.
+   Caller must free the result with basic_free. */
+char *basic_concat (const char *a, const char *b) {
+  size_t la = strlen (a);
+  size_t lb = strlen (b);
+  char *res = malloc (la + lb + 1);
+  memcpy (res, a, la);
+  memcpy (res + la, b, lb + 1);
+  return res;
+}
+
 /* Return the leftmost N characters of S as a newly allocated string.
    Caller must free the result with basic_free. */
 char *basic_left (const char *s, basic_num_t n) {
