@@ -459,7 +459,8 @@ struct Stmt {
     } let;
     struct {
       Node *cond;
-      StmtVec stmts;
+      StmtVec then_stmts;
+      StmtVec else_stmts;
     } iff;
     struct {
       char *var;
@@ -690,7 +691,8 @@ static void free_stmt (Stmt *s) {
     break;
   case ST_IF:
     free_node (s->u.iff.cond);
-    free_stmt_vec (&s->u.iff.stmts);
+    free_stmt_vec (&s->u.iff.then_stmts);
+    free_stmt_vec (&s->u.iff.else_stmts);
     break;
   case ST_INPUT: free (s->u.input.var); break;
   case ST_GET: free (s->u.get.var); break;
@@ -1753,7 +1755,7 @@ static int parse_stmt (Stmt *out) {
     if (strncasecmp (cur, "THEN", 4) != 0) return 0;
     cur += 4;
     skip_ws ();
-    s.u.iff.stmts = (StmtVec) {0};
+    s.u.iff.then_stmts = (StmtVec) {0};
     for (;;) {
       Stmt bs;
       if (isdigit ((unsigned char) *cur)) {
@@ -1774,7 +1776,7 @@ static int parse_stmt (Stmt *out) {
           }
           while (1) {
             skip_ws ();
-            if (*cur == ':' || *cur == '\0') break;
+            if (*cur == ':' || *cur == '\0' || strncasecmp (cur, "ELSE", 4) == 0) break;
             Node *e = parse_expr ();
             if (bs.kind == ST_PRINT) {
               if (bs.u.print.n == cap) {
@@ -1793,7 +1795,7 @@ static int parse_stmt (Stmt *out) {
             if (*cur == ';' || *cur == ',') {
               cur++;
               skip_ws ();
-              if (*cur == ':' || *cur == '\0') {
+              if (*cur == ':' || *cur == '\0' || strncasecmp (cur, "ELSE", 4) == 0) {
                 if (bs.kind == ST_PRINT)
                   bs.u.print.no_nl = 1;
                 else
@@ -1807,7 +1809,7 @@ static int parse_stmt (Stmt *out) {
           skip_ws ();
         }
       }
-      stmt_vec_push (&s.u.iff.stmts, bs);
+      stmt_vec_push (&s.u.iff.then_stmts, bs);
       skip_ws ();
       if (*cur == ':') {
         do {
@@ -1815,9 +1817,81 @@ static int parse_stmt (Stmt *out) {
           skip_ws ();
         } while (*cur == ':');
         if (*cur == '\0') break;
+        if (strncasecmp (cur, "ELSE", 4) == 0) break;
         continue;
       }
       break;
+    }
+    skip_ws ();
+    s.u.iff.else_stmts = (StmtVec) {0};
+    if (strncasecmp (cur, "ELSE", 4) == 0) {
+      cur += 4;
+      skip_ws ();
+      for (;;) {
+        Stmt bs;
+        if (isdigit ((unsigned char) *cur)) {
+          bs.kind = ST_GOTO;
+          bs.u.target = parse_int ();
+        } else {
+          if (!parse_stmt (&bs)) return 0;
+          if (bs.kind == ST_PRINT || bs.kind == ST_PRINT_HASH) {
+            size_t cap = 0;
+            if (bs.kind == ST_PRINT) {
+              bs.u.print.items = NULL;
+              bs.u.print.n = 0;
+              bs.u.print.no_nl = 0;
+            } else {
+              bs.u.printhash.items = NULL;
+              bs.u.printhash.n = 0;
+              bs.u.printhash.no_nl = 0;
+            }
+            while (1) {
+              skip_ws ();
+              if (*cur == ':' || *cur == '\0') break;
+              Node *e = parse_expr ();
+              if (bs.kind == ST_PRINT) {
+                if (bs.u.print.n == cap) {
+                  cap = cap ? cap * 2 : 4;
+                  bs.u.print.items = realloc (bs.u.print.items, cap * sizeof (Node *));
+                }
+                bs.u.print.items[bs.u.print.n++] = e;
+              } else {
+                if (bs.u.printhash.n == cap) {
+                  cap = cap ? cap * 2 : 4;
+                  bs.u.printhash.items = realloc (bs.u.printhash.items, cap * sizeof (Node *));
+                }
+                bs.u.printhash.items[bs.u.printhash.n++] = e;
+              }
+              skip_ws ();
+              if (*cur == ';' || *cur == ',') {
+                cur++;
+                skip_ws ();
+                if (*cur == ':' || *cur == '\0') {
+                  if (bs.kind == ST_PRINT)
+                    bs.u.print.no_nl = 1;
+                  else
+                    bs.u.printhash.no_nl = 1;
+                  break;
+                }
+                continue;
+              }
+              break;
+            }
+            skip_ws ();
+          }
+        }
+        stmt_vec_push (&s.u.iff.else_stmts, bs);
+        skip_ws ();
+        if (*cur == ':') {
+          do {
+            cur++;
+            skip_ws ();
+          } while (*cur == ':');
+          if (*cur == '\0') break;
+          continue;
+        }
+        break;
+      }
     }
     *out = s;
     return 1;
@@ -3649,13 +3723,16 @@ static void gen_stmt (Stmt *s) {
     break;
   }
   case ST_IF: {
-    MIR_label_t skip = MIR_new_label (g_ctx);
+    MIR_label_t else_label = MIR_new_label (g_ctx), end = MIR_new_label (g_ctx);
     MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.iff.cond);
     MIR_append_insn (g_ctx, g_func,
-                     MIR_new_insn (g_ctx, MIR_DBEQ, MIR_new_label_op (g_ctx, skip),
+                     MIR_new_insn (g_ctx, MIR_DBEQ, MIR_new_label_op (g_ctx, else_label),
                                    MIR_new_reg_op (g_ctx, r), MIR_new_double_op (g_ctx, 0.0)));
-    for (size_t k = 0; k < s->u.iff.stmts.len; k++) gen_stmt (&s->u.iff.stmts.data[k]);
-    MIR_append_insn (g_ctx, g_func, skip);
+    for (size_t k = 0; k < s->u.iff.then_stmts.len; k++) gen_stmt (&s->u.iff.then_stmts.data[k]);
+    MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, end)));
+    MIR_append_insn (g_ctx, g_func, else_label);
+    for (size_t k = 0; k < s->u.iff.else_stmts.len; k++) gen_stmt (&s->u.iff.else_stmts.data[k]);
+    MIR_append_insn (g_ctx, g_func, end);
     break;
   }
   case ST_ON_GOTO: {
