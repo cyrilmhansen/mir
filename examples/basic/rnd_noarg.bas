@@ -1,0 +1,3 @@
+X = RND
+IF X >= 0 THEN PRINT 1 ELSE PRINT 0
+
