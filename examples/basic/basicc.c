@@ -2246,8 +2246,6 @@ static int load_program (LineVec *prog, const char *path) {
     perror (path);
     return 0;
   }
-  func_vec_clear (&func_defs);
-  data_vals_clear ();
   int auto_line = 10;
   char line[256];
   while (fgets (line, sizeof (line), f)) {
