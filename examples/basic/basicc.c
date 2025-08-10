@@ -508,8 +508,8 @@ struct Stmt {
     } read;
     struct {
       char **names;
-      int *sizes1;
-      int *sizes2;
+      Node **sizes1;
+      Node **sizes2;
       int *is_str;
       size_t n;
     } dim;
@@ -728,7 +728,11 @@ static void free_stmt (Stmt *s) {
     free (s->u.read.vars);
     break;
   case ST_DIM:
-    for (size_t i = 0; i < s->u.dim.n; i++) free (s->u.dim.names[i]);
+    for (size_t i = 0; i < s->u.dim.n; i++) {
+      free (s->u.dim.names[i]);
+      free_node (s->u.dim.sizes1[i]);
+      free_node (s->u.dim.sizes2[i]);
+    }
     free (s->u.dim.names);
     free (s->u.dim.sizes1);
     free (s->u.dim.sizes2);
@@ -1301,16 +1305,14 @@ static int parse_stmt (Parser *p, Stmt *out) {
       char *name = parse_id (p);
       int is_str = name[strlen (name) - 1] == '$';
       skip_ws (p);
-      int size1 = 0, size2 = 0;
+      Node *size1 = NULL, *size2 = NULL;
       if (*cur == '(') {
         cur++;
-        size1 = parse_int (p);
-        size1 = size1 - array_base + 1;
+        size1 = parse_expr (p);
         skip_ws (p);
         if (*cur == ',') {
           cur++;
-          size2 = parse_int (p);
-          size2 = size2 - array_base + 1;
+          size2 = parse_expr (p);
           skip_ws (p);
         }
         if (*cur == ')') cur++;
@@ -1318,8 +1320,8 @@ static int parse_stmt (Parser *p, Stmt *out) {
       if (out->u.dim.n == cap) {
         cap = cap ? 2 * cap : 4;
         out->u.dim.names = realloc (out->u.dim.names, cap * sizeof (char *));
-        out->u.dim.sizes1 = realloc (out->u.dim.sizes1, cap * sizeof (int));
-        out->u.dim.sizes2 = realloc (out->u.dim.sizes2, cap * sizeof (int));
+        out->u.dim.sizes1 = realloc (out->u.dim.sizes1, cap * sizeof (Node *));
+        out->u.dim.sizes2 = realloc (out->u.dim.sizes2, cap * sizeof (Node *));
         out->u.dim.is_str = realloc (out->u.dim.is_str, cap * sizeof (int));
       }
       out->u.dim.names[out->u.dim.n] = name;
@@ -3274,148 +3276,127 @@ static int ctab_writer (MIR_context_t ctx MIR_UNUSED, uint8_t byte) {
   return 1;
 }
 
+static void call1 (MIR_item_t proto, MIR_item_t import, MIR_op_t a) {
+  MIR_append_insn (g_ctx, g_func,
+                   MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, proto),
+                                      MIR_new_ref_op (g_ctx, import), a));
+}
+
+static void call2 (MIR_item_t proto, MIR_item_t import, MIR_op_t a0, MIR_op_t a1) {
+  MIR_append_insn (g_ctx, g_func,
+                   MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, proto),
+                                      MIR_new_ref_op (g_ctx, import), a0, a1));
+}
+
+static void print_str (MIR_str_t str) {
+  call1 (prints_proto, prints_import, MIR_new_str_op (g_ctx, str));
+}
+
+static void print_item (Node *e, Node *next) {
+  MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, e);
+  call1 (e->is_str ? prints_proto : print_proto, e->is_str ? prints_import : print_import,
+         MIR_new_reg_op (g_ctx, r));
+  if (!e->is_str && next != NULL && !next->is_str) print_str ((MIR_str_t) {2, " "});
+}
+
+static void print_hash_str (MIR_reg_t fn, MIR_str_t str) {
+  call2 (prinths_proto, prinths_import, MIR_new_reg_op (g_ctx, fn), MIR_new_str_op (g_ctx, str));
+}
+
+static void print_hash_item (MIR_reg_t fn, Node *e, Node *next) {
+  MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, e);
+  call2 (e->is_str ? prinths_proto : printh_proto, e->is_str ? prinths_import : printh_import,
+         MIR_new_reg_op (g_ctx, fn), MIR_new_reg_op (g_ctx, r));
+  if (!e->is_str && next != NULL && !next->is_str) print_hash_str (fn, (MIR_str_t) {2, " "});
+}
+
+static void gen_print (Stmt *s) {
+  for (size_t k = 0; k < s->u.print.n; k++)
+    print_item (s->u.print.items[k], k + 1 < s->u.print.n ? s->u.print.items[k + 1] : NULL);
+  if (!s->u.print.no_nl) print_str ((MIR_str_t) {2, "\n"});
+}
+
+static void gen_print_hash (Stmt *s) {
+  MIR_reg_t fn = gen_expr (g_ctx, g_func, &g_vars, s->u.printhash.num);
+  for (size_t k = 0; k < s->u.printhash.n; k++)
+    print_hash_item (fn, s->u.printhash.items[k],
+                     k + 1 < s->u.printhash.n ? s->u.printhash.items[k + 1] : NULL);
+  if (!s->u.printhash.no_nl) print_hash_str (fn, (MIR_str_t) {2, "\n"});
+}
+
+static void input_str_var (MIR_reg_t v) {
+  call1 (free_proto, free_import, MIR_new_reg_op (g_ctx, v));
+  call1 (input_str_proto, input_str_import, MIR_new_reg_op (g_ctx, v));
+}
+
+static void input_num_var (MIR_reg_t v) {
+  call1 (input_proto, input_import, MIR_new_reg_op (g_ctx, v));
+}
+
+static void gen_input (Stmt *s) {
+  MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.input.var);
+  (s->u.input.is_str ? input_str_var : input_num_var) (v);
+}
+
+static void input_hash_str (MIR_reg_t v, MIR_reg_t fn) {
+  call1 (free_proto, free_import, MIR_new_reg_op (g_ctx, v));
+  call2 (input_hash_str_proto, input_hash_str_import, MIR_new_reg_op (g_ctx, v),
+         MIR_new_reg_op (g_ctx, fn));
+}
+
+static void input_hash_num (MIR_reg_t v, MIR_reg_t fn) {
+  call2 (input_hash_proto, input_hash_import, MIR_new_reg_op (g_ctx, v),
+         MIR_new_reg_op (g_ctx, fn));
+}
+
+static void gen_input_hash (Stmt *s) {
+  MIR_reg_t fn = gen_expr (g_ctx, g_func, &g_vars, s->u.inputhash.num);
+  MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.inputhash.var);
+  (s->u.inputhash.is_str ? input_hash_str : input_hash_num) (v, fn);
+}
+
+static void gen_get (Stmt *s) {
+  MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.get.var);
+  call1 (free_proto, free_import, MIR_new_reg_op (g_ctx, v));
+  call1 (get_proto, get_import, MIR_new_reg_op (g_ctx, v));
+}
+
+static void gen_get_hash (Stmt *s) {
+  MIR_reg_t fn = gen_expr (g_ctx, g_func, &g_vars, s->u.gethash.num);
+  MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.gethash.var);
+  call1 (free_proto, free_import, MIR_new_reg_op (g_ctx, v));
+  call2 (get_hash_proto, get_hash_import, MIR_new_reg_op (g_ctx, v), MIR_new_reg_op (g_ctx, fn));
+}
+
+static void gen_put (Stmt *s) {
+  MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.put.expr);
+  call1 (put_proto, put_import, MIR_new_reg_op (g_ctx, r));
+}
+
+static void gen_put_hash (Stmt *s) {
+  MIR_reg_t fn = gen_expr (g_ctx, g_func, &g_vars, s->u.puthash.num);
+  MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.puthash.expr);
+  call2 (put_hash_proto, put_hash_import, MIR_new_reg_op (g_ctx, fn), MIR_new_reg_op (g_ctx, r));
+}
+
+static void gen_poke (Stmt *s) {
+  MIR_reg_t addr = gen_expr (g_ctx, g_func, &g_vars, s->u.poke.addr);
+  MIR_reg_t val = gen_expr (g_ctx, g_func, &g_vars, s->u.poke.value);
+  call2 (poke_proto, poke_import, MIR_new_reg_op (g_ctx, addr), MIR_new_reg_op (g_ctx, val));
+}
+
 static void gen_stmt (Stmt *s) {
   switch (s->kind) {
   case ST_DEF: break;
-  case ST_PRINT: {
-    for (size_t k = 0; k < s->u.print.n; k++) {
-      Node *e = s->u.print.items[k];
-      MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, e);
-      MIR_item_t proto = e->is_str ? prints_proto : print_proto;
-      MIR_item_t import = e->is_str ? prints_import : print_import;
-      MIR_append_insn (g_ctx, g_func,
-                       MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, proto),
-                                          MIR_new_ref_op (g_ctx, import),
-                                          MIR_new_reg_op (g_ctx, r)));
-      if (!e->is_str && k + 1 < s->u.print.n && !s->u.print.items[k + 1]->is_str)
-        MIR_append_insn (g_ctx, g_func,
-                         MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, prints_proto),
-                                            MIR_new_ref_op (g_ctx, prints_import),
-                                            MIR_new_str_op (g_ctx, (MIR_str_t) {2, " "})));
-    }
-    if (!s->u.print.no_nl)
-      MIR_append_insn (g_ctx, g_func,
-                       MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, prints_proto),
-                                          MIR_new_ref_op (g_ctx, prints_import),
-                                          MIR_new_str_op (g_ctx, (MIR_str_t) {2, "\n"})));
-    break;
-  }
-  case ST_PRINT_HASH: {
-    MIR_reg_t fn = gen_expr (g_ctx, g_func, &g_vars, s->u.printhash.num);
-    for (size_t k = 0; k < s->u.printhash.n; k++) {
-      Node *e = s->u.printhash.items[k];
-      MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, e);
-      MIR_item_t proto = e->is_str ? prinths_proto : printh_proto;
-      MIR_item_t import = e->is_str ? prinths_import : printh_import;
-      MIR_append_insn (g_ctx, g_func,
-                       MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, proto),
-                                          MIR_new_ref_op (g_ctx, import),
-                                          MIR_new_reg_op (g_ctx, fn), MIR_new_reg_op (g_ctx, r)));
-      if (!e->is_str && k + 1 < s->u.printhash.n && !s->u.printhash.items[k + 1]->is_str)
-        MIR_append_insn (g_ctx, g_func,
-                         MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, prinths_proto),
-                                            MIR_new_ref_op (g_ctx, prinths_import),
-                                            MIR_new_reg_op (g_ctx, fn),
-                                            MIR_new_str_op (g_ctx, (MIR_str_t) {2, " "})));
-    }
-    if (!s->u.printhash.no_nl)
-      MIR_append_insn (g_ctx, g_func,
-                       MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, prinths_proto),
-                                          MIR_new_ref_op (g_ctx, prinths_import),
-                                          MIR_new_reg_op (g_ctx, fn),
-                                          MIR_new_str_op (g_ctx, (MIR_str_t) {2, "\n"})));
-    break;
-  }
-  case ST_INPUT: {
-    MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.input.var);
-    if (s->u.input.is_str) {
-      MIR_append_insn (g_ctx, g_func,
-                       MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
-                                          MIR_new_ref_op (g_ctx, free_import),
-                                          MIR_new_reg_op (g_ctx, v)));
-      MIR_append_insn (g_ctx, g_func,
-                       MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, input_str_proto),
-                                          MIR_new_ref_op (g_ctx, input_str_import),
-                                          MIR_new_reg_op (g_ctx, v)));
-    } else {
-      MIR_append_insn (g_ctx, g_func,
-                       MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, input_proto),
-                                          MIR_new_ref_op (g_ctx, input_import),
-                                          MIR_new_reg_op (g_ctx, v)));
-    }
-    break;
-  }
-  case ST_INPUT_HASH: {
-    MIR_reg_t fn = gen_expr (g_ctx, g_func, &g_vars, s->u.inputhash.num);
-    MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.inputhash.var);
-    if (s->u.inputhash.is_str) {
-      MIR_append_insn (g_ctx, g_func,
-                       MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
-                                          MIR_new_ref_op (g_ctx, free_import),
-                                          MIR_new_reg_op (g_ctx, v)));
-      MIR_append_insn (g_ctx, g_func,
-                       MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, input_hash_str_proto),
-                                          MIR_new_ref_op (g_ctx, input_hash_str_import),
-                                          MIR_new_reg_op (g_ctx, v), MIR_new_reg_op (g_ctx, fn)));
-    } else {
-      MIR_append_insn (g_ctx, g_func,
-                       MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, input_hash_proto),
-                                          MIR_new_ref_op (g_ctx, input_hash_import),
-                                          MIR_new_reg_op (g_ctx, v), MIR_new_reg_op (g_ctx, fn)));
-    }
-    break;
-  }
-  case ST_GET: {
-    MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.get.var);
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
-                                        MIR_new_ref_op (g_ctx, free_import),
-                                        MIR_new_reg_op (g_ctx, v)));
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, get_proto),
-                                        MIR_new_ref_op (g_ctx, get_import),
-                                        MIR_new_reg_op (g_ctx, v)));
-    break;
-  }
-  case ST_GET_HASH: {
-    MIR_reg_t fn = gen_expr (g_ctx, g_func, &g_vars, s->u.gethash.num);
-    MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.gethash.var);
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
-                                        MIR_new_ref_op (g_ctx, free_import),
-                                        MIR_new_reg_op (g_ctx, v)));
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, get_hash_proto),
-                                        MIR_new_ref_op (g_ctx, get_hash_import),
-                                        MIR_new_reg_op (g_ctx, v), MIR_new_reg_op (g_ctx, fn)));
-    break;
-  }
-  case ST_PUT: {
-    MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.put.expr);
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, put_proto),
-                                        MIR_new_ref_op (g_ctx, put_import),
-                                        MIR_new_reg_op (g_ctx, r)));
-    break;
-  }
-  case ST_PUT_HASH: {
-    MIR_reg_t fn = gen_expr (g_ctx, g_func, &g_vars, s->u.puthash.num);
-    MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.puthash.expr);
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, put_hash_proto),
-                                        MIR_new_ref_op (g_ctx, put_hash_import),
-                                        MIR_new_reg_op (g_ctx, fn), MIR_new_reg_op (g_ctx, r)));
-    break;
-  }
-  case ST_POKE: {
-    MIR_reg_t addr = gen_expr (g_ctx, g_func, &g_vars, s->u.poke.addr);
-    MIR_reg_t val = gen_expr (g_ctx, g_func, &g_vars, s->u.poke.value);
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, poke_proto),
-                                        MIR_new_ref_op (g_ctx, poke_import),
-                                        MIR_new_reg_op (g_ctx, addr), MIR_new_reg_op (g_ctx, val)));
-    break;
-  }
+  case ST_PRINT: gen_print (s); break;
+  case ST_PRINT_HASH: gen_print_hash (s); break;
+  case ST_INPUT: gen_input (s); break;
+  case ST_INPUT_HASH: gen_input_hash (s); break;
+  case ST_GET: gen_get (s); break;
+  case ST_GET_HASH: gen_get_hash (s); break;
+  case ST_PUT: gen_put (s); break;
+  case ST_PUT_HASH: gen_put_hash (s); break;
+  case ST_POKE: gen_poke (s); break;
   case ST_READ: {
     for (size_t k = 0; k < s->u.read.n; k++) {
       Node *v = s->u.read.vars[k];
@@ -4161,14 +4142,48 @@ static void gen_stmt (Stmt *s) {
   }
   case ST_DIM: {
     for (size_t k = 0; k < s->u.dim.n; k++) {
-      MIR_reg_t base = get_array (&g_vars, g_ctx, g_func, s->u.dim.names[k], s->u.dim.sizes1[k],
-                                  s->u.dim.sizes2[k], s->u.dim.is_str[k]);
-      size_t total = s->u.dim.sizes1[k] * (s->u.dim.sizes2[k] ? s->u.dim.sizes2[k] : 1);
+      if (s->u.dim.sizes1[k] == NULL) continue;
+      size_t csize1 = 0, csize2 = 0;
+      if (s->u.dim.sizes1[k]->kind == N_NUM) csize1 = s->u.dim.sizes1[k]->num - array_base + 1;
+      if (s->u.dim.sizes2[k] != NULL && s->u.dim.sizes2[k]->kind == N_NUM)
+        csize2 = s->u.dim.sizes2[k]->num - array_base + 1;
+      MIR_reg_t base
+        = get_array (&g_vars, g_ctx, g_func, s->u.dim.names[k], csize1, csize2, s->u.dim.is_str[k]);
+      MIR_reg_t size1d = gen_expr (g_ctx, g_func, &g_vars, s->u.dim.sizes1[k]);
+      char buf[32];
+      sprintf (buf, "$t%d", tmp_id++);
+      MIR_reg_t size1 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, size1),
+                                     MIR_new_reg_op (g_ctx, size1d)));
+      if (1 - array_base != 0)
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, size1),
+                                       MIR_new_reg_op (g_ctx, size1),
+                                       MIR_new_int_op (g_ctx, 1 - array_base)));
+      MIR_reg_t total = size1;
+      if (s->u.dim.sizes2[k] != NULL) {
+        MIR_reg_t size2d = gen_expr (g_ctx, g_func, &g_vars, s->u.dim.sizes2[k]);
+        sprintf (buf, "$t%d", tmp_id++);
+        MIR_reg_t size2 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, size2),
+                                       MIR_new_reg_op (g_ctx, size2d)));
+        if (1 - array_base != 0)
+          MIR_append_insn (g_ctx, g_func,
+                           MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, size2),
+                                         MIR_new_reg_op (g_ctx, size2),
+                                         MIR_new_int_op (g_ctx, 1 - array_base)));
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_MUL, MIR_new_reg_op (g_ctx, total),
+                                       MIR_new_reg_op (g_ctx, total),
+                                       MIR_new_reg_op (g_ctx, size2)));
+      }
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_call_insn (g_ctx, 5, MIR_new_ref_op (g_ctx, calloc_proto),
                                           MIR_new_ref_op (g_ctx, calloc_import),
                                           MIR_new_reg_op (g_ctx, base),
-                                          MIR_new_int_op (g_ctx, total),
+                                          MIR_new_reg_op (g_ctx, total),
                                           MIR_new_int_op (g_ctx, 8)));
     }
     break;
