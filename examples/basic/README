@@ -33,3 +33,18 @@ line 20: count 1 time 0.000000001
 line 30: count 1 time 0.000000001
 func FNA: count 2 time 0.000000002
 ```
+
+Pi Spigot Example
+-----------------
+The `pi_spigot.bas` program demonstrates generating digits of `PI` using only
+integer arithmetic.  It builds the result as a string one digit at a time via a
+spigot algorithm.
+
+Run the sample with the BASIC compiler and provide the desired number of digits
+at the prompt.  For example, supplying `20` produces 20 digits after the decimal
+point:
+
+```
+DIGITS?
+3.14159265358979323846
+```
