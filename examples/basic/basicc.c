@@ -508,8 +508,8 @@ struct Stmt {
     } read;
     struct {
       char **names;
-      int *sizes1;
-      int *sizes2;
+      Node **sizes1;
+      Node **sizes2;
       int *is_str;
       size_t n;
     } dim;
@@ -728,7 +728,11 @@ static void free_stmt (Stmt *s) {
     free (s->u.read.vars);
     break;
   case ST_DIM:
-    for (size_t i = 0; i < s->u.dim.n; i++) free (s->u.dim.names[i]);
+    for (size_t i = 0; i < s->u.dim.n; i++) {
+      free (s->u.dim.names[i]);
+      free_node (s->u.dim.sizes1[i]);
+      free_node (s->u.dim.sizes2[i]);
+    }
     free (s->u.dim.names);
     free (s->u.dim.sizes1);
     free (s->u.dim.sizes2);
@@ -1296,16 +1300,14 @@ static int parse_stmt (Parser *p, Stmt *out) {
       char *name = parse_id (p);
       int is_str = name[strlen (name) - 1] == '$';
       skip_ws (p);
-      int size1 = 0, size2 = 0;
+      Node *size1 = NULL, *size2 = NULL;
       if (*cur == '(') {
         cur++;
-        size1 = parse_int (p);
-        size1 = size1 - array_base + 1;
+        size1 = parse_expr (p);
         skip_ws (p);
         if (*cur == ',') {
           cur++;
-          size2 = parse_int (p);
-          size2 = size2 - array_base + 1;
+          size2 = parse_expr (p);
           skip_ws (p);
         }
         if (*cur == ')') cur++;
@@ -1313,8 +1315,8 @@ static int parse_stmt (Parser *p, Stmt *out) {
       if (out->u.dim.n == cap) {
         cap = cap ? 2 * cap : 4;
         out->u.dim.names = realloc (out->u.dim.names, cap * sizeof (char *));
-        out->u.dim.sizes1 = realloc (out->u.dim.sizes1, cap * sizeof (int));
-        out->u.dim.sizes2 = realloc (out->u.dim.sizes2, cap * sizeof (int));
+        out->u.dim.sizes1 = realloc (out->u.dim.sizes1, cap * sizeof (Node *));
+        out->u.dim.sizes2 = realloc (out->u.dim.sizes2, cap * sizeof (Node *));
         out->u.dim.is_str = realloc (out->u.dim.is_str, cap * sizeof (int));
       }
       out->u.dim.names[out->u.dim.n] = name;
@@ -4154,14 +4156,48 @@ static void gen_stmt (Stmt *s) {
   }
   case ST_DIM: {
     for (size_t k = 0; k < s->u.dim.n; k++) {
-      MIR_reg_t base = get_array (&g_vars, g_ctx, g_func, s->u.dim.names[k], s->u.dim.sizes1[k],
-                                  s->u.dim.sizes2[k], s->u.dim.is_str[k]);
-      size_t total = s->u.dim.sizes1[k] * (s->u.dim.sizes2[k] ? s->u.dim.sizes2[k] : 1);
+      if (s->u.dim.sizes1[k] == NULL) continue;
+      size_t csize1 = 0, csize2 = 0;
+      if (s->u.dim.sizes1[k]->kind == N_NUM) csize1 = s->u.dim.sizes1[k]->num - array_base + 1;
+      if (s->u.dim.sizes2[k] != NULL && s->u.dim.sizes2[k]->kind == N_NUM)
+        csize2 = s->u.dim.sizes2[k]->num - array_base + 1;
+      MIR_reg_t base
+        = get_array (&g_vars, g_ctx, g_func, s->u.dim.names[k], csize1, csize2, s->u.dim.is_str[k]);
+      MIR_reg_t size1d = gen_expr (g_ctx, g_func, &g_vars, s->u.dim.sizes1[k]);
+      char buf[32];
+      sprintf (buf, "$t%d", tmp_id++);
+      MIR_reg_t size1 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, size1),
+                                     MIR_new_reg_op (g_ctx, size1d)));
+      if (1 - array_base != 0)
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, size1),
+                                       MIR_new_reg_op (g_ctx, size1),
+                                       MIR_new_int_op (g_ctx, 1 - array_base)));
+      MIR_reg_t total = size1;
+      if (s->u.dim.sizes2[k] != NULL) {
+        MIR_reg_t size2d = gen_expr (g_ctx, g_func, &g_vars, s->u.dim.sizes2[k]);
+        sprintf (buf, "$t%d", tmp_id++);
+        MIR_reg_t size2 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, size2),
+                                       MIR_new_reg_op (g_ctx, size2d)));
+        if (1 - array_base != 0)
+          MIR_append_insn (g_ctx, g_func,
+                           MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, size2),
+                                         MIR_new_reg_op (g_ctx, size2),
+                                         MIR_new_int_op (g_ctx, 1 - array_base)));
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_MUL, MIR_new_reg_op (g_ctx, total),
+                                       MIR_new_reg_op (g_ctx, total),
+                                       MIR_new_reg_op (g_ctx, size2)));
+      }
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_call_insn (g_ctx, 5, MIR_new_ref_op (g_ctx, calloc_proto),
                                           MIR_new_ref_op (g_ctx, calloc_import),
                                           MIR_new_reg_op (g_ctx, base),
-                                          MIR_new_int_op (g_ctx, total),
+                                          MIR_new_reg_op (g_ctx, total),
                                           MIR_new_int_op (g_ctx, 8)));
     }
     break;
