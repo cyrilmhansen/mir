@@ -114,6 +114,7 @@ extern void basic_mode (basic_num_t);
 
 extern char *basic_chr (basic_num_t);
 extern char *basic_string (basic_num_t, const char *);
+extern char *basic_concat (const char *, const char *);
 extern char *basic_left (const char *, basic_num_t);
 extern char *basic_right (const char *, basic_num_t);
 extern char *basic_mid (const char *, basic_num_t, basic_num_t);
@@ -242,6 +243,7 @@ static void *resolve (const char *name) {
 
   if (!strcmp (name, "basic_chr")) return basic_chr;
   if (!strcmp (name, "basic_string")) return basic_string;
+  if (!strcmp (name, "basic_concat")) return basic_concat;
   if (!strcmp (name, "basic_left")) return basic_left;
   if (!strcmp (name, "basic_right")) return basic_right;
   if (!strcmp (name, "basic_mid")) return basic_mid;
@@ -292,18 +294,19 @@ static void *resolve (const char *name) {
 
 /* Runtime call prototypes for expressions */
 static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, string_import,
-  int_proto, int_import, timer_proto, timer_import, time_proto, time_import, time_str_proto,
-  time_str_import, date_proto, date_import, date_str_proto, date_str_import, input_chr_proto,
-  input_chr_import, peek_proto, peek_import, eof_proto, eof_import, abs_proto, abs_import,
-  sgn_proto, sgn_import, inkey_proto, inkey_import, sqr_proto, sqr_import, sin_proto, sin_import,
-  cos_proto, cos_import, tan_proto, tan_import, atn_proto, atn_import, log_proto, log_import,
-  exp_proto, exp_import, left_proto, left_import, right_proto, right_import, mid_proto, mid_import,
-  len_proto, len_import, val_proto, val_import, str_proto, str_import, asc_proto, asc_import,
-  pos_proto, pos_import, instr_proto, instr_import, strdup_proto, strdup_import, mir_ctx_proto,
-  mir_ctx_import, mir_mod_proto, mir_mod_import, mir_func_proto, mir_func_import, mir_reg_proto,
-  mir_reg_import, mir_label_proto, mir_label_import, mir_emit_proto, mir_emit_import,
-  mir_emitlbl_proto, mir_emitlbl_import, mir_ret_proto, mir_ret_import, mir_finish_proto,
-  mir_finish_import, mir_run_proto, mir_run_import, mir_dump_proto, mir_dump_import;
+  concat_proto, concat_import, int_proto, int_import, timer_proto, timer_import, time_proto,
+  time_import, time_str_proto, time_str_import, date_proto, date_import, date_str_proto,
+  date_str_import, input_chr_proto, input_chr_import, peek_proto, peek_import, eof_proto,
+  eof_import, abs_proto, abs_import, sgn_proto, sgn_import, inkey_proto, inkey_import, sqr_proto,
+  sqr_import, sin_proto, sin_import, cos_proto, cos_import, tan_proto, tan_import, atn_proto,
+  atn_import, log_proto, log_import, exp_proto, exp_import, left_proto, left_import, right_proto,
+  right_import, mid_proto, mid_import, len_proto, len_import, val_proto, val_import, str_proto,
+  str_import, asc_proto, asc_import, pos_proto, pos_import, instr_proto, instr_import, strdup_proto,
+  strdup_import, mir_ctx_proto, mir_ctx_import, mir_mod_proto, mir_mod_import, mir_func_proto,
+  mir_func_import, mir_reg_proto, mir_reg_import, mir_label_proto, mir_label_import, mir_emit_proto,
+  mir_emit_import, mir_emitlbl_proto, mir_emitlbl_import, mir_ret_proto, mir_ret_import,
+  mir_finish_proto, mir_finish_import, mir_run_proto, mir_run_import, mir_dump_proto,
+  mir_dump_import;
 
 /* Runtime call prototypes for statements */
 static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_proto, input_import,
@@ -1159,6 +1162,7 @@ static Node *parse_add (Parser *p) {
     nn->op = op;
     nn->left = n;
     nn->right = r;
+    if (op == '+' && (n->is_str || r->is_str)) nn->is_str = 1;
     n = nn;
   }
   return n;
@@ -2649,6 +2653,18 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
           break;
         }
       }
+      return res;
+    } else if (n->kind == N_BIN && n->op == '+') {
+      MIR_reg_t a = gen_expr (ctx, func, vars, n->left);
+      MIR_reg_t b = gen_expr (ctx, func, vars, n->right);
+      char buf[32];
+      sprintf (buf, "$t%d", tmp_id++);
+      MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, concat_proto),
+                                          MIR_new_ref_op (ctx, concat_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, a),
+                                          MIR_new_reg_op (ctx, b)));
       return res;
     }
     return 0;
@@ -4314,6 +4330,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   chr_import = MIR_new_import (ctx, "basic_chr");
   string_proto = MIR_new_proto (ctx, "basic_string_p", 1, &p, 2, MIR_T_D, "n", MIR_T_P, "s");
   string_import = MIR_new_import (ctx, "basic_string");
+  concat_proto = MIR_new_proto (ctx, "basic_concat_p", 1, &p, 2, MIR_T_P, "a", MIR_T_P, "b");
+  concat_import = MIR_new_import (ctx, "basic_concat");
   int_proto = MIR_new_proto (ctx, "basic_int_p", 1, &d, 1, MIR_T_D, "x");
   int_import = MIR_new_import (ctx, "basic_int");
   timer_proto = MIR_new_proto (ctx, "basic_timer_p", 1, &d, 0);
