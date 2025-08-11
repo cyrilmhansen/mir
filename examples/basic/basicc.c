@@ -983,6 +983,8 @@ typedef enum {
   TOK_MOD,
   TOK_BASE,
   TOK_FN,
+  TOK_FUNCTION,
+  TOK_SUB,
   TOK_TRUE,
   TOK_FALSE,
   /* Punctuation */
@@ -1064,80 +1066,32 @@ static Token read_token (Parser *p) {
     static struct {
       const char *kw;
       TokenType type;
-    } keywords[] = {{"REM", TOK_REM},
-                    {"OPTION", TOK_OPTION},
-                    {"DIM", TOK_DIM},
-                    {"LET", TOK_LET},
-                    {"GOTO", TOK_GOTO},
-                    {"IF", TOK_IF},
-                    {"THEN", TOK_THEN},
-                    {"ELSE", TOK_ELSE},
-                    {"INPUT", TOK_INPUT},
-                    {"GET", TOK_GET},
-                    {"PUT", TOK_PUT},
-                    {"OPEN", TOK_OPEN},
-                    {"CLOSE", TOK_CLOSE},
-                    {"PRINT", TOK_PRINT},
-                    {"PRINT#", TOK_PRINT_HASH},
-                    {"INPUT#", TOK_INPUT_HASH},
-                    {"GET#", TOK_GET_HASH},
-                    {"PUT#", TOK_PUT_HASH},
-                    {"DEF", TOK_DEF},
-                    {"DATA", TOK_DATA},
-                    {"READ", TOK_READ},
-                    {"RESTORE", TOK_RESTORE},
-                    {"CLEAR", TOK_CLEAR},
-                    {"SCREEN", TOK_SCREEN},
-                    {"CLS", TOK_CLS},
-                    {"COLOR", TOK_COLOR},
-                    {"KEYOFF", TOK_KEYOFF},
-                    {"LOCATE", TOK_LOCATE},
-                    {"HTAB", TOK_HTAB},
-                    {"VTAB", TOK_VTAB},
-                    {"POKE", TOK_POKE},
-                    {"HOME", TOK_HOME},
-                    {"BEEP", TOK_BEEP},
-                    {"SOUND", TOK_SOUND},
-                    {"SYSTEM", TOK_SYSTEM},
-                    {"RANDOMIZE", TOK_RANDOMIZE},
-                    {"TEXT", TOK_TEXT},
-                    {"INVERSE", TOK_INVERSE},
-                    {"NORMAL", TOK_NORMAL},
-                    {"HGR2", TOK_HGR2},
-                    {"HCOLOR", TOK_HCOLOR},
-                    {"HPLOT", TOK_HPLOT},
-                    {"MOVE", TOK_MOVE},
-                    {"DRAW", TOK_DRAW},
-                    {"LINE", TOK_LINE},
-                    {"CIRCLE", TOK_CIRCLE},
-                    {"RECT", TOK_RECT},
-                    {"MODE", TOK_MODE},
-                    {"FILL", TOK_FILL},
-                    {"END", TOK_END},
-                    {"STOP", TOK_STOP},
-                    {"FOR", TOK_FOR},
-                    {"TO", TOK_TO},
-                    {"STEP", TOK_STEP},
-                    {"NEXT", TOK_NEXT},
-                    {"WHILE", TOK_WHILE},
-                    {"WEND", TOK_WEND},
-                    {"GOSUB", TOK_GOSUB},
-                    {"RETURN", TOK_RETURN},
-                    {"ON", TOK_ON},
-                    {"ERROR", TOK_ERROR},
-                    {"RESUME", TOK_RESUME},
-                    {"CALL", TOK_CALL},
-                    {"SUB", TOK_SUB},
-                    {"FUNCTION", TOK_FUNCTION},
-                    {"AND", TOK_AND},
-                    {"OR", TOK_OR},
-                    {"NOT", TOK_NOT},
-                    {"MOD", TOK_MOD},
-                    {"BASE", TOK_BASE},
-                    {"FN", TOK_FN},
-                    {"TRUE", TOK_TRUE},
-                    {"FALSE", TOK_FALSE},
-                    {NULL, TOK_EOF}};
+    } keywords[]
+      = {{"REM", TOK_REM},           {"OPTION", TOK_OPTION},   {"DIM", TOK_DIM},
+         {"LET", TOK_LET},           {"GOTO", TOK_GOTO},       {"IF", TOK_IF},
+         {"THEN", TOK_THEN},         {"ELSE", TOK_ELSE},       {"INPUT", TOK_INPUT},
+         {"GET", TOK_GET},           {"PUT", TOK_PUT},         {"OPEN", TOK_OPEN},
+         {"CLOSE", TOK_CLOSE},       {"PRINT", TOK_PRINT},     {"PRINT#", TOK_PRINT_HASH},
+         {"INPUT#", TOK_INPUT_HASH}, {"GET#", TOK_GET_HASH},   {"PUT#", TOK_PUT_HASH},
+         {"DEF", TOK_DEF},           {"DATA", TOK_DATA},       {"READ", TOK_READ},
+         {"RESTORE", TOK_RESTORE},   {"CLEAR", TOK_CLEAR},     {"SCREEN", TOK_SCREEN},
+         {"CLS", TOK_CLS},           {"COLOR", TOK_COLOR},     {"KEYOFF", TOK_KEYOFF},
+         {"LOCATE", TOK_LOCATE},     {"HTAB", TOK_HTAB},       {"VTAB", TOK_VTAB},
+         {"POKE", TOK_POKE},         {"HOME", TOK_HOME},       {"BEEP", TOK_BEEP},
+         {"SOUND", TOK_SOUND},       {"SYSTEM", TOK_SYSTEM},   {"RANDOMIZE", TOK_RANDOMIZE},
+         {"TEXT", TOK_TEXT},         {"INVERSE", TOK_INVERSE}, {"NORMAL", TOK_NORMAL},
+         {"HGR2", TOK_HGR2},         {"HCOLOR", TOK_HCOLOR},   {"HPLOT", TOK_HPLOT},
+         {"MOVE", TOK_MOVE},         {"DRAW", TOK_DRAW},       {"LINE", TOK_LINE},
+         {"CIRCLE", TOK_CIRCLE},     {"RECT", TOK_RECT},       {"MODE", TOK_MODE},
+         {"FILL", TOK_FILL},         {"END", TOK_END},         {"STOP", TOK_STOP},
+         {"FOR", TOK_FOR},           {"TO", TOK_TO},           {"STEP", TOK_STEP},
+         {"NEXT", TOK_NEXT},         {"WHILE", TOK_WHILE},     {"WEND", TOK_WEND},
+         {"GOSUB", TOK_GOSUB},       {"RETURN", TOK_RETURN},   {"ON", TOK_ON},
+         {"ERROR", TOK_ERROR},       {"RESUME", TOK_RESUME},   {"CALL", TOK_CALL},
+         {"AND", TOK_AND},           {"OR", TOK_OR},           {"NOT", TOK_NOT},
+         {"MOD", TOK_MOD},           {"BASE", TOK_BASE},       {"FN", TOK_FN},
+         {"FUNCTION", TOK_FUNCTION}, {"SUB", TOK_SUB},         {"TRUE", TOK_TRUE},
+         {"FALSE", TOK_FALSE},       {NULL, TOK_EOF}};
     for (int j = 0; keywords[j].kw != NULL; j++)
       if (strcmp (buf, keywords[j].kw) == 0) {
         t.type = keywords[j].type;
@@ -2236,7 +2190,6 @@ static int parse_line (Parser *p, char *line, Line *out) {
   p->tok.type = TOK_EOF;
   p->line_start = line;
   out->src = strdup (line);
-  skip_ws (p);
   Token t = peek_token (p);
   int line_no = 0;
   if (t.type == TOK_NUMBER) {
@@ -2250,14 +2203,13 @@ static int parse_line (Parser *p, char *line, Line *out) {
   out->line = line_no;
   out->stmts = (StmtVec) {0};
   while (1) {
-    skip_ws (p);
-    while (*cur == ':') {
-      cur++;
-      skip_ws (p);
+    t = peek_token (p);
+    while (t.type == TOK_COLON) {
+      next_token (p);
+      t = peek_token (p);
     }
-    if (*cur == '\0') break;
+    if (t.type == TOK_EOF) break;
     Stmt s;
-    p->has_peek = 0;
     if (!parse_stmt (p, &s)) return parse_error (p);
     if (s.kind == ST_PRINT || s.kind == ST_PRINT_HASH) {
       size_t cap = 0;
@@ -2271,8 +2223,8 @@ static int parse_line (Parser *p, char *line, Line *out) {
         s.u.printhash.no_nl = 0;
       }
       while (1) {
-        skip_ws (p);
-        if (*cur == ':' || *cur == '\0') break;
+        t = peek_token (p);
+        if (t.type == TOK_COLON || t.type == TOK_EOF) break;
         Node *e;
         PARSE_EXPR_OR_ERROR (e);
         if (s.kind == ST_PRINT) {
@@ -2288,11 +2240,11 @@ static int parse_line (Parser *p, char *line, Line *out) {
           }
           s.u.printhash.items[s.u.printhash.n++] = e;
         }
-        skip_ws (p);
-        if (*cur == ';' || *cur == ',') {
-          cur++;
-          skip_ws (p);
-          if (*cur == ':' || *cur == '\0') {
+        Token sep = peek_token (p);
+        if (sep.type == TOK_SEMICOLON || sep.type == TOK_COMMA) {
+          next_token (p);
+          t = peek_token (p);
+          if (t.type == TOK_COLON || t.type == TOK_EOF) {
             if (s.kind == ST_PRINT)
               s.u.print.no_nl = 1;
             else
@@ -2303,17 +2255,16 @@ static int parse_line (Parser *p, char *line, Line *out) {
         }
         break;
       }
-      skip_ws (p);
     }
     stmt_vec_push (&out->stmts, s);
     if (s.kind == ST_REM) break;
-    skip_ws (p);
-    if (*cur == ':') {
+    t = peek_token (p);
+    if (t.type == TOK_COLON) {
       do {
-        cur++;
-        skip_ws (p);
-      } while (*cur == ':');
-      if (*cur == '\0') break;
+        next_token (p);
+        t = peek_token (p);
+      } while (t.type == TOK_COLON);
+      if (t.type == TOK_EOF) break;
       continue;
     }
     break;
@@ -2411,22 +2362,22 @@ static int load_program (LineVec *prog, const char *path) {
   char line[256];
   int ok = 1;
   while (fgets (line, sizeof (line), f)) {
-    char *s = line;
     line[strcspn (line, "\n")] = '\0';
-    while (isspace ((unsigned char) *s)) s++;
-    if (*s == '\0') continue;
-    if (strncasecmp (s, "FUNCTION", 8) == 0) {
-      Parser p;
-      parse_func (&p, f, s, 0);
-      continue;
-    } else if (strncasecmp (s, "SUB", 3) == 0) {
-      Parser p;
-      parse_func (&p, f, s, 1);
+    Parser p_obj = {0};
+    Parser *p = &p_obj;
+    cur = line;
+    skip_ws (p);
+    if (*cur == '\0') continue;
+    char *s = cur;
+    Token t = next_token (p);
+    if (t.type == TOK_FUNCTION || t.type == TOK_SUB) {
+      if (t.str != NULL) free (t.str);
+      parse_func (p, f, s, t.type == TOK_SUB);
       continue;
     }
+    if (t.str != NULL) free (t.str);
     Line l;
-    Parser p;
-    if (parse_line (&p, line, &l)) {
+    if (parse_line (p, line, &l)) {
       if (l.line == 0) {
         l.line = auto_line;
         auto_line += 10;
