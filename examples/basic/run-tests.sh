@@ -97,6 +97,14 @@ fi
 grep -q "expected integer" "$ROOT/basic/dim_expr_error.err"
 echo "dim expression error OK"
 
+echo "Running line number float (expect error)"
+if "$BASICC" "$ROOT/examples/basic/line_number_float.bas" >/dev/null 2> "$ROOT/basic/line_number_float.err"; then
+echo "line number float should have failed"
+exit 1
+fi
+grep -q "expected integer" "$ROOT/basic/line_number_float.err"
+echo "line number float error OK"
+
 echo "Running print expression (expect error)"
 "$BASICC" "$ROOT/examples/basic/print_expr_error.bas" >/dev/null \
         2> "$ROOT/basic/print_expr_error.err" || true

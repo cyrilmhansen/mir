@@ -35,6 +35,7 @@
 #include <strings.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <math.h>
 
 #ifndef BASIC_SRC_DIR
 #define BASIC_SRC_DIR "."
