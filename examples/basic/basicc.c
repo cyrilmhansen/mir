@@ -3802,7 +3802,6 @@ static void gen_stmt (Stmt *s) {
   case ST_POKE: gen_poke (s); break;
   case ST_DATA:
     /* DATA values are processed at parse time, no code generation needed */
-    fprintf (stderr, "DATA not implemented\n");
     break;
   case ST_READ: {
     for (size_t k = 0; k < s->u.read.n; k++) {
