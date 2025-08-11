@@ -414,21 +414,6 @@ void basic_home (void) { printf ("\x1b[2J\x1b[H"); }
 
 void basic_vtab (basic_num_t n) { printf ("\x1b[%d;H", (int) n); }
 
-void basic_screen (basic_num_t m) {
-#if defined(_WIN32)
-  (void) m;
-#else
-  if ((int) m != 0) {
-    /* Switch to the alternate screen buffer. */
-    printf ("\x1b[?1049h");
-  } else {
-    /* Restore the normal screen buffer. */
-    printf ("\x1b[?1049l");
-  }
-  fflush (stdout);
-#endif
-}
-
 void basic_cls (void) { printf ("\x1b[2J\x1b[H"); }
 
 void basic_color (basic_num_t c) { printf ("\x1b[%dm", (int) c); }
@@ -688,10 +673,23 @@ static void basic_ensure_palette (void) {
 }
 
 void basic_screen (basic_num_t m) {
+#if defined(_WIN32)
   if ((int) m == 0)
     basic_text ();
   else
     basic_hgr2 ();
+#else
+  if ((int) m != 0) {
+    /* Switch to the alternate screen buffer and enter graphics mode. */
+    printf ("\x1b[?1049h");
+    basic_hgr2 ();
+  } else {
+    /* Restore the normal screen buffer and return to text mode. */
+    printf ("\x1b[?1049l");
+    basic_text ();
+  }
+  fflush (stdout);
+#endif
 }
 
 #define BASIC_MAX_WIDTH 280
