@@ -596,6 +596,9 @@ void basic_hgr2 (void) { printf ("\x1b[2J\x1b[H"); }
 
 static int current_hcolor = 37;
 
+#define BASIC_MAX_WIDTH 280
+#define BASIC_MAX_HEIGHT 192
+
 void basic_hcolor (basic_num_t c) { current_hcolor = 30 + ((int) c & 7); }
 
 /* 1x1 PNGs for standard 8 terminal colors, base64-encoded.  */
@@ -612,6 +615,7 @@ static const char *kitty_color_png[8] = {
 
 static void basic_kitty_plot (basic_num_t x, basic_num_t y) {
   int ix = (int) x, iy = (int) y;
+  if (ix < 0 || ix >= BASIC_MAX_WIDTH || iy < 0 || iy >= BASIC_MAX_HEIGHT) return;
   int color = (current_hcolor - 30) & 7;
   const char *png = kitty_color_png[color];
   printf (
@@ -921,8 +925,8 @@ basic_num_t basic_mir_finish (basic_num_t mod_h) {
   return 0.0;
 }
 
-basic_num_t basic_mir_run (basic_num_t func_h, basic_num_t a1, basic_num_t a2,
-                           basic_num_t a3, basic_num_t a4) {
+basic_num_t basic_mir_run (basic_num_t func_h, basic_num_t a1, basic_num_t a2, basic_num_t a3,
+                           basic_num_t a4) {
   Handle *fh = get_handle (func_h);
   if (fh == NULL || fh->kind != H_FUNC) return 0.0;
   FuncHandle *f = fh->ptr;
@@ -934,9 +938,12 @@ basic_num_t basic_mir_run (basic_num_t func_h, basic_num_t a1, basic_num_t a2,
   case 0: res = ((basic_num_t (*) (void)) addr) (); break;
   case 1: res = ((basic_num_t (*) (basic_num_t)) addr) (a1); break;
   case 2: res = ((basic_num_t (*) (basic_num_t, basic_num_t)) addr) (a1, a2); break;
-  case 3: res = ((basic_num_t (*) (basic_num_t, basic_num_t, basic_num_t)) addr) (a1, a2, a3); break;
+  case 3:
+    res = ((basic_num_t (*) (basic_num_t, basic_num_t, basic_num_t)) addr) (a1, a2, a3);
+    break;
   case 4:
-    res = ((basic_num_t (*) (basic_num_t, basic_num_t, basic_num_t, basic_num_t)) addr) (a1, a2, a3, a4);
+    res = ((basic_num_t (*) (basic_num_t, basic_num_t, basic_num_t, basic_num_t)) addr) (a1, a2, a3,
+                                                                                         a4);
     break;
   default: break;
   }
