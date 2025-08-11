@@ -41,6 +41,7 @@ static int basic_pos_val = 1;
 static int basic_error_handler = 0;
 static int basic_line = 0;
 static basic_num_t last_hplot_x = 0.0, last_hplot_y = 0.0;
+static int current_hcolor;
 int basic_line_tracking_enabled = 1;
 static char *system_output = NULL;
 
@@ -592,7 +593,12 @@ void basic_inverse (void) { printf ("\x1b[7m"); }
 
 void basic_normal (void) { printf ("\x1b[0m"); }
 
-void basic_hgr2 (void) { printf ("\x1b[2J\x1b[H"); }
+void basic_hgr2 (void) {
+  printf ("\x1b[2J\x1b[H");
+  last_hplot_x = 0.0;
+  last_hplot_y = 0.0;
+  current_hcolor = 37;
+}
 
 static int current_hcolor = 37;
 
@@ -921,8 +927,8 @@ basic_num_t basic_mir_finish (basic_num_t mod_h) {
   return 0.0;
 }
 
-basic_num_t basic_mir_run (basic_num_t func_h, basic_num_t a1, basic_num_t a2,
-                           basic_num_t a3, basic_num_t a4) {
+basic_num_t basic_mir_run (basic_num_t func_h, basic_num_t a1, basic_num_t a2, basic_num_t a3,
+                           basic_num_t a4) {
   Handle *fh = get_handle (func_h);
   if (fh == NULL || fh->kind != H_FUNC) return 0.0;
   FuncHandle *f = fh->ptr;
@@ -934,9 +940,12 @@ basic_num_t basic_mir_run (basic_num_t func_h, basic_num_t a1, basic_num_t a2,
   case 0: res = ((basic_num_t (*) (void)) addr) (); break;
   case 1: res = ((basic_num_t (*) (basic_num_t)) addr) (a1); break;
   case 2: res = ((basic_num_t (*) (basic_num_t, basic_num_t)) addr) (a1, a2); break;
-  case 3: res = ((basic_num_t (*) (basic_num_t, basic_num_t, basic_num_t)) addr) (a1, a2, a3); break;
+  case 3:
+    res = ((basic_num_t (*) (basic_num_t, basic_num_t, basic_num_t)) addr) (a1, a2, a3);
+    break;
   case 4:
-    res = ((basic_num_t (*) (basic_num_t, basic_num_t, basic_num_t, basic_num_t)) addr) (a1, a2, a3, a4);
+    res = ((basic_num_t (*) (basic_num_t, basic_num_t, basic_num_t, basic_num_t)) addr) (a1, a2, a3,
+                                                                                         a4);
     break;
   default: break;
   }
