@@ -2291,8 +2291,8 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
           bs.u.printhash.no_nl = 0;
         }
         while (1) {
-          skip_ws (p);
-          if (*cur == ':' || *cur == '\0' || (stop_on_else && strncasecmp (cur, "ELSE", 4) == 0))
+          t = peek_token (p);
+          if (t.type == TOK_COLON || t.type == TOK_EOF || (stop_on_else && t.type == TOK_ELSE))
             break;
           Node *e;
           PARSE_EXPR_OR_ERROR (e);
@@ -2309,12 +2309,11 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
             }
             bs.u.printhash.items[bs.u.printhash.n++] = e;
           }
-          skip_ws (p);
-          if (*cur == ';' || *cur == ',') {
-            cur++;
-            skip_ws (p);
-            if (*cur == ':' || *cur == '\0'
-                || (stop_on_else && strncasecmp (cur, "ELSE", 4) == 0)) {
+          t = peek_token (p);
+          if (t.type == TOK_SEMICOLON || t.type == TOK_COMMA) {
+            next_token (p);
+            t = peek_token (p);
+            if (t.type == TOK_COLON || t.type == TOK_EOF || (stop_on_else && t.type == TOK_ELSE)) {
               if (bs.kind == ST_PRINT)
                 bs.u.print.no_nl = 1;
               else
@@ -2325,17 +2324,16 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
           }
           break;
         }
-        skip_ws (p);
       }
     }
     stmt_vec_push (vec, bs);
-    skip_ws (p);
-    if (*cur != ':') break;
+    t = peek_token (p);
+    if (t.type != TOK_COLON) break;
     do {
-      cur++;
-      skip_ws (p);
-    } while (*cur == ':');
-    if (*cur == '\0' || (stop_on_else && strncasecmp (cur, "ELSE", 4) == 0)) break;
+      next_token (p);
+      t = peek_token (p);
+    } while (t.type == TOK_COLON);
+    if (t.type == TOK_EOF || (stop_on_else && t.type == TOK_ELSE)) break;
   }
   return 1;
 }
