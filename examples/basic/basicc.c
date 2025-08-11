@@ -2369,6 +2369,10 @@ static int parse_line (Parser *p, char *line, Line *out) {
   p->tok.type = TOK_EOF;
   p->line_start = line;
   out->src = strdup (line);
+  if (out->src == NULL) {
+    fprintf (stderr, "out of memory\n");
+    return parse_error (p);
+  }
   Token t = peek_token (p);
   int line_no = 0;
   if (t.type == TOK_NUMBER) {
