@@ -5050,12 +5050,8 @@ typedef enum {
   REPL_TOK_PROFILE,
 } ReplToken;
 
-static ReplToken repl_next_token (char **sp) {
-  Parser p = {0};
-#undef cur
-  p.cur = *sp;
-#define cur (p->cur)
-  Token t = read_token (&p);
+static ReplToken repl_next_token (Parser *p) {
+  Token t = next_token (p);
   ReplToken tok = REPL_TOK_NONE;
   switch (t.type) {
   case TOK_RUN: tok = REPL_TOK_RUN; break;
@@ -5073,10 +5069,7 @@ static ReplToken repl_next_token (char **sp) {
   default: break;
   }
   if (t.str != NULL) free (t.str);
-  skip_ws (&p);
-#undef cur
-  *sp = p.cur;
-#define cur (p->cur)
+  skip_ws (p);
   return tok;
 }
 
@@ -5087,19 +5080,20 @@ static void repl (void) {
     printf ("READY.\n");
     if (!fgets (line, sizeof (line), stdin)) break;
     line[strcspn (line, "\n")] = '\0';
-    char *s = line;
-    while (isspace ((unsigned char) *s)) s++;
-    if (*s == '\0') continue;
-    if (isdigit ((unsigned char) *s)) {
-      char *end;
-      long num = strtol (s, &end, 10);
-      while (isspace ((unsigned char) *end)) end++;
-      if (*end == '\0') {
+    Parser p_obj = {0};
+    Parser *p = &p_obj;
+    cur = line;
+    Token first = peek_token (p);
+    if (first.type == TOK_EOF) continue;
+    if (first.type == TOK_NUMBER) {
+      Token num_tok = next_token (p);
+      long num = num_tok.num;
+      if (peek_token (p).type == TOK_EOF) {
         delete_line (&prog, num);
       } else {
         Line l;
-        Parser p;
-        if (parse_line (&p, line, &l))
+        Parser tmp;
+        if (parse_line (&tmp, line, &l))
           insert_or_replace_line (&prog, l);
         else {
           /* error already reported by parse_line */
@@ -5107,17 +5101,18 @@ static void repl (void) {
       }
       continue;
     }
-    ReplToken tok = repl_next_token (&s);
+    ReplToken tok = repl_next_token (p);
     int exit_repl = 0;
     switch (tok) {
     case REPL_TOK_RUN: {
       int profile_p = 0;
-      if (*s != '\0') {
-        ReplToken opt = repl_next_token (&s);
-        if (opt == REPL_TOK_PROFILE && *s == '\0') {
+      if (peek_token (p).type != TOK_EOF) {
+        char *opt_start = cur;
+        ReplToken opt = repl_next_token (p);
+        if (opt == REPL_TOK_PROFILE && peek_token (p).type == TOK_EOF) {
           profile_p = 1;
         } else {
-          fprintf (stderr, "unknown RUN option: %s\n", s != NULL ? s : "(null)");
+          fprintf (stderr, "unknown RUN option: %s\n", opt_start);
           break;
         }
       }
@@ -5127,25 +5122,25 @@ static void repl (void) {
       continue;
     }
     case REPL_TOK_COMPILE: {
-      ReplToken target = repl_next_token (&s);
+      ReplToken target = repl_next_token (p);
       switch (target) {
       case REPL_TOK_NATIVE:
-        if (*s == '\0') {
+        if (*cur == '\0') {
           fputs ("missing output file\n", stderr);
         } else {
-          gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, s, "(repl)");
-          if (access (s, F_OK) == 0)
-            printf ("%s\n", s);
+          gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, cur, "(repl)");
+          if (access (cur, F_OK) == 0)
+            printf ("%s\n", cur);
           else
-            perror (s);
+            perror (cur);
         }
         break;
       case REPL_TOK_BMIR:
-        if (*s == '\0') {
+        if (*cur == '\0') {
           fputs ("missing output file\n", stderr);
         } else {
-          gen_program (&prog, 0, 0, 1, 0, 0, 0, 0, line_tracking, s, "(repl)");
-          char *name = change_suffix (s, ".bmir");
+          gen_program (&prog, 0, 0, 1, 0, 0, 0, 0, line_tracking, cur, "(repl)");
+          char *name = change_suffix (cur, ".bmir");
           if (access (name, F_OK) == 0)
             printf ("%s\n", name);
           else
@@ -5154,14 +5149,14 @@ static void repl (void) {
         }
         break;
       case REPL_TOK_CODE:
-        if (*s == '\0') {
+        if (*cur == '\0') {
           fputs ("missing output file\n", stderr);
         } else {
-          gen_program (&prog, 0, 0, 0, 0, 1, 0, 0, line_tracking, s, "(repl)");
-          if (access (s, F_OK) == 0)
-            printf ("%s\n", s);
+          gen_program (&prog, 0, 0, 0, 0, 1, 0, 0, line_tracking, cur, "(repl)");
+          if (access (cur, F_OK) == 0)
+            printf ("%s\n", cur);
           else
-            perror (s);
+            perror (cur);
         }
         break;
       default: fputs ("unknown COMPILE target\n", stderr); break;
@@ -5169,24 +5164,24 @@ static void repl (void) {
       continue;
     }
     case REPL_TOK_SAVE:
-      if (*s == '\0') {
+      if (*cur == '\0') {
         fputs ("missing output file\n", stderr);
       } else {
-        gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, s, "(repl)");
-        if (access (s, F_OK) == 0)
-          printf ("Saved %s\n", s);
+        gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, cur, "(repl)");
+        if (access (cur, F_OK) == 0)
+          printf ("Saved %s\n", cur);
         else
-          perror (s);
+          perror (cur);
       }
       continue;
     case REPL_TOK_LOAD:
-      if (*s == '\0') {
+      if (*cur == '\0') {
         fputs ("missing input file\n", stderr);
       } else {
         func_vec_clear (&func_defs);
         data_vals_clear ();
         line_vec_destroy (&prog);
-        load_program (&prog, s);
+        load_program (&prog, cur);
       }
       continue;
     case REPL_TOK_LIST: list_program (&prog); continue;
