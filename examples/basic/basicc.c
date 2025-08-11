@@ -480,6 +480,74 @@ typedef struct {
   Stmt *data;
   size_t len, cap;
 } StmtVec;
+
+static const char *stmt_kind_name (StmtKind kind) {
+  static const char *names[] = {
+    [ST_PRINT] = "ST_PRINT",
+    [ST_LET] = "ST_LET",
+    [ST_GOTO] = "ST_GOTO",
+    [ST_IF] = "ST_IF",
+    [ST_INPUT] = "ST_INPUT",
+    [ST_GET] = "ST_GET",
+    [ST_PUT] = "ST_PUT",
+    [ST_OPEN] = "ST_OPEN",
+    [ST_CLOSE] = "ST_CLOSE",
+    [ST_PRINT_HASH] = "ST_PRINT_HASH",
+    [ST_INPUT_HASH] = "ST_INPUT_HASH",
+    [ST_GET_HASH] = "ST_GET_HASH",
+    [ST_PUT_HASH] = "ST_PUT_HASH",
+    [ST_DEF] = "ST_DEF",
+    [ST_DATA] = "ST_DATA",
+    [ST_READ] = "ST_READ",
+    [ST_RESTORE] = "ST_RESTORE",
+    [ST_CLEAR] = "ST_CLEAR",
+    [ST_SCREEN] = "ST_SCREEN",
+    [ST_CLS] = "ST_CLS",
+    [ST_COLOR] = "ST_COLOR",
+    [ST_KEYOFF] = "ST_KEYOFF",
+    [ST_LOCATE] = "ST_LOCATE",
+    [ST_HTAB] = "ST_HTAB",
+    [ST_POKE] = "ST_POKE",
+    [ST_HOME] = "ST_HOME",
+    [ST_VTAB] = "ST_VTAB",
+    [ST_BEEP] = "ST_BEEP",
+    [ST_SOUND] = "ST_SOUND",
+    [ST_SYSTEM] = "ST_SYSTEM",
+    [ST_RANDOMIZE] = "ST_RANDOMIZE",
+    [ST_TEXT] = "ST_TEXT",
+    [ST_INVERSE] = "ST_INVERSE",
+    [ST_NORMAL] = "ST_NORMAL",
+    [ST_HGR2] = "ST_HGR2",
+    [ST_HCOLOR] = "ST_HCOLOR",
+    [ST_HPLOT] = "ST_HPLOT",
+    [ST_MOVE] = "ST_MOVE",
+    [ST_DRAW] = "ST_DRAW",
+    [ST_LINE] = "ST_LINE",
+    [ST_CIRCLE] = "ST_CIRCLE",
+    [ST_RECT] = "ST_RECT",
+    [ST_MODE] = "ST_MODE",
+    [ST_FILL] = "ST_FILL",
+    [ST_END] = "ST_END",
+    [ST_STOP] = "ST_STOP",
+    [ST_REM] = "ST_REM",
+    [ST_DIM] = "ST_DIM",
+    [ST_FOR] = "ST_FOR",
+    [ST_NEXT] = "ST_NEXT",
+    [ST_WHILE] = "ST_WHILE",
+    [ST_WEND] = "ST_WEND",
+    [ST_GOSUB] = "ST_GOSUB",
+    [ST_RETURN] = "ST_RETURN",
+    [ST_ON_GOTO] = "ST_ON_GOTO",
+    [ST_ON_GOSUB] = "ST_ON_GOSUB",
+    [ST_ON_ERROR] = "ST_ON_ERROR",
+    [ST_RESUME] = "ST_RESUME",
+    [ST_EXTERN] = "ST_EXTERN",
+    [ST_CALL] = "ST_CALL",
+  };
+  size_t idx = (size_t) kind;
+  if (idx >= sizeof (names) / sizeof (names[0]) || names[idx] == NULL) return "UNKNOWN";
+  return names[idx];
+}
 struct Stmt {
   StmtKind kind;
   union {
@@ -4592,6 +4660,7 @@ static void gen_stmt (Stmt *s) {
   case ST_REM:
     /* comment */
     break;
+  default: fprintf (stderr, "Unsupported statement: %s\n", stmt_kind_name (s->kind)); break;
   }
 }
 
