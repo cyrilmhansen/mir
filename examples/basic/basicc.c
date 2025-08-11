@@ -1181,9 +1181,8 @@ static Token read_token (Parser *p) {
 
 static Token next_token (Parser *p) {
   if (p->has_peek) {
-    p->tok = p->peek;
+    if (p->peek.str != NULL) free (p->peek.str);
     p->has_peek = 0;
-    return p->tok;
   }
   p->tok = read_token (p);
   return p->tok;
@@ -1343,27 +1342,27 @@ static Node *parse_variable (char *id, CallArgs *a) {
 }
 
 static Node *parse_not (Parser *p) {
-  if (strncasecmp (cur, "NOT", 3) || isalnum ((unsigned char) cur[3]) || cur[3] == '_'
-      || cur[3] == '$')
-    return NULL;
-  cur += 3;
+  Token t = peek_token (p);
+  if (t.type != TOK_NOT) return NULL;
+  next_token (p);
   Node *n = new_node (N_NOT);
   n->left = parse_factor (p);
   return n;
 }
 
 static Node *parse_paren (Parser *p) {
-  if (*cur != '(') return NULL;
-  cur++;
+  Token t = peek_token (p);
+  if (t.type != TOK_LPAREN) return NULL;
+  next_token (p);
   Node *e = parse_expr (p);
-  skip_ws (p);
-  if (*cur == ')') cur++;
+  if (peek_token (p).type == TOK_RPAREN) next_token (p);
   return e;
 }
 
 static Node *parse_unary_minus (Parser *p) {
-  if (*cur != '-') return NULL;
-  cur++;
+  Token t = peek_token (p);
+  if (t.type != TOK_MINUS) return NULL;
+  next_token (p);
   Node *n = new_node (N_NEG);
   n->left = parse_factor (p);
   return n;
@@ -4800,11 +4799,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     if (g_vars.data[i].is_array && g_vars.data[i].size <= 1) {
       g_vars.data[i].size = 11;
       size_t elem_size = g_vars.data[i].is_str ? sizeof (char *) : sizeof (basic_num_t);
-      MIR_insn_t call = MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, calloc_proto),
-                                           MIR_new_ref_op (ctx, calloc_import),
-                                           MIR_new_reg_op (ctx, g_vars.data[i].reg),
-                                           MIR_new_int_op (ctx, 11),
-                                           MIR_new_int_op (ctx, elem_size));
+      MIR_insn_t call
+        = MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, calloc_proto),
+                             MIR_new_ref_op (ctx, calloc_import),
+                             MIR_new_reg_op (ctx, g_vars.data[i].reg), MIR_new_int_op (ctx, 11),
+                             MIR_new_int_op (ctx, elem_size));
       MIR_insert_insn_after (ctx, func, g_var_init_anchor, call);
       g_var_init_anchor = call;
     }
