@@ -1013,6 +1013,7 @@ typedef struct {
   Token peek;
   char *peek_cur;
   int has_peek;
+  char *line;
 } Parser;
 
 #define cur (p->cur)
@@ -1452,7 +1453,11 @@ static Node *parse_logical (Parser *p) {
   return n;
 }
 
-static Node *parse_expr (Parser *p) { return parse_logical (p); }
+static Node *parse_expr (Parser *p) {
+  Node *n = parse_logical (p);
+  p->has_peek = 0;
+  return n;
+}
 
 static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else);
 
@@ -1829,15 +1834,18 @@ static int parse_stmt (Parser *p, Stmt *out) {
         out->u.hplot.xs = realloc (out->u.hplot.xs, cap * sizeof (Node *));
         out->u.hplot.ys = realloc (out->u.hplot.ys, cap * sizeof (Node *));
       }
+      p->has_peek = 0;
       out->u.hplot.xs[out->u.hplot.n] = parse_expr (p);
       skip_ws (p);
       if (*cur != ',') return 0;
       cur++;
+      p->has_peek = 0;
       out->u.hplot.ys[out->u.hplot.n] = parse_expr (p);
       out->u.hplot.n++;
       skip_ws (p);
       if (strncasecmp (cur, "TO", 2) == 0) {
         cur += 2;
+        p->has_peek = 0;
         skip_ws (p);
       } else {
         break;
@@ -1848,84 +1856,105 @@ static int parse_stmt (Parser *p, Stmt *out) {
     cur += 4;
     skip_ws (p);
     out->kind = ST_MOVE;
+    p->has_peek = 0;
     out->u.move.x = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
+    p->has_peek = 0;
     out->u.move.y = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "DRAW", 4) == 0) {
     cur += 4;
     skip_ws (p);
     out->kind = ST_DRAW;
+    p->has_peek = 0;
     out->u.draw.x = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
+    p->has_peek = 0;
     out->u.draw.y = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "LINE", 4) == 0) {
     cur += 4;
     skip_ws (p);
     out->kind = ST_LINE;
+    p->has_peek = 0;
     out->u.line.x0 = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
+    p->has_peek = 0;
     out->u.line.y0 = parse_expr (p);
     skip_ws (p);
     if (strncasecmp (cur, "TO", 2) == 0) {
       cur += 2;
+      p->has_peek = 0;
       skip_ws (p);
     }
+    p->has_peek = 0;
     out->u.line.x1 = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
+    p->has_peek = 0;
     out->u.line.y1 = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "CIRCLE", 6) == 0) {
     cur += 6;
     skip_ws (p);
     out->kind = ST_CIRCLE;
+    p->has_peek = 0;
     out->u.circle.x = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
+    p->has_peek = 0;
     out->u.circle.y = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
+    p->has_peek = 0;
     out->u.circle.r = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "RECT", 4) == 0) {
     cur += 4;
     skip_ws (p);
     out->kind = ST_RECT;
+    p->has_peek = 0;
     out->u.rect.x0 = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
+    p->has_peek = 0;
     out->u.rect.y0 = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
+    p->has_peek = 0;
     out->u.rect.x1 = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
+    p->has_peek = 0;
     out->u.rect.y1 = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "MODE", 4) == 0) {
     cur += 4;
     skip_ws (p);
     out->kind = ST_MODE;
+    p->has_peek = 0;
     out->u.expr = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "FILL", 4) == 0) {
     cur += 4;
     skip_ws (p);
     out->kind = ST_FILL;
+    p->has_peek = 0;
     out->u.fill.x0 = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
+    p->has_peek = 0;
     out->u.fill.y0 = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
+    p->has_peek = 0;
     out->u.fill.x1 = parse_expr (p);
     if (*cur != ',') return 0;
     cur++;
+    p->has_peek = 0;
     out->u.fill.y1 = parse_expr (p);
     return 1;
   } else if (strncasecmp (cur, "LET", 3) == 0) {
@@ -2230,7 +2259,16 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
           skip_ws (p);
           if (*cur == ':' || *cur == '\0' || (stop_on_else && strncasecmp (cur, "ELSE", 4) == 0))
             break;
+          p->has_peek = 0;
           Node *e = parse_expr (p);
+          if (e == NULL) {
+            fprintf (stderr, "parse error: %s\n", p->line);
+            if (bs.kind == ST_PRINT)
+              free (bs.u.print.items);
+            else
+              free (bs.u.printhash.items);
+            return 0;
+          }
           if (bs.kind == ST_PRINT) {
             if (bs.u.print.n == cap) {
               cap = cap ? cap * 2 : 4;
@@ -2247,6 +2285,7 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
           skip_ws (p);
           if (*cur == ';' || *cur == ',') {
             cur++;
+            p->has_peek = 0;
             skip_ws (p);
             if (*cur == ':' || *cur == '\0'
                 || (stop_on_else && strncasecmp (cur, "ELSE", 4) == 0)) {
@@ -2279,6 +2318,7 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
 static int parse_line (Parser *p, char *line, Line *out) {
   *p = (Parser) {0};
   cur = line;
+  p->line = line;
   p->tok.type = TOK_EOF;
   out->src = strdup (line);
   skip_ws (p);
@@ -2309,7 +2349,17 @@ static int parse_line (Parser *p, char *line, Line *out) {
       while (1) {
         skip_ws (p);
         if (*cur == ':' || *cur == '\0') break;
+        p->has_peek = 0;
         Node *e = parse_expr (p);
+        if (e == NULL) {
+          fprintf (stderr, "parse error: %s\n", p->line);
+          if (s.kind == ST_PRINT)
+            free (s.u.print.items);
+          else
+            free (s.u.printhash.items);
+          free (out->src);
+          return 0;
+        }
         if (s.kind == ST_PRINT) {
           if (s.u.print.n == cap) {
             cap = cap ? cap * 2 : 4;
@@ -2326,6 +2376,7 @@ static int parse_line (Parser *p, char *line, Line *out) {
         skip_ws (p);
         if (*cur == ';' || *cur == ',') {
           cur++;
+          p->has_peek = 0;
           skip_ws (p);
           if (*cur == ':' || *cur == '\0') {
             if (s.kind == ST_PRINT)
@@ -2359,6 +2410,7 @@ static int parse_line (Parser *p, char *line, Line *out) {
 static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
   *p = (Parser) {0};
   cur = line + (is_sub ? 3 : 8);
+  p->line = line;
   p->tok.type = TOK_EOF;
   skip_ws (p);
   char *name = parse_id (p);
