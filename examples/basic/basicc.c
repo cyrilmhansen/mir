@@ -975,8 +975,6 @@ typedef enum {
   TOK_ERROR,
   TOK_RESUME,
   TOK_CALL,
-  TOK_SUB,
-  TOK_FUNCTION,
   TOK_AND,
   TOK_OR,
   TOK_NOT,
