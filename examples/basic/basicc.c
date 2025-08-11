@@ -351,6 +351,11 @@ typedef struct Node Node;
 #define OP_GE 'G'
 #define OP_AND '&'
 #define OP_OR '|'
+#define NUM_PREFIX_CHAR '&'
+#define HEX_PREFIX_CHAR 'H'
+#define OCT_PREFIX_CHAR 'O'
+#define HEX_BASE 16
+#define OCT_BASE 8
 struct Node {
   NodeKind kind;
   int is_str;
@@ -1199,12 +1204,12 @@ static Token read_token (Parser *p) {
     t.str = strdup (buf);
     return t;
   }
-  if (c == '&') {
+  if (c == NUM_PREFIX_CHAR) {
     int base = 0;
-    if (cur[1] == 'H' || cur[1] == 'h') {
-      base = 16;
-    } else if (cur[1] == 'O' || cur[1] == 'o') {
-      base = 8;
+    if (toupper ((unsigned char) cur[1]) == HEX_PREFIX_CHAR) {
+      base = HEX_BASE;
+    } else if (toupper ((unsigned char) cur[1]) == OCT_PREFIX_CHAR) {
+      base = OCT_BASE;
     }
     if (base != 0) {
       char *end;
