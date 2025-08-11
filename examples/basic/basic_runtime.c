@@ -388,8 +388,6 @@ void basic_home (void) { printf ("\x1b[2J\x1b[H"); }
 
 void basic_vtab (basic_num_t n) { printf ("\x1b[%d;H", (int) n); }
 
-void basic_screen (basic_num_t m) { (void) m; }
-
 void basic_cls (void) { printf ("\x1b[2J\x1b[H"); }
 
 void basic_color (basic_num_t c) { printf ("\x1b[%dm", (int) c); }
@@ -597,8 +595,11 @@ void basic_inverse (void) { printf ("\x1b[7m"); }
 
 void basic_normal (void) { printf ("\x1b[0m"); }
 
+static void basic_ensure_palette (void);
+
 void basic_hgr2 (void) {
   printf ("\x1b[2J\x1b[H");
+  basic_ensure_palette ();
   last_hplot_x = 0.0;
   last_hplot_y = 0.0;
   current_hcolor = basic_palette[7];
@@ -628,6 +629,13 @@ static void basic_ensure_palette (void) {
     basic_set_palette_from_env ();
     palette_initialized = 1;
   }
+}
+
+void basic_screen (basic_num_t m) {
+  if ((int) m == 0)
+    basic_text ();
+  else
+    basic_hgr2 ();
 }
 
 #define BASIC_MAX_WIDTH 280
@@ -746,7 +754,7 @@ void basic_fill (basic_num_t x0, basic_num_t y0, basic_num_t x1, basic_num_t y1)
   last_hplot_y = y1;
 }
 
-void basic_mode (basic_num_t m) { (void) m; }
+void basic_mode (basic_num_t m) { basic_screen (m); }
 
 void basic_beep (void) {
   fputc ('\a', stdout);
