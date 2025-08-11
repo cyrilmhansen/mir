@@ -33,8 +33,11 @@
   - state reset via `CLEAR`.
   - multi-way branching with `ON...GOTO` and `ON...GOSUB`.
 
-- Graphics output from BASIC samples uses the Kitty terminal protocol. View
-  `.out` files in a Kitty-capable terminal or with `kitty +kitten icat`.
+  - Graphics output from BASIC samples uses the Kitty terminal protocol. View
+    `.out` files in a Kitty-capable terminal or with `kitty +kitten icat`.
+  - The `mandelbrot.bas` sample emits ANSI 256-color escape sequences and
+    Unicode half-block characters; it runs in any terminal with 256-color
+    support and does not require Kitty graphics.
 
 ## FLEUVES support
 - `HPLOT TO` without explicit starting coordinates now draws from the previous
