@@ -2527,6 +2527,10 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
     if (peek_token (p).type != TOK_RPAREN) {
       while (1) {
         char *param = parse_id (p);
+        if (param == NULL) {
+          parse_error (p);
+          return;
+        }
         int ps = param[strlen (param) - 1] == '$';
         if (n == cap) {
           cap = cap ? 2 * cap : 4;
