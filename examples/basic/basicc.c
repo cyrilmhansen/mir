@@ -2556,15 +2556,14 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
   StmtVec body = {0};
   char buf[256];
   while (fgets (buf, sizeof (buf), f)) {
-    char *lp = buf;
     buf[strcspn (buf, "\n")] = '\0';
-    while (isspace ((unsigned char) *lp)) lp++;
-    if (*lp == '\0') continue;
     Parser end_p = {0};
 #undef cur
-    end_p.cur = lp;
+    end_p.cur = buf;
 #define cur (p->cur)
-    Token t1 = next_token (&end_p);
+    Token t1 = peek_token (&end_p);
+    if (t1.type == TOK_EOF) continue;
+    t1 = next_token (&end_p);
     if (t1.type == TOK_END) {
       Token t2 = next_token (&end_p);
       if ((is_sub && t2.type == TOK_SUB) || (!is_sub && t2.type == TOK_FUNCTION)) {
