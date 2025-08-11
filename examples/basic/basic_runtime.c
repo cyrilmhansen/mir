@@ -602,6 +602,9 @@ void basic_hgr2 (void) {
 
 static int current_hcolor = 37;
 
+#define BASIC_MAX_WIDTH 280
+#define BASIC_MAX_HEIGHT 192
+
 void basic_hcolor (basic_num_t c) { current_hcolor = 30 + ((int) c & 7); }
 
 /* 1x1 PNGs for standard 8 terminal colors, base64-encoded.  */
@@ -618,6 +621,7 @@ static const char *kitty_color_png[8] = {
 
 static void basic_kitty_plot (basic_num_t x, basic_num_t y) {
   int ix = (int) x, iy = (int) y;
+  if (ix < 0 || ix >= BASIC_MAX_WIDTH || iy < 0 || iy >= BASIC_MAX_HEIGHT) return;
   int color = (current_hcolor - 30) & 7;
   const char *png = kitty_color_png[color];
   printf (
