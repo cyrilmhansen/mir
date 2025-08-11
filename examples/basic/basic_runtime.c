@@ -812,8 +812,9 @@ double basic_mir_reg (double func_h) {
   MIR_context_t ctx = h->ctx;
   MIR_reg_t r;
   if (fh->next_arg < fh->nargs) {
-    char name[32];
-    snprintf (name, sizeof (name), "a%zu", fh->next_arg++);
+    size_t len = snprintf (NULL, 0, "a%zu", fh->next_arg) + 1;
+    char *name = malloc (len);
+    snprintf (name, len, "a%zu", fh->next_arg++);
     r = MIR_reg (ctx, name, fh->item->u.func);
   } else {
     r = MIR_new_func_reg (ctx, fh->item->u.func, MIR_T_D, NULL);
