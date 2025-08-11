@@ -1557,6 +1557,62 @@ static int parse_stmt (Parser *p, Stmt *out) {
       PARSE_EXPR_OR_ERROR (out->u.expr);
     }
     return 1;
+  case TOK_OPEN:
+    out->kind = ST_OPEN;
+    PARSE_EXPR_OR_ERROR (out->u.open.num);
+    if (next_token (p).type != TOK_COMMA) return 0;
+    PARSE_EXPR_OR_ERROR (out->u.open.path);
+    return 1;
+  case TOK_CLOSE:
+    out->kind = ST_CLOSE;
+    PARSE_EXPR_OR_ERROR (out->u.close.num);
+    return 1;
+  case TOK_PRINT_HASH:
+    out->kind = ST_PRINT_HASH;
+    PARSE_EXPR_OR_ERROR (out->u.printhash.num);
+    if (next_token (p).type != TOK_COMMA) return 0;
+    out->u.printhash.items = NULL;
+    out->u.printhash.n = 0;
+    out->u.printhash.no_nl = 0;
+    return 1;
+  case TOK_PRINT:
+    out->kind = ST_PRINT;
+    out->u.print.items = NULL;
+    out->u.print.n = 0;
+    out->u.print.no_nl = 0;
+    return 1;
+  case TOK_INPUT_HASH:
+    out->kind = ST_INPUT_HASH;
+    PARSE_EXPR_OR_ERROR (out->u.inputhash.num);
+    if (next_token (p).type != TOK_COMMA) return 0;
+    out->u.inputhash.var = parse_id (p);
+    out->u.inputhash.is_str = out->u.inputhash.var[strlen (out->u.inputhash.var) - 1] == '$';
+    return 1;
+  case TOK_INPUT:
+    out->kind = ST_INPUT;
+    out->u.input.var = parse_id (p);
+    out->u.input.is_str = out->u.input.var[strlen (out->u.input.var) - 1] == '$';
+    return 1;
+  case TOK_GET_HASH:
+    out->kind = ST_GET_HASH;
+    PARSE_EXPR_OR_ERROR (out->u.gethash.num);
+    if (next_token (p).type != TOK_COMMA) return 0;
+    out->u.gethash.var = parse_id (p);
+    return 1;
+  case TOK_GET:
+    out->kind = ST_GET;
+    out->u.get.var = parse_id (p);
+    return 1;
+  case TOK_PUT_HASH:
+    out->kind = ST_PUT_HASH;
+    PARSE_EXPR_OR_ERROR (out->u.puthash.num);
+    if (next_token (p).type != TOK_COMMA) return 0;
+    PARSE_EXPR_OR_ERROR (out->u.puthash.expr);
+    return 1;
+  case TOK_PUT:
+    out->kind = ST_PUT;
+    PARSE_EXPR_OR_ERROR (out->u.put.expr);
+    return 1;
   case TOK_GOTO:
     out->kind = ST_GOTO;
     tok = next_token (p);
@@ -1593,90 +1649,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
     skip_ws (p);
     break;
   }
-  if (strncasecmp (cur, "OPEN", 4) == 0) {
-    cur += 4;
-    skip_ws (p);
-    out->kind = ST_OPEN;
-    PARSE_EXPR_OR_ERROR (out->u.open.num);
-    skip_ws (p);
-    if (*cur != ',') return 0;
-    cur++;
-    PARSE_EXPR_OR_ERROR (out->u.open.path);
-    return 1;
-  } else if (strncasecmp (cur, "CLOSE", 5) == 0) {
-    cur += 5;
-    skip_ws (p);
-    out->kind = ST_CLOSE;
-    PARSE_EXPR_OR_ERROR (out->u.close.num);
-    return 1;
-  } else if (strncasecmp (cur, "PRINT#", 6) == 0) {
-    cur += 6;
-    skip_ws (p);
-    out->kind = ST_PRINT_HASH;
-    PARSE_EXPR_OR_ERROR (out->u.printhash.num);
-    skip_ws (p);
-    if (*cur != ',') return 0;
-    cur++;
-    out->u.printhash.items = NULL;
-    out->u.printhash.n = 0;
-    out->u.printhash.no_nl = 0;
-    return 1;
-  } else if (strncasecmp (cur, "PRINT", 5) == 0) {
-    cur += 5;
-    out->kind = ST_PRINT;
-    out->u.print.items = NULL;
-    out->u.print.n = 0;
-    out->u.print.no_nl = 0;
-    return 1;
-  } else if (strncasecmp (cur, "INPUT#", 6) == 0) {
-    cur += 6;
-    skip_ws (p);
-    out->kind = ST_INPUT_HASH;
-    PARSE_EXPR_OR_ERROR (out->u.inputhash.num);
-    skip_ws (p);
-    if (*cur != ',') return 0;
-    cur++;
-    out->u.inputhash.var = parse_id (p);
-    out->u.inputhash.is_str = out->u.inputhash.var[strlen (out->u.inputhash.var) - 1] == '$';
-    return 1;
-  } else if (strncasecmp (cur, "INPUT", 5) == 0) {
-    cur += 5;
-    out->kind = ST_INPUT;
-    out->u.input.var = parse_id (p);
-    out->u.input.is_str = out->u.input.var[strlen (out->u.input.var) - 1] == '$';
-    return 1;
-  } else if (strncasecmp (cur, "GET#", 4) == 0) {
-    cur += 4;
-    skip_ws (p);
-    out->kind = ST_GET_HASH;
-    PARSE_EXPR_OR_ERROR (out->u.gethash.num);
-    skip_ws (p);
-    if (*cur != ',') return 0;
-    cur++;
-    out->u.gethash.var = parse_id (p);
-    return 1;
-  } else if (strncasecmp (cur, "GET", 3) == 0) {
-    cur += 3;
-    out->kind = ST_GET;
-    out->u.get.var = parse_id (p);
-    return 1;
-  } else if (strncasecmp (cur, "PUT#", 4) == 0) {
-    cur += 4;
-    skip_ws (p);
-    out->kind = ST_PUT_HASH;
-    PARSE_EXPR_OR_ERROR (out->u.puthash.num);
-    skip_ws (p);
-    if (*cur != ',') return 0;
-    cur++;
-    PARSE_EXPR_OR_ERROR (out->u.puthash.expr);
-    return 1;
-  } else if (strncasecmp (cur, "PUT", 3) == 0) {
-    cur += 3;
-    out->kind = ST_PUT;
-    PARSE_EXPR_OR_ERROR (out->u.put.expr);
-    return 1;
-
-  } else if (strncasecmp (cur, "DEF", 3) == 0) {
+  if (strncasecmp (cur, "DEF", 3) == 0) {
     cur += 3;
     skip_ws (p);
     char *fname = parse_id (p);
