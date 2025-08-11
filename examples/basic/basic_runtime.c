@@ -7,8 +7,14 @@
 #include <stdint.h>
 #include <sys/select.h>
 #include <unistd.h>
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <termios.h>
+#endif
 #include "basic_num.h"
 #include <sys/wait.h>
+#include <sys/time.h>
 #include "kitty/kitty.h"
 #include "basic_runtime.h"
 #if defined(BASIC_USE_LONG_DOUBLE)
@@ -48,6 +54,11 @@ static uint32_t current_hcolor = 0xFFFFFF;
 static int palette_initialized = 0;
 int basic_line_tracking_enabled = 1;
 static char *system_output = NULL;
+#ifndef _WIN32
+static struct termios saved_termios;
+static int termios_saved = 0;
+static void restore_termios (void) { tcsetattr (STDIN_FILENO, TCSANOW, &saved_termios); }
+#endif
 
 typedef struct {
   int line;
@@ -404,13 +415,41 @@ void basic_home (void) { printf ("\x1b[2J\x1b[H"); }
 
 void basic_vtab (basic_num_t n) { printf ("\x1b[%d;H", (int) n); }
 
-void basic_screen (basic_num_t m) { (void) m; }
+void basic_screen (basic_num_t m) {
+#if defined(_WIN32)
+  (void) m;
+#else
+  if ((int) m != 0) {
+    /* Switch to the alternate screen buffer. */
+    printf ("\x1b[?1049h");
+  } else {
+    /* Restore the normal screen buffer. */
+    printf ("\x1b[?1049l");
+  }
+  fflush (stdout);
+#endif
+}
 
 void basic_cls (void) { printf ("\x1b[2J\x1b[H"); }
 
 void basic_color (basic_num_t c) { printf ("\x1b[%dm", (int) c); }
-
-void basic_key_off (void) {}
+void basic_key_off (void) {
+#if defined(_WIN32)
+  HANDLE h = GetStdHandle (STD_INPUT_HANDLE);
+  DWORD mode;
+  if (GetConsoleMode (h, &mode))
+    SetConsoleMode (h, mode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
+#else
+  if (!termios_saved) {
+    tcgetattr (STDIN_FILENO, &saved_termios);
+    atexit (restore_termios);
+    termios_saved = 1;
+  }
+  struct termios t = saved_termios;
+  t.c_lflag &= ~(ICANON | ECHO);
+  tcsetattr (STDIN_FILENO, TCSANOW, &t);
+#endif
+}
 
 void basic_locate (basic_num_t r, basic_num_t c) { printf ("\x1b[%d;%dH", (int) r, (int) c); }
 
@@ -613,8 +652,11 @@ void basic_inverse (void) { printf ("\x1b[7m"); }
 
 void basic_normal (void) { printf ("\x1b[0m"); }
 
+static void basic_ensure_palette (void);
+
 void basic_hgr2 (void) {
   printf ("\x1b[2J\x1b[H");
+  basic_ensure_palette ();
   last_hplot_x = 0.0;
   last_hplot_y = 0.0;
   current_hcolor = basic_palette[7];
@@ -644,6 +686,13 @@ static void basic_ensure_palette (void) {
     basic_set_palette_from_env ();
     palette_initialized = 1;
   }
+}
+
+void basic_screen (basic_num_t m) {
+  if ((int) m == 0)
+    basic_text ();
+  else
+    basic_hgr2 ();
 }
 
 #define BASIC_MAX_WIDTH 280
@@ -762,7 +811,7 @@ void basic_fill (basic_num_t x0, basic_num_t y0, basic_num_t x1, basic_num_t y1)
   last_hplot_y = y1;
 }
 
-void basic_mode (basic_num_t m) { (void) m; }
+void basic_mode (basic_num_t m) { basic_screen (m); }
 
 void basic_beep (void) {
   fputc ('\a', stdout);
