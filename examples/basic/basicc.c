@@ -1200,6 +1200,8 @@ typedef struct {
 } CallArgs;
 
 static void parse_call_args (Parser *p, CallArgs *a) {
+  /* Parse up to five comma-separated arguments, ensuring the first
+     argument is stored and the closing parenthesis is consumed. */
   for (int i = 0; i < 5; i++) {
     Token t = peek_token (p);
     if (t.type == TOK_RPAREN) break;
