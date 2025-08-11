@@ -1010,6 +1010,7 @@ typedef struct {
   char *cur;
   Token tok;
   Token peek;
+  char *peek_cur;
   int has_peek;
 } Parser;
 
@@ -1182,6 +1183,7 @@ static Token read_token (Parser *p) {
 static Token next_token (Parser *p) {
   if (p->has_peek) {
     p->tok = p->peek;
+    cur = p->peek_cur;
     p->has_peek = 0;
     return p->tok;
   }
@@ -1191,9 +1193,10 @@ static Token next_token (Parser *p) {
 
 static Token peek_token (Parser *p) {
   if (!p->has_peek) {
-    char *save = cur;
+    char *start = cur;
     p->peek = read_token (p);
-    cur = save;
+    p->peek_cur = cur;
+    cur = start;
     p->has_peek = 1;
   }
   return p->peek;
@@ -1244,16 +1247,19 @@ typedef struct {
 } CallArgs;
 
 static void parse_call_args (Parser *p, CallArgs *a) {
-  cur++;
-  skip_ws (p);
-  for (int i = 0; i < 5 && *cur != ')'; i++) {
+  for (int i = 0; i < 5; i++) {
+    Token t = peek_token (p);
+    if (t.type == TOK_RPAREN) break;
+    p->has_peek = 0;
     a->a[i] = parse_expr (p);
-    skip_ws (p);
-    if (*cur != ',') break;
-    cur++;
-    skip_ws (p);
+    t = peek_token (p);
+    if (t.type == TOK_COMMA) {
+      next_token (p);
+    } else {
+      break;
+    }
   }
-  if (*cur == ')') cur++;
+  if (peek_token (p).type == TOK_RPAREN) next_token (p);
 }
 
 typedef struct {
@@ -1380,7 +1386,12 @@ static Node *parse_factor (Parser *p) {
   char *id = parse_id (p);
   CallArgs a = {{0}};
   skip_ws (p);
-  if (*cur == '(') parse_call_args (p, &a);
+  if (peek_token (p).type == TOK_LPAREN) {
+    next_token (p);
+    parse_call_args (p, &a);
+  } else {
+    p->has_peek = 0;
+  }
   if ((n = parse_builtin_call (id, &a)) != NULL) return n;
   if ((n = parse_user_call (id, &a)) != NULL) return n;
   return parse_variable (id, &a);
@@ -4800,11 +4811,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     if (g_vars.data[i].is_array && g_vars.data[i].size <= 1) {
       g_vars.data[i].size = 11;
       size_t elem_size = g_vars.data[i].is_str ? sizeof (char *) : sizeof (basic_num_t);
-      MIR_insn_t call = MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, calloc_proto),
-                                           MIR_new_ref_op (ctx, calloc_import),
-                                           MIR_new_reg_op (ctx, g_vars.data[i].reg),
-                                           MIR_new_int_op (ctx, 11),
-                                           MIR_new_int_op (ctx, elem_size));
+      MIR_insn_t call
+        = MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, calloc_proto),
+                             MIR_new_ref_op (ctx, calloc_import),
+                             MIR_new_reg_op (ctx, g_vars.data[i].reg), MIR_new_int_op (ctx, 11),
+                             MIR_new_int_op (ctx, elem_size));
       MIR_insert_insn_after (ctx, func, g_var_init_anchor, call);
       g_var_init_anchor = call;
     }
