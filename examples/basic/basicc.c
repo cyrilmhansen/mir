@@ -1013,6 +1013,8 @@ typedef struct {
   Token peek;
   char *peek_cur;
   int has_peek;
+  const char *line;
+  int line_no;
 } Parser;
 
 #define cur (p->cur)
@@ -1829,11 +1831,21 @@ static int parse_stmt (Parser *p, Stmt *out) {
         out->u.hplot.xs = realloc (out->u.hplot.xs, cap * sizeof (Node *));
         out->u.hplot.ys = realloc (out->u.hplot.ys, cap * sizeof (Node *));
       }
+      p->has_peek = 0;
       out->u.hplot.xs[out->u.hplot.n] = parse_expr (p);
+      if (out->u.hplot.xs[out->u.hplot.n] == NULL) {
+        fprintf (stderr, "parse error on line %d: %s\n", p->line_no, p->line);
+        return 0;
+      }
       skip_ws (p);
       if (*cur != ',') return 0;
       cur++;
+      p->has_peek = 0;
       out->u.hplot.ys[out->u.hplot.n] = parse_expr (p);
+      if (out->u.hplot.ys[out->u.hplot.n] == NULL) {
+        fprintf (stderr, "parse error on line %d: %s\n", p->line_no, p->line);
+        return 0;
+      }
       out->u.hplot.n++;
       skip_ws (p);
       if (strncasecmp (cur, "TO", 2) == 0) {
@@ -2230,7 +2242,16 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
           skip_ws (p);
           if (*cur == ':' || *cur == '\0' || (stop_on_else && strncasecmp (cur, "ELSE", 4) == 0))
             break;
+          p->has_peek = 0;
           Node *e = parse_expr (p);
+          if (e == NULL) {
+            fprintf (stderr, "parse error on line %d: %s\n", p->line_no, p->line);
+            if (bs.kind == ST_PRINT)
+              free (bs.u.print.items);
+            else
+              free (bs.u.printhash.items);
+            return 0;
+          }
           if (bs.kind == ST_PRINT) {
             if (bs.u.print.n == cap) {
               cap = cap ? cap * 2 : 4;
@@ -2280,10 +2301,12 @@ static int parse_line (Parser *p, char *line, Line *out) {
   *p = (Parser) {0};
   cur = line;
   p->tok.type = TOK_EOF;
+  p->line = line;
   out->src = strdup (line);
   skip_ws (p);
   int line_no = 0;
   if (isdigit ((unsigned char) *cur)) line_no = parse_int (p);
+  p->line_no = line_no;
   out->line = line_no;
   out->stmts = (StmtVec) {0};
   while (1) {
@@ -2309,7 +2332,16 @@ static int parse_line (Parser *p, char *line, Line *out) {
       while (1) {
         skip_ws (p);
         if (*cur == ':' || *cur == '\0') break;
+        p->has_peek = 0;
         Node *e = parse_expr (p);
+        if (e == NULL) {
+          fprintf (stderr, "parse error on line %d: %s\n", p->line_no, p->line);
+          if (s.kind == ST_PRINT)
+            free (s.u.print.items);
+          else
+            free (s.u.printhash.items);
+          return 0;
+        }
         if (s.kind == ST_PRINT) {
           if (s.u.print.n == cap) {
             cap = cap ? cap * 2 : 4;
