@@ -5118,7 +5118,7 @@ static void repl (void) {
         if (opt == REPL_TOK_PROFILE && *s == '\0') {
           profile_p = 1;
         } else {
-          fprintf (stderr, "unknown RUN option: %s\n", s);
+          fprintf (stderr, "unknown RUN option: %s\n", s != NULL ? s : "(null)");
           break;
         }
       }
