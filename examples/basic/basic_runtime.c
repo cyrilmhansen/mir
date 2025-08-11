@@ -14,6 +14,7 @@
 #endif
 #include "basic_num.h"
 #include <sys/wait.h>
+#include <sys/time.h>
 #include "kitty/kitty.h"
 #include "basic_runtime.h"
 #if defined(BASIC_USE_LONG_DOUBLE)
