@@ -1011,6 +1011,9 @@ typedef struct {
 typedef struct {
   char *cur;
   Token tok;
+  Token peek;
+  char *peek_cur;
+  int has_peek;
 } Parser;
 
 #define cur (p->cur)
@@ -1135,15 +1138,25 @@ static Token read_token (Parser *p) {
 }
 
 static Token next_token (Parser *p) {
+  if (p->has_peek) {
+    p->tok = p->peek;
+    cur = p->peek_cur;
+    p->has_peek = 0;
+    return p->tok;
+  }
   p->tok = read_token (p);
   return p->tok;
 }
 
 static Token peek_token (Parser *p) {
-  char *save = cur;
-  Token t = read_token (p);
-  cur = save;
-  return t;
+  if (!p->has_peek) {
+    char *start = cur;
+    p->peek = read_token (p);
+    p->peek_cur = cur;
+    cur = start;
+    p->has_peek = 1;
+  }
+  return p->peek;
 }
 
 static int parse_int (Parser *p) {
@@ -1191,16 +1204,19 @@ typedef struct {
 } CallArgs;
 
 static void parse_call_args (Parser *p, CallArgs *a) {
-  cur++;
-  skip_ws (p);
-  for (int i = 0; i < 5 && *cur != ')'; i++) {
+  for (int i = 0; i < 5; i++) {
+    Token t = peek_token (p);
+    if (t.type == TOK_RPAREN) break;
+    p->has_peek = 0;
     a->a[i] = parse_expr (p);
-    skip_ws (p);
-    if (*cur != ',') break;
-    cur++;
-    skip_ws (p);
+    t = peek_token (p);
+    if (t.type == TOK_COMMA) {
+      next_token (p);
+    } else {
+      break;
+    }
   }
-  if (*cur == ')') cur++;
+  if (peek_token (p).type == TOK_RPAREN) next_token (p);
 }
 
 typedef struct {
@@ -1323,7 +1339,12 @@ static Node *parse_factor (Parser *p) {
   char *id = parse_id (p);
   CallArgs a = {{0}};
   skip_ws (p);
-  if (*cur == '(') parse_call_args (p, &a);
+  if (peek_token (p).type == TOK_LPAREN) {
+    next_token (p);
+    parse_call_args (p, &a);
+  } else {
+    p->has_peek = 0;
+  }
   if ((n = parse_builtin_call (id, &a)) != NULL) return n;
   if ((n = parse_user_call (id, &a)) != NULL) return n;
   return parse_variable (id, &a);
