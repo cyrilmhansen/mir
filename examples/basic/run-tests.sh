@@ -84,7 +84,7 @@ PY
         diff "$ROOT/examples/basic/extern.out" "$ROOT/basic/extern.out"
         echo "extern OK"
 
-        for t in hello relop adder string strfuncs instr gosub on funcproc graphics hplot_bounds readhplot restore hgr2reset circle box sudoku array_oob_read array_oob_write dim_expr pi baseconv mir_demo datediff date random rnd_noarg hexoct screen; do
+        for t in hello relop adder string strfuncs instr gosub on funcproc graphics hplot_bounds readhplot restore data_read clear hgr2reset circle box sudoku array_oob_read array_oob_write dim_expr pi baseconv mir_demo datediff date random rnd_noarg hexoct screen; do
                 echo "Running $t"
                 run_test "$t"
                 echo "$t OK"
