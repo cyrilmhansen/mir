@@ -990,6 +990,18 @@ typedef enum {
   TOK_SUB,
   TOK_TRUE,
   TOK_FALSE,
+  TOK_RUN,
+  TOK_COMPILE,
+  TOK_SAVE,
+  TOK_LOAD,
+  TOK_LIST,
+  TOK_NEW,
+  TOK_QUIT,
+  TOK_EXIT,
+  TOK_NATIVE,
+  TOK_BMIR,
+  TOK_CODE,
+  TOK_PROFILE,
   /* Punctuation */
   TOK_COMMA,
   TOK_COLON,
@@ -1143,6 +1155,19 @@ static Token read_token (Parser *p) {
                     {"SUB", TOK_SUB},
                     {"TRUE", TOK_TRUE},
                     {"FALSE", TOK_FALSE},
+                    {"RUN", TOK_RUN},
+                    {"COMPILE", TOK_COMPILE},
+                    {"SAVE", TOK_SAVE},
+                    {"LOAD", TOK_LOAD},
+                    {"LIST", TOK_LIST},
+                    {"NEW", TOK_NEW},
+                    {"QUIT", TOK_QUIT},
+                    {"EXIT", TOK_EXIT},
+                    {"NATIVE", TOK_NATIVE},
+                    {"BMIR", TOK_BMIR},
+                    {"CODE", TOK_CODE},
+                    {"PROFILE", TOK_PROFILE},
+                    {"PROFILING", TOK_PROFILE},
                     {NULL, TOK_EOF}};
     for (int j = 0; keywords[j].kw != NULL; j++)
       if (strcmp (buf, keywords[j].kw) == 0) {
@@ -4905,44 +4930,32 @@ typedef enum {
 } ReplToken;
 
 static ReplToken repl_next_token (char **sp) {
-  char *s = *sp;
-  while (isspace ((unsigned char) *s)) s++;
-  if (*s == '\0') {
-    *sp = s;
-    return REPL_TOK_NONE;
-  }
-  char *start = s;
-  while (*s && !isspace ((unsigned char) *s)) s++;
-  size_t len = s - start;
+  Parser p = {0};
+#undef cur
+  p.cur = *sp;
+#define cur (p->cur)
+  Token t = read_token (&p);
   ReplToken tok = REPL_TOK_NONE;
-  if (len == 3 && strncasecmp (start, "RUN", 3) == 0)
-    tok = REPL_TOK_RUN;
-  else if (len == 7 && strncasecmp (start, "COMPILE", 7) == 0)
-    tok = REPL_TOK_COMPILE;
-  else if (len == 4 && strncasecmp (start, "SAVE", 4) == 0)
-    tok = REPL_TOK_SAVE;
-  else if (len == 4 && strncasecmp (start, "LOAD", 4) == 0)
-    tok = REPL_TOK_LOAD;
-  else if (len == 4 && strncasecmp (start, "LIST", 4) == 0)
-    tok = REPL_TOK_LIST;
-  else if (len == 3 && strncasecmp (start, "NEW", 3) == 0)
-    tok = REPL_TOK_NEW;
-  else if (len == 4 && strncasecmp (start, "QUIT", 4) == 0)
-    tok = REPL_TOK_QUIT;
-  else if (len == 4 && strncasecmp (start, "EXIT", 4) == 0)
-    tok = REPL_TOK_EXIT;
-  else if (len == 6 && strncasecmp (start, "NATIVE", 6) == 0)
-    tok = REPL_TOK_NATIVE;
-  else if (len == 4 && strncasecmp (start, "BMIR", 4) == 0)
-    tok = REPL_TOK_BMIR;
-  else if (len == 4 && strncasecmp (start, "CODE", 4) == 0)
-    tok = REPL_TOK_CODE;
-  else if ((len == 7 && strncasecmp (start, "PROFILE", 7) == 0)
-           || (len == 9 && strncasecmp (start, "PROFILING", 9) == 0))
-    tok = REPL_TOK_PROFILE;
-  *sp = s;
-  while (isspace ((unsigned char) *s)) s++;
-  *sp = s;
+  switch (t.type) {
+  case TOK_RUN: tok = REPL_TOK_RUN; break;
+  case TOK_COMPILE: tok = REPL_TOK_COMPILE; break;
+  case TOK_SAVE: tok = REPL_TOK_SAVE; break;
+  case TOK_LOAD: tok = REPL_TOK_LOAD; break;
+  case TOK_LIST: tok = REPL_TOK_LIST; break;
+  case TOK_NEW: tok = REPL_TOK_NEW; break;
+  case TOK_QUIT: tok = REPL_TOK_QUIT; break;
+  case TOK_EXIT: tok = REPL_TOK_EXIT; break;
+  case TOK_NATIVE: tok = REPL_TOK_NATIVE; break;
+  case TOK_BMIR: tok = REPL_TOK_BMIR; break;
+  case TOK_CODE: tok = REPL_TOK_CODE; break;
+  case TOK_PROFILE: tok = REPL_TOK_PROFILE; break;
+  default: break;
+  }
+  if (t.str != NULL) free (t.str);
+  skip_ws (&p);
+#undef cur
+  *sp = p.cur;
+#define cur (p->cur)
   return tok;
 }
 
