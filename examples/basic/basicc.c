@@ -1067,11 +1067,7 @@ typedef struct {
   int line_no;
 } Parser;
 
-#define cur (p->cur)
-
-static void skip_ws (Parser *p) {
-  while (*cur && isspace ((unsigned char) *cur)) cur++;
-}
+/* character-level parser state is stored directly in p->cur */
 
 static void report_parse_error_details (int line_no, const char *line, const char *pos) {
   const char *near = pos != NULL ? pos : line;
@@ -1083,14 +1079,18 @@ static void report_parse_error_details (int line_no, const char *line, const cha
 }
 
 static int parse_error (Parser *p) {
-  report_parse_error_details (p->line_no, p->line_start, cur);
+  report_parse_error_details (p->line_no, p->line_start, p->cur);
   return 0;
 }
 
 static Token read_token (Parser *p) {
-  skip_ws (p);
+  char *cur = p->cur;
+  while (*cur && isspace ((unsigned char) *cur)) cur++;
   Token t = {TOK_EOF, NULL, 0};
-  if (*cur == '\0') return t;
+  if (*cur == '\0') {
+    p->cur = cur;
+    return t;
+  }
   unsigned char c = *cur;
   if (isalpha (c) || c == '_') {
     char buf[64];
@@ -1202,15 +1202,18 @@ static Token read_token (Parser *p) {
     for (int j = 0; keywords[j].kw != NULL; j++)
       if (strcmp (buf, keywords[j].kw) == 0) {
         t.type = keywords[j].type;
+        p->cur = cur;
         return t;
       }
     if (strncmp (buf, "FN", 2) == 0 && buf[2] != '\0') {
       t.type = TOK_FN;
       t.str = strdup (buf);
+      p->cur = cur;
       return t;
     }
     t.type = TOK_IDENTIFIER;
     t.str = strdup (buf);
+    p->cur = cur;
     return t;
   }
   if (c == NUM_PREFIX_CHAR) {
@@ -1228,6 +1231,7 @@ static Token read_token (Parser *p) {
         cur = end;
         t.type = TOK_NUMBER;
         t.num = (basic_num_t) v;
+        p->cur = cur;
         return t;
       }
       cur -= 2;
@@ -1238,6 +1242,7 @@ static Token read_token (Parser *p) {
     t.num = BASIC_STRTOF (cur, &cur);
     (void) start;
     t.type = TOK_NUMBER;
+    p->cur = cur;
     return t;
   }
   if (c == '"') {
@@ -1251,6 +1256,7 @@ static Token read_token (Parser *p) {
     if (*cur == '"') cur++;
     t.type = TOK_STRING;
     t.str = s;
+    p->cur = cur;
     return t;
   }
   cur++;
@@ -1287,6 +1293,7 @@ static Token read_token (Parser *p) {
     break;
   default: t.type = TOK_EOF; break;
   }
+  p->cur = cur;
   return t;
 }
 
@@ -1301,10 +1308,10 @@ static Token next_token (Parser *p) {
 
 static Token peek_token (Parser *p) {
   if (!p->has_peek) {
-    char *start = cur;
+    char *start = p->cur;
     p->peek = read_token (p);
-    p->peek_cur = cur;
-    cur = start;
+    p->peek_cur = p->cur;
+    p->cur = start;
     p->has_peek = 1;
   }
   return p->peek;
@@ -1336,6 +1343,15 @@ static char *parse_string (Parser *p) {
   Token t = next_token (p);
   if (t.type != TOK_STRING) return NULL;
   return t.str;
+}
+
+static char *parse_rest (Parser *p) {
+  char *cur = p->cur;
+  while (*cur && isspace ((unsigned char) *cur)) cur++;
+  char *s = strdup (cur);
+  if (s == NULL) return NULL;
+  p->cur = cur + strlen (cur);
+  return s;
 }
 
 /* Expression parser */
@@ -2407,7 +2423,7 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
 /* Parse a single line into multiple statements */
 static int parse_line (Parser *p, char *line, Line *out) {
   *p = (Parser) {0};
-  cur = line;
+  p->cur = line;
   p->tok.type = TOK_EOF;
   p->line_start = line;
   out->src = strdup (line);
@@ -2503,7 +2519,7 @@ static int parse_line (Parser *p, char *line, Line *out) {
 
 static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
   *p = (Parser) {0};
-  cur = line;
+  p->cur = line;
   next_token (p); /* consume SUB/FUNCTION */
   char *name = parse_id (p);
   int f_is_str = name[strlen (name) - 1] == '$';
@@ -2557,10 +2573,8 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
   char buf[256];
   while (fgets (buf, sizeof (buf), f)) {
     buf[strcspn (buf, "\n")] = '\0';
-    Parser end_p = {0};
-#undef cur
+    Parser end_p = (Parser) {0};
     end_p.cur = buf;
-#define cur (p->cur)
     Token t1 = peek_token (&end_p);
     if (t1.type == TOK_EOF) continue;
     t1 = next_token (&end_p);
@@ -2610,17 +2624,16 @@ static int load_program (LineVec *prog, const char *path) {
     line[strcspn (line, "\n")] = '\0';
     Parser p_obj = {0};
     Parser *p = &p_obj;
-    cur = line;
+    p->cur = line;
     Token t = peek_token (p);
     if (t.type == TOK_EOF) {
       next_token (p);
       continue;
     }
-    char *s = cur;
     if (t.type == TOK_FUNCTION || t.type == TOK_SUB) {
       t = next_token (p);
       if (t.str != NULL) free (t.str);
-      parse_func (p, f, s, t.type == TOK_SUB);
+      parse_func (p, f, line, t.type == TOK_SUB);
       continue;
     }
     t = next_token (p);
@@ -3710,6 +3723,7 @@ static void gen_stmt (Stmt *s) {
   case ST_PUT: gen_put (s); break;
   case ST_PUT_HASH: gen_put_hash (s); break;
   case ST_POKE: gen_poke (s); break;
+  case ST_DATA: /* DATA values are processed at parse time, no code needed */ break;
   case ST_READ: {
     for (size_t k = 0; k < s->u.read.n; k++) {
       Node *v = s->u.read.vars[k];
@@ -5066,7 +5080,7 @@ typedef enum {
   REPL_TOK_PROFILE,
 } ReplToken;
 
-static ReplToken repl_next_token (Parser *p) {
+static ReplToken repl_next_token (Parser *p, Token *out) {
   Token t = next_token (p);
   ReplToken tok = REPL_TOK_NONE;
   switch (t.type) {
@@ -5084,8 +5098,10 @@ static ReplToken repl_next_token (Parser *p) {
   case TOK_PROFILE: tok = REPL_TOK_PROFILE; break;
   default: break;
   }
-  if (t.str != NULL) free (t.str);
-  skip_ws (p);
+  if (out != NULL)
+    *out = t;
+  else if (t.str != NULL)
+    free (t.str);
   return tok;
 }
 
@@ -5098,7 +5114,7 @@ static void repl (void) {
     line[strcspn (line, "\n")] = '\0';
     Parser p_obj = {0};
     Parser *p = &p_obj;
-    cur = line;
+    p->cur = line;
     Token first = peek_token (p);
     if (first.type == TOK_EOF) continue;
     if (first.type == TOK_NUMBER) {
@@ -5117,20 +5133,22 @@ static void repl (void) {
       }
       continue;
     }
-    ReplToken tok = repl_next_token (p);
+    ReplToken tok = repl_next_token (p, NULL);
     int exit_repl = 0;
     switch (tok) {
     case REPL_TOK_RUN: {
       int profile_p = 0;
       if (peek_token (p).type != TOK_EOF) {
-        char *opt_start = cur;
-        ReplToken opt = repl_next_token (p);
+        Token opt_tok;
+        ReplToken opt = repl_next_token (p, &opt_tok);
         if (opt == REPL_TOK_PROFILE && peek_token (p).type == TOK_EOF) {
           profile_p = 1;
         } else {
-          fprintf (stderr, "unknown RUN option: %s\n", opt_start);
+          fprintf (stderr, "unknown RUN option: %s\n", opt_tok.str ? opt_tok.str : "");
+          if (opt_tok.str != NULL) free (opt_tok.str);
           break;
         }
+        if (opt_tok.str != NULL) free (opt_tok.str);
       }
       if (profile_p) basic_profile_reset ();
       gen_program (&prog, 0, 0, 0, 0, 0, 0, profile_p, line_tracking, NULL, "(repl)");
@@ -5138,68 +5156,80 @@ static void repl (void) {
       continue;
     }
     case REPL_TOK_COMPILE: {
-      ReplToken target = repl_next_token (p);
+      ReplToken target = repl_next_token (p, NULL);
       switch (target) {
-      case REPL_TOK_NATIVE:
-        if (*cur == '\0') {
+      case REPL_TOK_NATIVE: {
+        char *fname = parse_rest (p);
+        if (fname == NULL || fname[0] == '\0') {
           fputs ("missing output file\n", stderr);
         } else {
-          gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, cur, "(repl)");
-          if (access (cur, F_OK) == 0)
-            printf ("%s\n", cur);
+          gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, fname, "(repl)");
+          if (access (fname, F_OK) == 0)
+            printf ("%s\n", fname);
           else
-            perror (cur);
+            perror (fname);
         }
-        break;
-      case REPL_TOK_BMIR:
-        if (*cur == '\0') {
+        free (fname);
+      } break;
+      case REPL_TOK_BMIR: {
+        char *fname = parse_rest (p);
+        if (fname == NULL || fname[0] == '\0') {
           fputs ("missing output file\n", stderr);
         } else {
-          gen_program (&prog, 0, 0, 1, 0, 0, 0, 0, line_tracking, cur, "(repl)");
-          char *name = change_suffix (cur, ".bmir");
+          gen_program (&prog, 0, 0, 1, 0, 0, 0, 0, line_tracking, fname, "(repl)");
+          char *name = change_suffix (fname, ".bmir");
           if (access (name, F_OK) == 0)
             printf ("%s\n", name);
           else
             perror (name);
           free (name);
         }
-        break;
-      case REPL_TOK_CODE:
-        if (*cur == '\0') {
+        free (fname);
+      } break;
+      case REPL_TOK_CODE: {
+        char *fname = parse_rest (p);
+        if (fname == NULL || fname[0] == '\0') {
           fputs ("missing output file\n", stderr);
         } else {
-          gen_program (&prog, 0, 0, 0, 0, 1, 0, 0, line_tracking, cur, "(repl)");
-          if (access (cur, F_OK) == 0)
-            printf ("%s\n", cur);
+          gen_program (&prog, 0, 0, 0, 0, 1, 0, 0, line_tracking, fname, "(repl)");
+          if (access (fname, F_OK) == 0)
+            printf ("%s\n", fname);
           else
-            perror (cur);
+            perror (fname);
         }
-        break;
+        free (fname);
+      } break;
       default: fputs ("unknown COMPILE target\n", stderr); break;
       }
       continue;
     }
-    case REPL_TOK_SAVE:
-      if (*cur == '\0') {
+    case REPL_TOK_SAVE: {
+      char *fname = parse_rest (p);
+      if (fname == NULL || fname[0] == '\0') {
         fputs ("missing output file\n", stderr);
       } else {
-        gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, cur, "(repl)");
-        if (access (cur, F_OK) == 0)
-          printf ("Saved %s\n", cur);
+        gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, fname, "(repl)");
+        if (access (fname, F_OK) == 0)
+          printf ("Saved %s\n", fname);
         else
-          perror (cur);
+          perror (fname);
       }
+      free (fname);
       continue;
-    case REPL_TOK_LOAD:
-      if (*cur == '\0') {
+    }
+    case REPL_TOK_LOAD: {
+      char *fname = parse_rest (p);
+      if (fname == NULL || fname[0] == '\0') {
         fputs ("missing input file\n", stderr);
       } else {
         func_vec_clear (&func_defs);
         data_vals_clear ();
         line_vec_destroy (&prog);
-        load_program (&prog, cur);
+        load_program (&prog, fname);
       }
+      free (fname);
       continue;
+    }
     case REPL_TOK_LIST: list_program (&prog); continue;
     case REPL_TOK_NEW:
       func_vec_clear (&func_defs);
