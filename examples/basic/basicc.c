@@ -3715,8 +3715,14 @@ static void gen_poke (Stmt *s) {
 
 static void gen_stmt (Stmt *s) {
   switch (s->kind) {
-  case ST_DEF: break;
-  case ST_EXTERN: break;
+  case ST_DEF:
+    /* no code generation needed */
+    fprintf (stderr, "DEF not implemented\n");
+    break;
+  case ST_EXTERN:
+    /* no code generation needed */
+    fprintf (stderr, "EXTERN not implemented\n");
+    break;
   case ST_PRINT: gen_print (s); break;
   case ST_PRINT_HASH: gen_print_hash (s); break;
   case ST_INPUT: gen_input (s); break;
@@ -3726,7 +3732,10 @@ static void gen_stmt (Stmt *s) {
   case ST_PUT: gen_put (s); break;
   case ST_PUT_HASH: gen_put_hash (s); break;
   case ST_POKE: gen_poke (s); break;
-  case ST_DATA: /* DATA values are processed at parse time, no code needed */ break;
+  case ST_DATA:
+    /* DATA values are processed at parse time, no code generation needed */
+    fprintf (stderr, "DATA not implemented\n");
+    break;
   case ST_READ: {
     for (size_t k = 0; k < s->u.read.n; k++) {
       Node *v = s->u.read.vars[k];
