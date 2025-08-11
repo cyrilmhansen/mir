@@ -389,7 +389,9 @@ static DataVec data_vals;
 static void data_vec_push (DataVec *v, BasicData d) {
   if (v->len == v->cap) {
     v->cap = v->cap ? 2 * v->cap : 16;
-    v->data = realloc (v->data, v->cap * sizeof (BasicData));
+    BasicData *tmp = realloc (v->data, v->cap * sizeof (BasicData));
+    if (tmp == NULL) return;
+    v->data = tmp;
   }
   v->data[v->len++] = d;
 }
@@ -653,7 +655,9 @@ static void func_def_destroy (FuncDef *fd);
 static void func_vec_push (FuncVec *v, FuncDef f) {
   if (v->len == v->cap) {
     v->cap = v->cap ? 2 * v->cap : 4;
-    v->data = realloc (v->data, v->cap * sizeof (FuncDef));
+    FuncDef *tmp = realloc (v->data, v->cap * sizeof (FuncDef));
+    if (tmp == NULL) return;
+    v->data = tmp;
   }
   v->data[v->len++] = f;
 }
@@ -877,7 +881,9 @@ static void free_line (Line *l) {
 static void stmt_vec_push (StmtVec *v, Stmt s) {
   if (v->len == v->cap) {
     v->cap = v->cap ? 2 * v->cap : 16;
-    v->data = realloc (v->data, v->cap * sizeof (Stmt));
+    Stmt *tmp = realloc (v->data, v->cap * sizeof (Stmt));
+    if (tmp == NULL) return;
+    v->data = tmp;
   }
   v->data[v->len++] = s;
 }
@@ -897,7 +903,9 @@ static void line_vec_destroy (LineVec *v) {
 static void insert_or_replace_line (LineVec *prog, Line l) {
   if (prog->len == prog->cap) {
     prog->cap = prog->cap ? 2 * prog->cap : 16;
-    prog->data = realloc (prog->data, prog->cap * sizeof (Line));
+    Line *tmp = realloc (prog->data, prog->cap * sizeof (Line));
+    if (tmp == NULL) return;
+    prog->data = tmp;
   }
   size_t i = 0;
   while (i < prog->len && prog->data[i].line < l.line) i++;
@@ -1656,10 +1664,18 @@ static int parse_stmt (Parser *p, Stmt *out) {
         }
         if (out->u.dim.n == cap) {
           cap = cap ? 2 * cap : 4;
-          out->u.dim.names = realloc (out->u.dim.names, cap * sizeof (char *));
-          out->u.dim.sizes1 = realloc (out->u.dim.sizes1, cap * sizeof (Node *));
-          out->u.dim.sizes2 = realloc (out->u.dim.sizes2, cap * sizeof (Node *));
-          out->u.dim.is_str = realloc (out->u.dim.is_str, cap * sizeof (int));
+          char **tmp_names = realloc (out->u.dim.names, cap * sizeof (char *));
+          if (tmp_names == NULL) return 0;
+          out->u.dim.names = tmp_names;
+          Node **tmp_sizes1 = realloc (out->u.dim.sizes1, cap * sizeof (Node *));
+          if (tmp_sizes1 == NULL) return 0;
+          out->u.dim.sizes1 = tmp_sizes1;
+          Node **tmp_sizes2 = realloc (out->u.dim.sizes2, cap * sizeof (Node *));
+          if (tmp_sizes2 == NULL) return 0;
+          out->u.dim.sizes2 = tmp_sizes2;
+          int *tmp_is_str = realloc (out->u.dim.is_str, cap * sizeof (int));
+          if (tmp_is_str == NULL) return 0;
+          out->u.dim.is_str = tmp_is_str;
         }
         out->u.dim.names[out->u.dim.n] = name;
         out->u.dim.sizes1[out->u.dim.n] = size1;
@@ -1806,8 +1822,15 @@ static int parse_stmt (Parser *p, Stmt *out) {
           int ps = param[strlen (param) - 1] == '$';
           if (n == cap) {
             cap = cap ? 2 * cap : 4;
-            params = realloc (params, cap * sizeof (char *));
-            is_str = realloc (is_str, cap * sizeof (int));
+            char **tmp_params = realloc (params, cap * sizeof (char *));
+            int *tmp_is_str = realloc (is_str, cap * sizeof (int));
+            if (tmp_params == NULL || tmp_is_str == NULL) {
+              free (tmp_params);
+              free (tmp_is_str);
+              return 0;
+            }
+            params = tmp_params;
+            is_str = tmp_is_str;
           }
           params[n] = param;
           is_str[n] = ps;
@@ -1840,8 +1863,15 @@ static int parse_stmt (Parser *p, Stmt *out) {
         int ps = param[strlen (param) - 1] == '$';
         if (n == cap) {
           cap = cap ? 2 * cap : 4;
-          params = realloc (params, cap * sizeof (char *));
-          is_str = realloc (is_str, cap * sizeof (int));
+          char **tmp_params = realloc (params, cap * sizeof (char *));
+          int *tmp_is_str = realloc (is_str, cap * sizeof (int));
+          if (tmp_params == NULL || tmp_is_str == NULL) {
+            free (tmp_params);
+            free (tmp_is_str);
+            return 0;
+          }
+          params = tmp_params;
+          is_str = tmp_is_str;
         }
         params[n] = param;
         is_str[n] = ps;
@@ -1891,7 +1921,9 @@ static int parse_stmt (Parser *p, Stmt *out) {
         if (v == NULL) return parse_error (p);
         if (out->u.read.n == cap) {
           cap = cap ? cap * 2 : 4;
-          out->u.read.vars = realloc (out->u.read.vars, cap * sizeof (Node *));
+          Node **tmp = realloc (out->u.read.vars, cap * sizeof (Node *));
+          if (tmp == NULL) return 0;
+          out->u.read.vars = tmp;
         }
         out->u.read.vars[out->u.read.n++] = v;
         if (peek_token (p).type != TOK_COMMA) break;
@@ -1966,8 +1998,12 @@ static int parse_stmt (Parser *p, Stmt *out) {
         PARSE_EXPR_OR_ERROR (y);
         if (out->u.hplot.n == cap) {
           cap = cap ? cap * 2 : 4;
-          out->u.hplot.xs = realloc (out->u.hplot.xs, cap * sizeof (Node *));
-          out->u.hplot.ys = realloc (out->u.hplot.ys, cap * sizeof (Node *));
+          Node **tmp_xs = realloc (out->u.hplot.xs, cap * sizeof (Node *));
+          if (tmp_xs == NULL) return 0;
+          out->u.hplot.xs = tmp_xs;
+          Node **tmp_ys = realloc (out->u.hplot.ys, cap * sizeof (Node *));
+          if (tmp_ys == NULL) return 0;
+          out->u.hplot.ys = tmp_ys;
         }
         out->u.hplot.xs[out->u.hplot.n] = x;
         out->u.hplot.ys[out->u.hplot.n] = y;
@@ -2125,7 +2161,9 @@ static int parse_stmt (Parser *p, Stmt *out) {
         int tline = (int) tt2.num;
         if (*n_targets == cap) {
           cap = cap ? cap * 2 : 4;
-          *targets = realloc (*targets, cap * sizeof (int));
+          int *tmp = realloc (*targets, cap * sizeof (int));
+          if (tmp == NULL) return 0;
+          *targets = tmp;
         }
         (*targets)[(*n_targets)++] = tline;
         Token sep = peek_token (p);
@@ -2322,13 +2360,17 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
           if (bs.kind == ST_PRINT) {
             if (bs.u.print.n == cap) {
               cap = cap ? cap * 2 : 4;
-              bs.u.print.items = realloc (bs.u.print.items, cap * sizeof (Node *));
+              Node **tmp = realloc (bs.u.print.items, cap * sizeof (Node *));
+              if (tmp == NULL) return 0;
+              bs.u.print.items = tmp;
             }
             bs.u.print.items[bs.u.print.n++] = e;
           } else {
             if (bs.u.printhash.n == cap) {
               cap = cap ? cap * 2 : 4;
-              bs.u.printhash.items = realloc (bs.u.printhash.items, cap * sizeof (Node *));
+              Node **tmp = realloc (bs.u.printhash.items, cap * sizeof (Node *));
+              if (tmp == NULL) return 0;
+              bs.u.printhash.items = tmp;
             }
             bs.u.printhash.items[bs.u.printhash.n++] = e;
           }
@@ -2408,13 +2450,17 @@ static int parse_line (Parser *p, char *line, Line *out) {
         if (s.kind == ST_PRINT) {
           if (s.u.print.n == cap) {
             cap = cap ? cap * 2 : 4;
-            s.u.print.items = realloc (s.u.print.items, cap * sizeof (Node *));
+            Node **tmp = realloc (s.u.print.items, cap * sizeof (Node *));
+            if (tmp == NULL) return 0;
+            s.u.print.items = tmp;
           }
           s.u.print.items[s.u.print.n++] = e;
         } else {
           if (s.u.printhash.n == cap) {
             cap = cap ? cap * 2 : 4;
-            s.u.printhash.items = realloc (s.u.printhash.items, cap * sizeof (Node *));
+            Node **tmp = realloc (s.u.printhash.items, cap * sizeof (Node *));
+            if (tmp == NULL) return 0;
+            s.u.printhash.items = tmp;
           }
           s.u.printhash.items[s.u.printhash.n++] = e;
         }
@@ -2465,7 +2511,9 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
   {
     if (src_len == src_cap) {
       src_cap = src_cap ? 2 * src_cap : 4;
-      src_lines = realloc (src_lines, src_cap * sizeof (char *));
+      char **tmp = realloc (src_lines, src_cap * sizeof (char *));
+      if (tmp == NULL) return;
+      src_lines = tmp;
     }
     src_lines[src_len++] = strdup (line);
   }
@@ -2477,8 +2525,15 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
         int ps = param[strlen (param) - 1] == '$';
         if (n == cap) {
           cap = cap ? 2 * cap : 4;
-          params = realloc (params, cap * sizeof (char *));
-          is_str = realloc (is_str, cap * sizeof (int));
+          char **tmp_params = realloc (params, cap * sizeof (char *));
+          int *tmp_is_str = realloc (is_str, cap * sizeof (int));
+          if (tmp_params == NULL || tmp_is_str == NULL) {
+            free (tmp_params);
+            free (tmp_is_str);
+            return;
+          }
+          params = tmp_params;
+          is_str = tmp_is_str;
         }
         params[n] = param;
         is_str[n] = ps;
@@ -2506,7 +2561,9 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
       if ((is_sub && t2.type == TOK_SUB) || (!is_sub && t2.type == TOK_FUNCTION)) {
         if (src_len == src_cap) {
           src_cap = src_cap ? 2 * src_cap : 4;
-          src_lines = realloc (src_lines, src_cap * sizeof (char *));
+          char **tmp = realloc (src_lines, src_cap * sizeof (char *));
+          if (tmp == NULL) return;
+          src_lines = tmp;
         }
         src_lines[src_len++] = strdup (buf);
         break;
@@ -2517,7 +2574,9 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
     if (parse_line (&lp_parser, buf, &l)) {
       if (src_len == src_cap) {
         src_cap = src_cap ? 2 * src_cap : 4;
-        src_lines = realloc (src_lines, src_cap * sizeof (char *));
+        char **tmp = realloc (src_lines, src_cap * sizeof (char *));
+        if (tmp == NULL) return;
+        src_lines = tmp;
       }
       src_lines[src_len++] = l.src;
       for (size_t i = 0; i < l.stmts.len; i++) stmt_vec_push (&body, l.stmts.data[i]);
@@ -2596,7 +2655,9 @@ static MIR_reg_t get_var (VarVec *vars, MIR_context_t ctx, MIR_item_t func, cons
     if (!vars->data[i].is_array && strcmp (vars->data[i].name, name) == 0) return vars->data[i].reg;
   if (vars->len == vars->cap) {
     vars->cap = vars->cap ? 2 * vars->cap : 16;
-    vars->data = realloc (vars->data, vars->cap * sizeof (Var));
+    Var *tmp = realloc (vars->data, vars->cap * sizeof (Var));
+    if (tmp == NULL) return 0;
+    vars->data = tmp;
   }
   vars->data[vars->len].name = strdup (name);
   vars->data[vars->len].is_str = is_str;
@@ -2624,7 +2685,9 @@ static MIR_reg_t get_array (VarVec *vars, MIR_context_t ctx, MIR_item_t func, co
     }
   if (vars->len == vars->cap) {
     vars->cap = vars->cap ? 2 * vars->cap : 16;
-    vars->data = realloc (vars->data, vars->cap * sizeof (Var));
+    Var *tmp = realloc (vars->data, vars->cap * sizeof (Var));
+    if (tmp == NULL) return 0;
+    vars->data = tmp;
   }
   vars->data[vars->len].name = strdup (name);
   vars->data[vars->len].is_str = is_str;
@@ -3774,7 +3837,9 @@ static void gen_stmt (Stmt *s) {
     MIR_label_t end_label = MIR_new_label (g_ctx);
     if (g_loop_len == g_loop_cap) {
       g_loop_cap = g_loop_cap ? 2 * g_loop_cap : 16;
-      g_loop_stack = realloc (g_loop_stack, g_loop_cap * sizeof (LoopInfo));
+      LoopInfo *tmp = realloc (g_loop_stack, g_loop_cap * sizeof (LoopInfo));
+      if (tmp == NULL) return;
+      g_loop_stack = tmp;
     }
     g_loop_stack[g_loop_len++] = (LoopInfo) {var, end, step, start_label, end_label, 0};
     MIR_append_insn (g_ctx, g_func, start_label);
@@ -3813,7 +3878,9 @@ static void gen_stmt (Stmt *s) {
     MIR_label_t end_label = MIR_new_label (g_ctx);
     if (g_loop_len == g_loop_cap) {
       g_loop_cap = g_loop_cap ? 2 * g_loop_cap : 16;
-      g_loop_stack = realloc (g_loop_stack, g_loop_cap * sizeof (LoopInfo));
+      LoopInfo *tmp = realloc (g_loop_stack, g_loop_cap * sizeof (LoopInfo));
+      if (tmp == NULL) return;
+      g_loop_stack = tmp;
     }
     g_loop_stack[g_loop_len++] = (LoopInfo) {0, 0, 0, start_label, end_label, 1};
     MIR_append_insn (g_ctx, g_func, start_label);
@@ -4716,7 +4783,12 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     for (size_t j = 0; j < fd->n; j++) {
       if (fvars.len == fvars.cap) {
         fvars.cap = fvars.cap ? 2 * fvars.cap : fd->n;
-        fvars.data = realloc (fvars.data, fvars.cap * sizeof (Var));
+        Var *tmp = realloc (fvars.data, fvars.cap * sizeof (Var));
+        if (tmp == NULL) {
+          free (fvars.data);
+          return;
+        }
+        fvars.data = tmp;
       }
       fvars.data[fvars.len].name = strdup (fd->params[j]);
       fvars.data[fvars.len].is_str = fd->is_str[j];
