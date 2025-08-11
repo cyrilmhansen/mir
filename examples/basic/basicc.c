@@ -981,6 +981,8 @@ typedef enum {
   TOK_MOD,
   TOK_BASE,
   TOK_FN,
+  TOK_FUNCTION,
+  TOK_SUB,
   TOK_TRUE,
   TOK_FALSE,
   /* Punctuation */
@@ -1086,7 +1088,8 @@ static Token read_token (Parser *p) {
          {"ERROR", TOK_ERROR},       {"RESUME", TOK_RESUME},   {"CALL", TOK_CALL},
          {"AND", TOK_AND},           {"OR", TOK_OR},           {"NOT", TOK_NOT},
          {"MOD", TOK_MOD},           {"BASE", TOK_BASE},       {"FN", TOK_FN},
-         {"TRUE", TOK_TRUE},         {"FALSE", TOK_FALSE},     {NULL, TOK_EOF}};
+         {"FUNCTION", TOK_FUNCTION}, {"SUB", TOK_SUB},         {"TRUE", TOK_TRUE},
+         {"FALSE", TOK_FALSE},       {NULL, TOK_EOF}};
     for (int j = 0; keywords[j].kw != NULL; j++)
       if (strcmp (buf, keywords[j].kw) == 0) {
         t.type = keywords[j].type;
@@ -2358,22 +2361,22 @@ static int load_program (LineVec *prog, const char *path) {
   char line[256];
   int ok = 1;
   while (fgets (line, sizeof (line), f)) {
-    char *s = line;
     line[strcspn (line, "\n")] = '\0';
-    while (isspace ((unsigned char) *s)) s++;
-    if (*s == '\0') continue;
-    if (strncasecmp (s, "FUNCTION", 8) == 0) {
-      Parser p;
-      parse_func (&p, f, s, 0);
-      continue;
-    } else if (strncasecmp (s, "SUB", 3) == 0) {
-      Parser p;
-      parse_func (&p, f, s, 1);
+    Parser p_obj = {0};
+    Parser *p = &p_obj;
+    cur = line;
+    skip_ws (p);
+    if (*cur == '\0') continue;
+    char *s = cur;
+    Token t = next_token (p);
+    if (t.type == TOK_FUNCTION || t.type == TOK_SUB) {
+      if (t.str != NULL) free (t.str);
+      parse_func (p, f, s, t.type == TOK_SUB);
       continue;
     }
+    if (t.str != NULL) free (t.str);
     Line l;
-    Parser p;
-    if (parse_line (&p, line, &l)) {
+    if (parse_line (p, line, &l)) {
       if (l.line == 0) {
         l.line = auto_line;
         auto_line += 10;
