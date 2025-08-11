@@ -7,6 +7,11 @@
 #include <stdint.h>
 #include <sys/select.h>
 #include <unistd.h>
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <termios.h>
+#endif
 #include "basic_num.h"
 #include <sys/wait.h>
 #include "kitty/kitty.h"
@@ -48,6 +53,11 @@ static uint32_t current_hcolor = 0xFFFFFF;
 static int palette_initialized = 0;
 int basic_line_tracking_enabled = 1;
 static char *system_output = NULL;
+#ifndef _WIN32
+static struct termios saved_termios;
+static int termios_saved = 0;
+static void restore_termios (void) { tcsetattr (STDIN_FILENO, TCSANOW, &saved_termios); }
+#endif
 
 typedef struct {
   int line;
@@ -384,15 +394,61 @@ char *basic_read_str (void) {
 
 void basic_restore (void) { basic_data_pos = 0; }
 
+void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str) {
+  size_t n = (size_t) len;
+  int str_p = is_str != 0.0;
+  if (base == NULL || n == 0) return;
+  if (str_p) {
+    char **arr = (char **) base;
+    for (size_t i = 0; i < n; i++) {
+      free (arr[i]);
+      arr[i] = NULL;
+    }
+    memset (arr, 0, n * sizeof (char *));
+  } else {
+    memset (base, 0, n * sizeof (basic_num_t));
+  }
+}
+
 void basic_home (void) { printf ("\x1b[2J\x1b[H"); }
 
 void basic_vtab (basic_num_t n) { printf ("\x1b[%d;H", (int) n); }
 
+void basic_screen (basic_num_t m) {
+#if defined(_WIN32)
+  (void) m;
+#else
+  if ((int) m != 0) {
+    /* Switch to the alternate screen buffer. */
+    printf ("\x1b[?1049h");
+  } else {
+    /* Restore the normal screen buffer. */
+    printf ("\x1b[?1049l");
+  }
+  fflush (stdout);
+#endif
+}
+
 void basic_cls (void) { printf ("\x1b[2J\x1b[H"); }
 
 void basic_color (basic_num_t c) { printf ("\x1b[%dm", (int) c); }
-
-void basic_key_off (void) {}
+void basic_key_off (void) {
+#if defined(_WIN32)
+  HANDLE h = GetStdHandle (STD_INPUT_HANDLE);
+  DWORD mode;
+  if (GetConsoleMode (h, &mode))
+    SetConsoleMode (h, mode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
+#else
+  if (!termios_saved) {
+    tcgetattr (STDIN_FILENO, &saved_termios);
+    atexit (restore_termios);
+    termios_saved = 1;
+  }
+  struct termios t = saved_termios;
+  t.c_lflag &= ~(ICANON | ECHO);
+  tcsetattr (STDIN_FILENO, TCSANOW, &t);
+#endif
+}
 
 void basic_locate (basic_num_t r, basic_num_t c) { printf ("\x1b[%d;%dH", (int) r, (int) c); }
 
