@@ -1158,6 +1158,26 @@ static Token read_token (Parser *p) {
     t.str = strdup (buf);
     return t;
   }
+  if (c == '&') {
+    int base = 0;
+    if (cur[1] == 'H' || cur[1] == 'h') {
+      base = 16;
+    } else if (cur[1] == 'O' || cur[1] == 'o') {
+      base = 8;
+    }
+    if (base != 0) {
+      char *end;
+      cur += 2;
+      long long v = strtoll (cur, &end, base);
+      if (end != cur) {
+        cur = end;
+        t.type = TOK_NUMBER;
+        t.num = (basic_num_t) v;
+        return t;
+      }
+      cur -= 2;
+    }
+  }
   if (isdigit (c) || c == '.') {
     char *start = cur;
     t.num = BASIC_STRTOF (cur, &cur);
