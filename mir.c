@@ -838,7 +838,6 @@ MIR_context_t _MIR_init (MIR_alloc_t alloc, MIR_code_alloc_t code_alloc) {
   VARR_CREATE (MIR_module_t, modules_to_link, alloc, 0);
   VARR_CREATE (MIR_op_t, temp_ops, alloc, 0);
   init_module (ctx, &environment_module, ".environment");
-  helper_bitmap = bitmap_create (ctx->alloc);
   HTAB_CREATE (MIR_item_t, module_item_tab, ctx->alloc, 512, item_hash, item_eq, NULL);
   setjmp_addr = NULL;
   code_init (ctx);
@@ -962,7 +961,6 @@ void MIR_finish (MIR_context_t ctx) {
   simplify_finish (ctx);
   VARR_DESTROY (size_t, insn_nops);
   code_finish (ctx);
-  bitmap_destroy (helper_bitmap);
   hard_reg_name_finish (ctx);
   bitmap_destroy (helper_bitmap);
   if (curr_func != NULL)
