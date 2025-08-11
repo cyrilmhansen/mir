@@ -1371,10 +1371,8 @@ static Node *parse_term (Parser *p) {
   if (n == NULL) return NULL;
   while (1) {
     Token t = peek_token (p);
-    if (t.type != TOK_STAR && t.type != TOK_SLASH && t.type != TOK_BACKSLASH && t.type != TOK_MOD) {
-      skip_ws (p);
+    if (t.type != TOK_STAR && t.type != TOK_SLASH && t.type != TOK_BACKSLASH && t.type != TOK_MOD)
       break;
-    }
     next_token (p);
     Node *r = parse_factor (p);
     Node *nn = new_node (N_BIN);
@@ -1397,10 +1395,7 @@ static Node *parse_add (Parser *p) {
   if (n == NULL) return NULL;
   while (1) {
     Token t = peek_token (p);
-    if (t.type != TOK_PLUS && t.type != TOK_MINUS) {
-      skip_ws (p);
-      break;
-    }
+    if (t.type != TOK_PLUS && t.type != TOK_MINUS) break;
     next_token (p);
     Node *r = parse_term (p);
     Node *nn = new_node (N_BIN);
@@ -1433,7 +1428,6 @@ static Node *parse_rel (Parser *p) {
       op_type = t.type;
     }
   } else {
-    skip_ws (p);
     return n;
   }
   Node *rhs = parse_add (p);
@@ -1449,7 +1443,6 @@ static Node *parse_rel (Parser *p) {
   }
   nn->left = n;
   nn->right = rhs;
-  skip_ws (p);
   return nn;
 }
 
@@ -1457,10 +1450,7 @@ static Node *parse_logical (Parser *p) {
   Node *n = parse_rel (p);
   while (1) {
     Token t = peek_token (p);
-    if (t.type != TOK_AND && t.type != TOK_OR) {
-      skip_ws (p);
-      break;
-    }
+    if (t.type != TOK_AND && t.type != TOK_OR) break;
     next_token (p);
     Node *r = parse_rel (p);
     Node *nn = new_node (N_BIN);
@@ -2004,16 +1994,14 @@ static int parse_stmt (Parser *p, Stmt *out) {
     Stmt s;
     s.kind = ST_IF;
     PARSE_EXPR_OR_ERROR (s.u.iff.cond);
-    if (strncasecmp (cur, "THEN", 4) != 0) return 0;
-    cur += 4;
-    skip_ws (p);
+    Token tt = next_token (p);
+    if (tt.type != TOK_THEN) return 0;
     s.u.iff.then_stmts = (StmtVec) {0};
     if (!parse_if_part (p, &s.u.iff.then_stmts, 1)) return 0;
-    skip_ws (p);
     s.u.iff.else_stmts = (StmtVec) {0};
-    if (strncasecmp (cur, "ELSE", 4) == 0) {
-      cur += 4;
-      skip_ws (p);
+    Token et = peek_token (p);
+    if (et.type == TOK_ELSE) {
+      next_token (p);
       if (!parse_if_part (p, &s.u.iff.else_stmts, 0)) return 0;
     }
     *out = s;
@@ -2025,11 +2013,12 @@ static int parse_stmt (Parser *p, Stmt *out) {
     skip_ws (p);
     if (*cur == '=') cur++;
     PARSE_EXPR_OR_ERROR (out->u.forto.start);
-    if (strncasecmp (cur, "TO", 2) != 0) return 0;
-    cur += 2;
+    Token tt = next_token (p);
+    if (tt.type != TOK_TO) return 0;
     PARSE_EXPR_OR_ERROR (out->u.forto.end);
-    if (strncasecmp (cur, "STEP", 4) == 0) {
-      cur += 4;
+    Token st = peek_token (p);
+    if (st.type == TOK_STEP) {
+      next_token (p);
       PARSE_EXPR_OR_ERROR (out->u.forto.step);
     } else {
       Node *one = new_node (N_NUM);
@@ -2078,16 +2067,15 @@ static int parse_stmt (Parser *p, Stmt *out) {
     PARSE_EXPR_OR_ERROR (e);
     int **targets = NULL;
     size_t *n_targets = NULL;
-    if (strncasecmp (cur, "GOSUB", 5) == 0) {
-      cur += 5;
+    Token kw = next_token (p);
+    if (kw.type == TOK_GOSUB) {
       out->kind = ST_ON_GOSUB;
       out->u.on_gosub.expr = e;
       out->u.on_gosub.targets = NULL;
       out->u.on_gosub.n_targets = 0;
       targets = &out->u.on_gosub.targets;
       n_targets = &out->u.on_gosub.n_targets;
-    } else if (strncasecmp (cur, "GOTO", 4) == 0) {
-      cur += 4;
+    } else if (kw.type == TOK_GOTO) {
       out->kind = ST_ON_GOTO;
       out->u.on_goto.expr = e;
       out->u.on_goto.targets = NULL;
@@ -2110,9 +2098,9 @@ static int parse_stmt (Parser *p, Stmt *out) {
         *targets = realloc (*targets, cap * sizeof (int));
       }
       (*targets)[(*n_targets)++] = t;
-      skip_ws (p);
-      if (*cur != ',') break;
-      cur++;
+      Token sep = peek_token (p);
+      if (sep.type != TOK_COMMA) break;
+      next_token (p);
     }
     return 1;
   } else if (strncasecmp (cur, "END", 3) == 0) {
