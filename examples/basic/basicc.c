@@ -335,6 +335,22 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL } NodeKind;
 typedef struct Node Node;
+/* Operator codes for Node.op */
+#define OP_NONE 0
+#define OP_STAR '*'
+#define OP_SLASH '/'
+#define OP_BACKSLASH '\\'
+#define OP_MOD '%'
+#define OP_PLUS '+'
+#define OP_MINUS '-'
+#define OP_EQ '='
+#define OP_NE '!'
+#define OP_LT '<'
+#define OP_LE 'L'
+#define OP_GT '>'
+#define OP_GE 'G'
+#define OP_AND '&'
+#define OP_OR '|'
 struct Node {
   NodeKind kind;
   int is_str;
@@ -353,7 +369,7 @@ static Node *new_node (NodeKind k) {
   n->num = 0;
   n->var = NULL;
   n->str = NULL;
-  n->op = 0;
+  n->op = OP_NONE;
   n->left = n->right = n->index = n->index2 = n->arg4 = NULL;
   return n;
 }
@@ -1471,10 +1487,10 @@ static Node *parse_term (Parser *p) {
     Node *r = parse_factor (p);
     Node *nn = new_node (N_BIN);
     switch (t.type) {
-    case TOK_STAR: nn->op = '*'; break;
-    case TOK_SLASH: nn->op = '/'; break;
-    case TOK_BACKSLASH: nn->op = '\\'; break;
-    case TOK_MOD: nn->op = '%'; break;
+    case TOK_STAR: nn->op = OP_STAR; break;
+    case TOK_SLASH: nn->op = OP_SLASH; break;
+    case TOK_BACKSLASH: nn->op = OP_BACKSLASH; break;
+    case TOK_MOD: nn->op = OP_MOD; break;
     default: break;
     }
     nn->left = n;
@@ -1493,7 +1509,7 @@ static Node *parse_add (Parser *p) {
     next_token (p);
     Node *r = parse_term (p);
     Node *nn = new_node (N_BIN);
-    nn->op = (t.type == TOK_PLUS ? '+' : '-');
+    nn->op = (t.type == TOK_PLUS ? OP_PLUS : OP_MINUS);
     nn->left = n;
     nn->right = r;
     if (t.type == TOK_PLUS && (n->is_str || r->is_str)) nn->is_str = 1;
@@ -1527,12 +1543,12 @@ static Node *parse_rel (Parser *p) {
   Node *rhs = parse_add (p);
   Node *nn = new_node (N_BIN);
   switch (op_type) {
-  case TOK_EQ: nn->op = '='; break;
-  case TOK_NE: nn->op = '!'; break;
-  case TOK_LT: nn->op = '<'; break;
-  case TOK_LE: nn->op = 'L'; break;
-  case TOK_GT: nn->op = '>'; break;
-  case TOK_GE: nn->op = 'G'; break;
+  case TOK_EQ: nn->op = OP_EQ; break;
+  case TOK_NE: nn->op = OP_NE; break;
+  case TOK_LT: nn->op = OP_LT; break;
+  case TOK_LE: nn->op = OP_LE; break;
+  case TOK_GT: nn->op = OP_GT; break;
+  case TOK_GE: nn->op = OP_GE; break;
   default: break;
   }
   nn->left = n;
@@ -1548,7 +1564,7 @@ static Node *parse_logical (Parser *p) {
     next_token (p);
     Node *r = parse_rel (p);
     Node *nn = new_node (N_BIN);
-    nn->op = (t.type == TOK_AND ? '&' : '|');
+    nn->op = (t.type == TOK_AND ? OP_AND : OP_OR);
     nn->left = n;
     nn->right = r;
     n = nn;
@@ -2844,7 +2860,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
         }
       }
       return res;
-    } else if (n->kind == N_BIN && n->op == '+') {
+    } else if (n->kind == N_BIN && n->op == OP_PLUS) {
       MIR_reg_t a = gen_expr (ctx, func, vars, n->left);
       MIR_reg_t b = gen_expr (ctx, func, vars, n->right);
       char buf[32];
@@ -3287,7 +3303,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                           MIR_new_reg_op (ctx, sub)));
     }
     return res;
-  } else if (n->op == '&') {
+  } else if (n->op == OP_AND) {
     MIR_reg_t l = gen_expr (ctx, func, vars, n->left);
     char buf[32];
     sprintf (buf, "$t%d", tmp_id++);
@@ -3311,7 +3327,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                    MIR_new_double_op (ctx, 0.0)));
     MIR_append_insn (ctx, func, end_lab);
     return res;
-  } else if (n->op == '|') {
+  } else if (n->op == OP_OR) {
     MIR_reg_t l = gen_expr (ctx, func, vars, n->left);
     char buf[32];
     sprintf (buf, "$t%d", tmp_id++);
@@ -3339,7 +3355,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
     MIR_reg_t l = gen_expr (ctx, func, vars, n->left);
     MIR_reg_t r = gen_expr (ctx, func, vars, n->right);
     char buf[32];
-    if (n->op == '&' || n->op == '|') {
+    if (n->op == OP_AND || n->op == OP_OR) {
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t li = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
       MIR_append_insn (ctx, func,
@@ -3352,7 +3368,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                      MIR_new_reg_op (ctx, r), MIR_new_double_op (ctx, 0.0)));
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-      MIR_insn_code_t bop = n->op == '&' ? MIR_AND : MIR_OR;
+      MIR_insn_code_t bop = n->op == OP_AND ? MIR_AND : MIR_OR;
       MIR_append_insn (ctx, func,
                        MIR_new_insn (ctx, bop, MIR_new_reg_op (ctx, resi), MIR_new_reg_op (ctx, li),
                                      MIR_new_reg_op (ctx, ri)));
@@ -3362,8 +3378,8 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                        MIR_new_insn (ctx, MIR_I2D, MIR_new_reg_op (ctx, resd),
                                      MIR_new_reg_op (ctx, resi)));
       return resd;
-    } else if (n->op == '=' || n->op == '!' || n->op == '<' || n->op == '>' || n->op == 'L'
-               || n->op == 'G') {
+    } else if (n->op == OP_EQ || n->op == OP_NE || n->op == OP_LT || n->op == OP_GT
+               || n->op == OP_LE || n->op == OP_GE) {
       MIR_insn_code_t cmp_code;
       MIR_reg_t resi;
       sprintf (buf, "$t%d", tmp_id++);
@@ -3378,12 +3394,12 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
         resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
         cmp_code = MIR_EQ;
         switch (n->op) {
-        case '=': cmp_code = MIR_EQ; break;
-        case '!': cmp_code = MIR_NE; break;
-        case '<': cmp_code = MIR_LT; break;
-        case 'L': cmp_code = MIR_LE; break;
-        case '>': cmp_code = MIR_GT; break;
-        case 'G': cmp_code = MIR_GE; break;
+        case OP_EQ: cmp_code = MIR_EQ; break;
+        case OP_NE: cmp_code = MIR_NE; break;
+        case OP_LT: cmp_code = MIR_LT; break;
+        case OP_LE: cmp_code = MIR_LE; break;
+        case OP_GT: cmp_code = MIR_GT; break;
+        case OP_GE: cmp_code = MIR_GE; break;
         }
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, cmp_code, MIR_new_reg_op (ctx, resi),
@@ -3391,12 +3407,12 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       } else {
         resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
         switch (n->op) {
-        case '=': cmp_code = MIR_DEQ; break;
-        case '!': cmp_code = MIR_DNE; break;
-        case '<': cmp_code = MIR_DLT; break;
-        case 'L': cmp_code = MIR_DLE; break;
-        case '>': cmp_code = MIR_DGT; break;
-        case 'G': cmp_code = MIR_DGE; break;
+        case OP_EQ: cmp_code = MIR_DEQ; break;
+        case OP_NE: cmp_code = MIR_DNE; break;
+        case OP_LT: cmp_code = MIR_DLT; break;
+        case OP_LE: cmp_code = MIR_DLE; break;
+        case OP_GT: cmp_code = MIR_DGT; break;
+        case OP_GE: cmp_code = MIR_DGE; break;
         default: cmp_code = MIR_DEQ; break;
         }
         MIR_append_insn (ctx, func,
@@ -3412,7 +3428,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
     } else {
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
-      if (n->op == '\\' || n->op == '%') {
+      if (n->op == OP_BACKSLASH || n->op == OP_MOD) {
         sprintf (buf, "$t%d", tmp_id++);
         MIR_reg_t li = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
         MIR_append_insn (ctx, func,
@@ -3425,7 +3441,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                        MIR_new_reg_op (ctx, r)));
         sprintf (buf, "$t%d", tmp_id++);
         MIR_reg_t resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-        MIR_insn_code_t iop = n->op == '\\' ? MIR_DIV : MIR_MOD;
+        MIR_insn_code_t iop = n->op == OP_BACKSLASH ? MIR_DIV : MIR_MOD;
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, iop, MIR_new_reg_op (ctx, resi),
                                        MIR_new_reg_op (ctx, li), MIR_new_reg_op (ctx, ri)));
@@ -3435,10 +3451,10 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       } else {
         MIR_insn_code_t op = MIR_DADD;
         switch (n->op) {
-        case '+': op = MIR_DADD; break;
-        case '-': op = MIR_DSUB; break;
-        case '*': op = MIR_DMUL; break;
-        case '/': op = MIR_DDIV; break;
+        case OP_PLUS: op = MIR_DADD; break;
+        case OP_MINUS: op = MIR_DSUB; break;
+        case OP_STAR: op = MIR_DMUL; break;
+        case OP_SLASH: op = MIR_DDIV; break;
         }
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, op, MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, l),
