@@ -4884,6 +4884,64 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   data_vals_clear ();
 }
 
+typedef enum {
+  REPL_TOK_NONE,
+  REPL_TOK_RUN,
+  REPL_TOK_COMPILE,
+  REPL_TOK_SAVE,
+  REPL_TOK_LOAD,
+  REPL_TOK_LIST,
+  REPL_TOK_NEW,
+  REPL_TOK_QUIT,
+  REPL_TOK_EXIT,
+  REPL_TOK_NATIVE,
+  REPL_TOK_BMIR,
+  REPL_TOK_CODE,
+  REPL_TOK_PROFILE,
+} ReplToken;
+
+static ReplToken repl_next_token (char **sp) {
+  char *s = *sp;
+  while (isspace ((unsigned char) *s)) s++;
+  if (*s == '\0') {
+    *sp = s;
+    return REPL_TOK_NONE;
+  }
+  char *start = s;
+  while (*s && !isspace ((unsigned char) *s)) s++;
+  size_t len = s - start;
+  ReplToken tok = REPL_TOK_NONE;
+  if (len == 3 && strncasecmp (start, "RUN", 3) == 0)
+    tok = REPL_TOK_RUN;
+  else if (len == 7 && strncasecmp (start, "COMPILE", 7) == 0)
+    tok = REPL_TOK_COMPILE;
+  else if (len == 4 && strncasecmp (start, "SAVE", 4) == 0)
+    tok = REPL_TOK_SAVE;
+  else if (len == 4 && strncasecmp (start, "LOAD", 4) == 0)
+    tok = REPL_TOK_LOAD;
+  else if (len == 4 && strncasecmp (start, "LIST", 4) == 0)
+    tok = REPL_TOK_LIST;
+  else if (len == 3 && strncasecmp (start, "NEW", 3) == 0)
+    tok = REPL_TOK_NEW;
+  else if (len == 4 && strncasecmp (start, "QUIT", 4) == 0)
+    tok = REPL_TOK_QUIT;
+  else if (len == 4 && strncasecmp (start, "EXIT", 4) == 0)
+    tok = REPL_TOK_EXIT;
+  else if (len == 6 && strncasecmp (start, "NATIVE", 6) == 0)
+    tok = REPL_TOK_NATIVE;
+  else if (len == 4 && strncasecmp (start, "BMIR", 4) == 0)
+    tok = REPL_TOK_BMIR;
+  else if (len == 4 && strncasecmp (start, "CODE", 4) == 0)
+    tok = REPL_TOK_CODE;
+  else if ((len == 7 && strncasecmp (start, "PROFILE", 7) == 0)
+           || (len == 9 && strncasecmp (start, "PROFILING", 9) == 0))
+    tok = REPL_TOK_PROFILE;
+  *sp = s;
+  while (isspace ((unsigned char) *s)) s++;
+  *sp = s;
+  return tok;
+}
+
 static void repl (void) {
   LineVec prog = {0};
   char line[256];
@@ -4911,16 +4969,18 @@ static void repl (void) {
       }
       continue;
     }
-    if (strncasecmp (s, "RUN", 3) == 0) {
-      s += 3;
-      while (isspace ((unsigned char) *s)) s++;
+    ReplToken tok = repl_next_token (&s);
+    int exit_repl = 0;
+    switch (tok) {
+    case REPL_TOK_RUN: {
       int profile_p = 0;
       if (*s != '\0') {
-        if (strcasecmp (s, "PROFILING") == 0 || strcasecmp (s, "PROFILE") == 0) {
+        ReplToken opt = repl_next_token (&s);
+        if (opt == REPL_TOK_PROFILE && *s == '\0') {
           profile_p = 1;
         } else {
           fprintf (stderr, "unknown RUN option: %s\n", s);
-          continue;
+          break;
         }
       }
       if (profile_p) basic_profile_reset ();
@@ -4928,12 +4988,10 @@ static void repl (void) {
       if (profile_p) basic_profile_dump ();
       continue;
     }
-    if (strncasecmp (s, "COMPILE", 7) == 0) {
-      s += 7;
-      while (isspace ((unsigned char) *s)) s++;
-      if (strncasecmp (s, "NATIVE", 6) == 0) {
-        s += 6;
-        while (isspace ((unsigned char) *s)) s++;
+    case REPL_TOK_COMPILE: {
+      ReplToken target = repl_next_token (&s);
+      switch (target) {
+      case REPL_TOK_NATIVE:
         if (*s == '\0') {
           fprintf (stderr, "missing output file\n");
         } else {
@@ -4943,10 +5001,8 @@ static void repl (void) {
           else
             perror (s);
         }
-        continue;
-      } else if (strncasecmp (s, "BMIR", 4) == 0) {
-        s += 4;
-        while (isspace ((unsigned char) *s)) s++;
+        break;
+      case REPL_TOK_BMIR:
         if (*s == '\0') {
           fprintf (stderr, "missing output file\n");
         } else {
@@ -4958,10 +5014,8 @@ static void repl (void) {
             perror (name);
           free (name);
         }
-        continue;
-      } else if (strncasecmp (s, "CODE", 4) == 0) {
-        s += 4;
-        while (isspace ((unsigned char) *s)) s++;
+        break;
+      case REPL_TOK_CODE:
         if (*s == '\0') {
           fprintf (stderr, "missing output file\n");
         } else {
@@ -4971,14 +5025,12 @@ static void repl (void) {
           else
             perror (s);
         }
-        continue;
+        break;
+      default: fprintf (stderr, "unknown COMPILE target\n"); break;
       }
-      fprintf (stderr, "unknown COMPILE target\n");
       continue;
     }
-    if (strncasecmp (s, "SAVE", 4) == 0) {
-      s += 4;
-      while (isspace ((unsigned char) *s)) s++;
+    case REPL_TOK_SAVE:
       if (*s == '\0') {
         fprintf (stderr, "missing output file\n");
       } else {
@@ -4989,10 +5041,7 @@ static void repl (void) {
           perror (s);
       }
       continue;
-    }
-    if (strncasecmp (s, "LOAD", 4) == 0) {
-      s += 4;
-      while (isspace ((unsigned char) *s)) s++;
+    case REPL_TOK_LOAD:
       if (*s == '\0') {
         fprintf (stderr, "missing input file\n");
       } else {
@@ -5002,20 +5051,17 @@ static void repl (void) {
         load_program (&prog, s);
       }
       continue;
-    }
-    if (strcasecmp (s, "LIST") == 0) {
-      list_program (&prog);
-      continue;
-    }
-    if (strcasecmp (s, "NEW") == 0) {
+    case REPL_TOK_LIST: list_program (&prog); continue;
+    case REPL_TOK_NEW:
       func_vec_clear (&func_defs);
       data_vals_clear ();
       line_vec_destroy (&prog);
       continue;
+    case REPL_TOK_QUIT:
+    case REPL_TOK_EXIT: exit_repl = 1; break;
+    default: break;
     }
-    if (strcasecmp (s, "QUIT") == 0 || strcasecmp (s, "EXIT") == 0) {
-      break;
-    }
+    if (exit_repl) break;
   }
   /*
      Cleanup is intentionally omitted here.  Previous program execution may
