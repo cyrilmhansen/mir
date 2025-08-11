@@ -4357,6 +4357,22 @@ static void gen_stmt (Stmt *s) {
                                         MIR_new_reg_op (g_ctx, out)));
     break;
   }
+  case ST_RANDOMIZE: {
+    MIR_op_t seed_op, has_seed_op;
+    if (s->u.expr != NULL) {
+      MIR_reg_t seed = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+      seed_op = MIR_new_reg_op (g_ctx, seed);
+      has_seed_op = MIR_new_double_op (g_ctx, 1.0);
+    } else {
+      seed_op = MIR_new_double_op (g_ctx, 0.0);
+      has_seed_op = MIR_new_double_op (g_ctx, 0.0);
+    }
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, randomize_proto),
+                                        MIR_new_ref_op (g_ctx, randomize_import), seed_op,
+                                        has_seed_op));
+    break;
+  }
   case ST_ON_ERROR: {
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, on_error_proto),
