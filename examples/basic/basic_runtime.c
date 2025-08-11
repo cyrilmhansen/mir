@@ -41,6 +41,7 @@ static int basic_pos_val = 1;
 static int basic_error_handler = 0;
 static int basic_line = 0;
 static basic_num_t last_hplot_x = 0.0, last_hplot_y = 0.0;
+static int current_hcolor;
 int basic_line_tracking_enabled = 1;
 static char *system_output = NULL;
 
@@ -592,7 +593,12 @@ void basic_inverse (void) { printf ("\x1b[7m"); }
 
 void basic_normal (void) { printf ("\x1b[0m"); }
 
-void basic_hgr2 (void) { printf ("\x1b[2J\x1b[H"); }
+void basic_hgr2 (void) {
+  printf ("\x1b[2J\x1b[H");
+  last_hplot_x = 0.0;
+  last_hplot_y = 0.0;
+  current_hcolor = 37;
+}
 
 static int current_hcolor = 37;
 

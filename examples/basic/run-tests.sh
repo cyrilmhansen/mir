@@ -65,7 +65,7 @@ PY
                 fi
         }
 
-        for t in hello relop adder string strfuncs instr gosub on funcproc graphics hplot_bounds readhplot circle box sudoku array_oob_read array_oob_write dim_expr pi baseconv mir_demo datediff date rnd_noarg bool; do
+        for t in hello relop adder string strfuncs instr gosub on funcproc graphics hplot_bounds readhplot hgr2reset circle box sudoku array_oob_read array_oob_write dim_expr pi baseconv mir_demo datediff date rnd_noarg; do
                 echo "Running $t"
                 run_test "$t"
                 echo "$t OK"
