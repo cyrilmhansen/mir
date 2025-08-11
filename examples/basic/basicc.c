@@ -1015,6 +1015,27 @@ typedef struct {
   int has_peek;
 } Parser;
 
+/* Error reporting context */
+static const char *g_cur_src_line;
+static const char *g_line_start;
+static int g_cur_line_no;
+
+static void parse_error (Parser *p) {
+  const char *pcur = p != NULL ? p->cur : NULL;
+  if (g_cur_src_line != NULL) {
+    if (pcur != NULL && g_line_start != NULL) {
+      int pos = (int) (pcur - g_line_start);
+      fprintf (stderr, "parse error on line %d near '%s'\n%s\n%*s^\n", g_cur_line_no, pcur,
+               g_cur_src_line, pos, "");
+    } else {
+      fprintf (stderr, "parse error on line %d: %s\n", g_cur_line_no, g_cur_src_line);
+    }
+  } else {
+    fprintf (stderr, "parse error\n");
+  }
+  exit (1);
+}
+
 #define cur (p->cur)
 
 static void skip_ws (Parser *p) {
@@ -1301,8 +1322,10 @@ static Node *parse_not (Parser *p) {
   Token t = peek_token (p);
   if (t.type != TOK_NOT) return NULL;
   next_token (p);
+  Node *op = parse_factor (p);
+  if (op == NULL) parse_error (p);
   Node *n = new_node (N_NOT);
-  n->left = parse_factor (p);
+  n->left = op;
   return n;
 }
 
@@ -1319,8 +1342,10 @@ static Node *parse_unary_minus (Parser *p) {
   Token t = peek_token (p);
   if (t.type != TOK_MINUS) return NULL;
   next_token (p);
+  Node *op = parse_factor (p);
+  if (op == NULL) parse_error (p);
   Node *n = new_node (N_NEG);
-  n->left = parse_factor (p);
+  n->left = op;
   return n;
 }
 
@@ -1452,7 +1477,14 @@ static Node *parse_logical (Parser *p) {
   return n;
 }
 
-static Node *parse_expr (Parser *p) { return parse_logical (p); }
+static Node *parse_expr0 (Parser *p) { return parse_logical (p); }
+
+static Node *parse_expr (Parser *p) {
+  p->has_peek = 0;
+  Node *n = parse_expr0 (p);
+  if (n == NULL) parse_error (p);
+  return n;
+}
 
 static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else);
 
@@ -1673,6 +1705,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
     out->u.read.n = 0;
     size_t cap = 0;
     while (1) {
+      p->has_peek = 0;
       Node *v = parse_factor (p);
       if (v == NULL) return 0;
       if (out->u.read.n == cap) {
@@ -1829,10 +1862,12 @@ static int parse_stmt (Parser *p, Stmt *out) {
         out->u.hplot.xs = realloc (out->u.hplot.xs, cap * sizeof (Node *));
         out->u.hplot.ys = realloc (out->u.hplot.ys, cap * sizeof (Node *));
       }
+      p->has_peek = 0;
       out->u.hplot.xs[out->u.hplot.n] = parse_expr (p);
       skip_ws (p);
       if (*cur != ',') return 0;
       cur++;
+      p->has_peek = 0;
       out->u.hplot.ys[out->u.hplot.n] = parse_expr (p);
       out->u.hplot.n++;
       skip_ws (p);
@@ -2285,6 +2320,9 @@ static int parse_line (Parser *p, char *line, Line *out) {
   int line_no = 0;
   if (isdigit ((unsigned char) *cur)) line_no = parse_int (p);
   out->line = line_no;
+  g_cur_src_line = line;
+  g_line_start = line;
+  g_cur_line_no = line_no;
   out->stmts = (StmtVec) {0};
   while (1) {
     skip_ws (p);
@@ -2293,8 +2331,12 @@ static int parse_line (Parser *p, char *line, Line *out) {
       skip_ws (p);
     }
     if (*cur == '\0') break;
+    p->has_peek = 0;
     Stmt s;
-    if (!parse_stmt (p, &s)) return 0;
+    if (!parse_stmt (p, &s)) {
+      parse_error (p);
+      return 0;
+    }
     if (s.kind == ST_PRINT || s.kind == ST_PRINT_HASH) {
       size_t cap = 0;
       if (s.kind == ST_PRINT) {
@@ -2307,6 +2349,7 @@ static int parse_line (Parser *p, char *line, Line *out) {
         s.u.printhash.no_nl = 0;
       }
       while (1) {
+        p->has_peek = 0;
         skip_ws (p);
         if (*cur == ':' || *cur == '\0') break;
         Node *e = parse_expr (p);
@@ -2560,10 +2603,7 @@ static LoopInfo *g_loop_stack;
 static size_t g_loop_len, g_loop_cap;
 static int g_line_tracking = 1;
 static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Node *n) {
-  if (n == NULL) {
-    fprintf (stderr, "parse error: null expression\n");
-    exit (1);
-  }
+  if (n == NULL) parse_error (NULL);
   if (n->is_str) {
     if (n->kind == N_STR) {
       char buf[32];
@@ -4698,6 +4738,9 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
 
   for (size_t i = 0; i < n; i++) {
     Line *ln = &g_prog->data[i];
+    g_cur_line_no = ln->line;
+    g_cur_src_line = ln->src;
+    g_line_start = NULL;
     MIR_append_insn (g_ctx, g_func, labels[i]);
     if (profile_p)
       MIR_append_insn (g_ctx, g_func,
