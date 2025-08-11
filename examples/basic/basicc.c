@@ -906,13 +906,299 @@ static void list_program (LineVec *prog) {
 }
 
 /* Parsing utilities */
+typedef enum {
+  TOK_EOF,
+  TOK_IDENTIFIER,
+  TOK_NUMBER,
+  TOK_STRING,
+  /* Keywords */
+  TOK_REM,
+  TOK_OPTION,
+  TOK_DIM,
+  TOK_LET,
+  TOK_GOTO,
+  TOK_IF,
+  TOK_THEN,
+  TOK_ELSE,
+  TOK_INPUT,
+  TOK_GET,
+  TOK_PUT,
+  TOK_OPEN,
+  TOK_CLOSE,
+  TOK_PRINT,
+  TOK_PRINT_HASH,
+  TOK_INPUT_HASH,
+  TOK_GET_HASH,
+  TOK_PUT_HASH,
+  TOK_DEF,
+  TOK_DATA,
+  TOK_READ,
+  TOK_RESTORE,
+  TOK_CLEAR,
+  TOK_SCREEN,
+  TOK_CLS,
+  TOK_COLOR,
+  TOK_KEYOFF,
+  TOK_LOCATE,
+  TOK_HTAB,
+  TOK_VTAB,
+  TOK_POKE,
+  TOK_HOME,
+  TOK_BEEP,
+  TOK_SOUND,
+  TOK_SYSTEM,
+  TOK_RANDOMIZE,
+  TOK_TEXT,
+  TOK_INVERSE,
+  TOK_NORMAL,
+  TOK_HGR2,
+  TOK_HCOLOR,
+  TOK_HPLOT,
+  TOK_MOVE,
+  TOK_DRAW,
+  TOK_LINE,
+  TOK_CIRCLE,
+  TOK_RECT,
+  TOK_MODE,
+  TOK_FILL,
+  TOK_END,
+  TOK_STOP,
+  TOK_FOR,
+  TOK_TO,
+  TOK_STEP,
+  TOK_NEXT,
+  TOK_WHILE,
+  TOK_WEND,
+  TOK_GOSUB,
+  TOK_RETURN,
+  TOK_ON,
+  TOK_ERROR,
+  TOK_RESUME,
+  TOK_CALL,
+  TOK_AND,
+  TOK_OR,
+  TOK_NOT,
+  TOK_MOD,
+  TOK_BASE,
+  TOK_FN,
+  /* Punctuation */
+  TOK_COMMA,
+  TOK_COLON,
+  TOK_SEMICOLON,
+  TOK_LPAREN,
+  TOK_RPAREN,
+  TOK_PLUS,
+  TOK_MINUS,
+  TOK_STAR,
+  TOK_SLASH,
+  TOK_BACKSLASH,
+  TOK_EQ,
+  TOK_LT,
+  TOK_GT,
+  TOK_LE,
+  TOK_GE,
+  TOK_NE
+} TokenType;
+
+typedef struct {
+  TokenType type;
+  char *str;
+  basic_num_t num;
+} Token;
+
 typedef struct {
   char *cur;
+  Token tok;
+  Token peek;
+  int has_peek;
 } Parser;
+
 #define cur (p->cur)
+
 static void skip_ws (Parser *p) {
   while (*cur && isspace ((unsigned char) *cur)) cur++;
 }
+
+static Token read_token (Parser *p) {
+  skip_ws (p);
+  Token t = {TOK_EOF, NULL, 0};
+  if (*cur == '\0') return t;
+  unsigned char c = *cur;
+  if (isalpha (c) || c == '_') {
+    char buf[64];
+    int i = 0;
+    while (*cur && (isalnum ((unsigned char) *cur) || *cur == '_')) {
+      buf[i++] = toupper ((unsigned char) *cur);
+      cur++;
+    }
+    if (*cur == '$' || *cur == '%') {
+      buf[i++] = toupper ((unsigned char) *cur);
+      cur++;
+    }
+    if (*cur == '#') {
+      buf[i++] = '#';
+      cur++;
+    }
+    buf[i] = '\0';
+    static struct {
+      const char *kw;
+      TokenType type;
+    } keywords[] = {{"REM", TOK_REM},
+                    {"OPTION", TOK_OPTION},
+                    {"DIM", TOK_DIM},
+                    {"LET", TOK_LET},
+                    {"GOTO", TOK_GOTO},
+                    {"IF", TOK_IF},
+                    {"THEN", TOK_THEN},
+                    {"ELSE", TOK_ELSE},
+                    {"INPUT", TOK_INPUT},
+                    {"GET", TOK_GET},
+                    {"PUT", TOK_PUT},
+                    {"OPEN", TOK_OPEN},
+                    {"CLOSE", TOK_CLOSE},
+                    {"PRINT", TOK_PRINT},
+                    {"PRINT#", TOK_PRINT_HASH},
+                    {"INPUT#", TOK_INPUT_HASH},
+                    {"GET#", TOK_GET_HASH},
+                    {"PUT#", TOK_PUT_HASH},
+                    {"DEF", TOK_DEF},
+                    {"DATA", TOK_DATA},
+                    {"READ", TOK_READ},
+                    {"RESTORE", TOK_RESTORE},
+                    {"CLEAR", TOK_CLEAR},
+                    {"SCREEN", TOK_SCREEN},
+                    {"CLS", TOK_CLS},
+                    {"COLOR", TOK_COLOR},
+                    {"KEYOFF", TOK_KEYOFF},
+                    {"LOCATE", TOK_LOCATE},
+                    {"HTAB", TOK_HTAB},
+                    {"VTAB", TOK_VTAB},
+                    {"POKE", TOK_POKE},
+                    {"HOME", TOK_HOME},
+                    {"BEEP", TOK_BEEP},
+                    {"SOUND", TOK_SOUND},
+                    {"SYSTEM", TOK_SYSTEM},
+                    {"RANDOMIZE", TOK_RANDOMIZE},
+                    {"TEXT", TOK_TEXT},
+                    {"INVERSE", TOK_INVERSE},
+                    {"NORMAL", TOK_NORMAL},
+                    {"HGR2", TOK_HGR2},
+                    {"HCOLOR", TOK_HCOLOR},
+                    {"HPLOT", TOK_HPLOT},
+                    {"MOVE", TOK_MOVE},
+                    {"DRAW", TOK_DRAW},
+                    {"LINE", TOK_LINE},
+                    {"CIRCLE", TOK_CIRCLE},
+                    {"RECT", TOK_RECT},
+                    {"MODE", TOK_MODE},
+                    {"FILL", TOK_FILL},
+                    {"END", TOK_END},
+                    {"STOP", TOK_STOP},
+                    {"FOR", TOK_FOR},
+                    {"TO", TOK_TO},
+                    {"STEP", TOK_STEP},
+                    {"NEXT", TOK_NEXT},
+                    {"WHILE", TOK_WHILE},
+                    {"WEND", TOK_WEND},
+                    {"GOSUB", TOK_GOSUB},
+                    {"RETURN", TOK_RETURN},
+                    {"ON", TOK_ON},
+                    {"ERROR", TOK_ERROR},
+                    {"RESUME", TOK_RESUME},
+                    {"CALL", TOK_CALL},
+                    {"AND", TOK_AND},
+                    {"OR", TOK_OR},
+                    {"NOT", TOK_NOT},
+                    {"MOD", TOK_MOD},
+                    {"BASE", TOK_BASE},
+                    {"FN", TOK_FN},
+                    {NULL, TOK_EOF}};
+    for (int j = 0; keywords[j].kw != NULL; j++)
+      if (strcmp (buf, keywords[j].kw) == 0) {
+        t.type = keywords[j].type;
+        return t;
+      }
+    t.type = TOK_IDENTIFIER;
+    t.str = strdup (buf);
+    return t;
+  }
+  if (isdigit (c) || c == '.') {
+    char *start = cur;
+    t.num = BASIC_STRTOF (cur, &cur);
+    (void) start;
+    t.type = TOK_NUMBER;
+    return t;
+  }
+  if (c == '"') {
+    cur++;
+    const char *start = cur;
+    while (*cur && *cur != '"') cur++;
+    size_t len = cur - start;
+    char *s = malloc (len + 1);
+    memcpy (s, start, len);
+    s[len] = 0;
+    if (*cur == '"') cur++;
+    t.type = TOK_STRING;
+    t.str = s;
+    return t;
+  }
+  cur++;
+  switch (c) {
+  case ',': t.type = TOK_COMMA; break;
+  case ':': t.type = TOK_COLON; break;
+  case ';': t.type = TOK_SEMICOLON; break;
+  case '(': t.type = TOK_LPAREN; break;
+  case ')': t.type = TOK_RPAREN; break;
+  case '+': t.type = TOK_PLUS; break;
+  case '-': t.type = TOK_MINUS; break;
+  case '*': t.type = TOK_STAR; break;
+  case '/': t.type = TOK_SLASH; break;
+  case '\\': t.type = TOK_BACKSLASH; break;
+  case '=': t.type = TOK_EQ; break;
+  case '<':
+    if (*cur == '=') {
+      cur++;
+      t.type = TOK_LE;
+    } else if (*cur == '>') {
+      cur++;
+      t.type = TOK_NE;
+    } else {
+      t.type = TOK_LT;
+    }
+    break;
+  case '>':
+    if (*cur == '=') {
+      cur++;
+      t.type = TOK_GE;
+    } else {
+      t.type = TOK_GT;
+    }
+    break;
+  default: t.type = TOK_EOF; break;
+  }
+  return t;
+}
+
+static Token next_token (Parser *p) {
+  if (p->has_peek) {
+    p->tok = p->peek;
+    p->has_peek = 0;
+    return p->tok;
+  }
+  p->tok = read_token (p);
+  return p->tok;
+}
+
+static Token peek_token (Parser *p) {
+  if (!p->has_peek) {
+    char *save = cur;
+    p->peek = read_token (p);
+    cur = save;
+    p->has_peek = 1;
+  }
+  return p->peek;
+}
+
 static int parse_int (Parser *p) {
   skip_ws (p);
   char *start = cur;
@@ -923,38 +1209,23 @@ static int parse_int (Parser *p) {
   }
   return v;
 }
+
 static char *parse_id (Parser *p) {
-  skip_ws (p);
-  char buf[64];
-  int i = 0;
-  while (*cur && (isalnum ((unsigned char) *cur) || *cur == '_')) {
-    buf[i++] = toupper ((unsigned char) *cur);
-    cur++;
-  }
-  if (*cur == '$' || *cur == '%') {
-    buf[i++] = toupper ((unsigned char) *cur);
-    cur++;
-  }
-  buf[i] = 0;
-  return strdup (buf);
+  Token t = next_token (p);
+  if (t.type != TOK_IDENTIFIER) return NULL;
+  return t.str;
 }
+
 static basic_num_t parse_number (Parser *p) {
-  skip_ws (p);
-  basic_num_t v = BASIC_STRTOF (cur, &cur);
-  return v;
+  Token t = next_token (p);
+  if (t.type != TOK_NUMBER) return 0;
+  return t.num;
 }
+
 static char *parse_string (Parser *p) {
-  skip_ws (p);
-  if (*cur != '"') return NULL;
-  cur++;
-  const char *start = cur;
-  while (*cur && *cur != '"') cur++;
-  size_t len = cur - start;
-  char *s = malloc (len + 1);
-  memcpy (s, start, len);
-  s[len] = 0;
-  if (*cur == '"') cur++;
-  return s;
+  Token t = next_token (p);
+  if (t.type != TOK_STRING) return NULL;
+  return t.str;
 }
 
 /* Expression parser */
@@ -2087,7 +2358,10 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
 
 /* Parse a single line into multiple statements */
 static int parse_line (Parser *p, char *line, Line *out) {
+  *p = (Parser) {0};
   cur = line;
+  p->has_peek = 0;
+  p->tok.type = p->peek.type = TOK_EOF;
   out->src = strdup (line);
   skip_ws (p);
   int line_no = 0;
@@ -2165,7 +2439,10 @@ static int parse_line (Parser *p, char *line, Line *out) {
 }
 
 static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
+  *p = (Parser) {0};
   cur = line + (is_sub ? 3 : 8);
+  p->has_peek = 0;
+  p->tok.type = p->peek.type = TOK_EOF;
   skip_ws (p);
   char *name = parse_id (p);
   int f_is_str = name[strlen (name) - 1] == '$';
