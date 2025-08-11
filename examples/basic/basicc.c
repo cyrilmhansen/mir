@@ -1479,29 +1479,26 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else);
   } while (0)
 
 static int parse_stmt (Parser *p, Stmt *out) {
-  skip_ws (p);
-  if (strncasecmp (cur, "REM", 3) == 0) {
+  char *start = cur;
+  Token tok = next_token (p);
+  switch (tok.type) {
+  case TOK_REM:
     /* Comment line: ignore rest */
     out->kind = ST_REM;
     return 1;
-  } else if (strncasecmp (cur, "OPTION", 6) == 0) {
-    cur += 6;
-    skip_ws (p);
-    if (strncasecmp (cur, "BASE", 4) != 0) return 0;
-    cur += 4;
-    skip_ws (p);
-    Token t = next_token (p);
-    if (t.type != TOK_NUMBER) {
+  case TOK_OPTION:
+    if (next_token (p).type != TOK_BASE) return 0;
+    tok = next_token (p);
+    if (tok.type != TOK_NUMBER) {
       fprintf (stderr, "expected integer\n");
       return 0;
     }
-    int base = (int) t.num;
+    int base = (int) tok.num;
     if (base != 0 && base != 1) return 0;
     array_base = base;
     out->kind = ST_REM;
     return 1;
-  } else if (strncasecmp (cur, "DIM", 3) == 0) {
-    cur += 3;
+  case TOK_DIM:
     out->kind = ST_DIM;
     out->u.dim.names = NULL;
     out->u.dim.sizes1 = NULL;
@@ -1512,18 +1509,18 @@ static int parse_stmt (Parser *p, Stmt *out) {
     while (1) {
       char *name = parse_id (p);
       int is_str = name[strlen (name) - 1] == '$';
-      skip_ws (p);
       Node *size1 = NULL, *size2 = NULL;
-      if (*cur == '(') {
-        cur++;
+      Token t = peek_token (p);
+      if (t.type == TOK_LPAREN) {
+        next_token (p);
         PARSE_EXPR_OR_ERROR (size1);
-        skip_ws (p);
-        if (*cur == ',') {
-          cur++;
+        t = peek_token (p);
+        if (t.type == TOK_COMMA) {
+          next_token (p);
           PARSE_EXPR_OR_ERROR (size2);
-          skip_ws (p);
+          t = peek_token (p);
         }
-        if (*cur == ')') cur++;
+        if (t.type == TOK_RPAREN) next_token (p);
       }
       if (out->u.dim.n == cap) {
         cap = cap ? 2 * cap : 4;
@@ -1537,16 +1534,18 @@ static int parse_stmt (Parser *p, Stmt *out) {
       out->u.dim.sizes2[out->u.dim.n] = size2;
       out->u.dim.is_str[out->u.dim.n] = is_str;
       out->u.dim.n++;
-      skip_ws (p);
-      if (*cur != ',') break;
-      cur++;
+      t = peek_token (p);
+      if (t.type != TOK_COMMA) break;
+      next_token (p);
     }
     return 1;
-  } else if (strncasecmp (cur, "CLEAR", 5) == 0) {
-    cur += 5;
-    out->kind = ST_CLEAR;
-    return 1;
-  } else if (strncasecmp (cur, "OPEN", 4) == 0) {
+  case TOK_CLEAR: out->kind = ST_CLEAR; return 1;
+  default:
+    cur = start;
+    skip_ws (p);
+    break;
+  }
+  if (strncasecmp (cur, "OPEN", 4) == 0) {
     cur += 4;
     skip_ws (p);
     out->kind = ST_OPEN;
