@@ -35,6 +35,7 @@
 #include <strings.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <dlfcn.h>
 #include <math.h>
 
 #ifndef BASIC_SRC_DIR
@@ -290,7 +291,8 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_mir_finish")) return basic_mir_finish;
   if (!strcmp (name, "basic_mir_run")) return basic_mir_run;
   if (!strcmp (name, "basic_mir_dump")) return basic_mir_dump;
-  return NULL;
+  void *sym = dlsym (NULL, name);
+  return sym;
 }
 
 /* Runtime call prototypes for expressions */
@@ -443,6 +445,7 @@ typedef enum {
   ST_ON_GOSUB,
   ST_ON_ERROR,
   ST_RESUME,
+  ST_EXTERN,
   ST_CALL,
 } StmtKind;
 typedef struct Stmt Stmt;
@@ -610,6 +613,7 @@ typedef struct {
   StmtVec body_stmts;
   int is_str_ret;
   int is_proc;
+  int is_extern;
   MIR_item_t item;
   MIR_item_t proto;
   char **src_lines;
@@ -974,6 +978,7 @@ typedef enum {
   TOK_ON,
   TOK_ERROR,
   TOK_RESUME,
+  TOK_EXTERN,
   TOK_CALL,
   TOK_AND,
   TOK_OR,
@@ -1127,6 +1132,8 @@ static Token read_token (Parser *p) {
                     {"ERROR", TOK_ERROR},
                     {"RESUME", TOK_RESUME},
                     {"CALL", TOK_CALL},
+                    {"EXTERN", TOK_EXTERN},
+                    {"EXTERNAL", TOK_EXTERN},
                     {"AND", TOK_AND},
                     {"OR", TOK_OR},
                     {"NOT", TOK_NOT},
@@ -1704,6 +1711,54 @@ static int parse_stmt (Parser *p, Stmt *out) {
   case TOK_RETURN: out->kind = ST_RETURN; return 1;
   case TOK_END: out->kind = ST_END; return 1;
   case TOK_STOP: out->kind = ST_STOP; return 1;
+  case TOK_EXTERN: {
+    int is_proc = 0;
+    char *fname = NULL;
+    Token t = next_token (p);
+    if (t.type == TOK_SUB) {
+      is_proc = 1;
+      fname = parse_id (p);
+    } else if (t.type == TOK_FUNCTION) {
+      fname = parse_id (p);
+    } else if (t.type == TOK_IDENTIFIER) {
+      fname = t.str;
+    } else {
+      return 0;
+    }
+    if (fname == NULL) return 0;
+    int f_is_str = fname[strlen (fname) - 1] == '$';
+    char **params = NULL;
+    int *is_str = NULL;
+    size_t n = 0, cap = 0;
+    Token tp = peek_token (p);
+    if (tp.type == TOK_LPAREN) {
+      next_token (p);
+      tp = peek_token (p);
+      if (tp.type != TOK_RPAREN) {
+        while (1) {
+          char *param = parse_id (p);
+          int ps = param[strlen (param) - 1] == '$';
+          if (n == cap) {
+            cap = cap ? 2 * cap : 4;
+            params = realloc (params, cap * sizeof (char *));
+            is_str = realloc (is_str, cap * sizeof (int));
+          }
+          params[n] = param;
+          is_str[n] = ps;
+          n++;
+          tp = peek_token (p);
+          if (tp.type != TOK_COMMA) break;
+          next_token (p);
+        }
+      }
+      if (next_token (p).type != TOK_RPAREN) return 0;
+    }
+    FuncDef fd = {fname, params, is_str, n, NULL, (StmtVec) {0}, f_is_str, is_proc, 1,
+                  NULL,  NULL,   NULL,   0, 0};
+    func_vec_push (&func_defs, fd);
+    out->kind = ST_EXTERN;
+    return 1;
+  }
   case TOK_DEF: {
     char *fname = parse_fn_name (p);
     if (fname == NULL) return 0;
@@ -1735,7 +1790,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
     Node *body;
     PARSE_EXPR_OR_ERROR (body);
     FuncDef fd
-      = {fname, params, is_str, n, body, (StmtVec) {0}, f_is_str, 0, NULL, NULL, NULL, 0, 0};
+      = {fname, params, is_str, n, body, (StmtVec) {0}, f_is_str, 0, 0, NULL, NULL, NULL, 0, 0};
     func_vec_push (&func_defs, fd);
     out->kind = ST_DEF;
     return 1;
@@ -2404,8 +2459,8 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
       /* error already reported by parse_line */
     }
   }
-  FuncDef fd = {name,   params, is_str, n,         NULL,    body,   f_is_str,
-                is_sub, NULL,   NULL,   src_lines, src_len, src_cap};
+  FuncDef fd = {name,   params, is_str, n,    NULL,      body,    f_is_str,
+                is_sub, 0,      NULL,   NULL, src_lines, src_len, src_cap};
   func_vec_push (&func_defs, fd);
 }
 
@@ -3504,6 +3559,7 @@ static void gen_poke (Stmt *s) {
 static void gen_stmt (Stmt *s) {
   switch (s->kind) {
   case ST_DEF: break;
+  case ST_EXTERN: break;
   case ST_PRINT: gen_print (s); break;
   case ST_PRINT_HASH: gen_print_hash (s); break;
   case ST_INPUT: gen_input (s); break;
@@ -4563,6 +4619,16 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     }
     char proto_name[128];
     snprintf (proto_name, sizeof (proto_name), "%s_p", fd->name);
+    if (fd->is_extern) {
+      if (fd->is_proc) {
+        fd->proto = MIR_new_proto_arr (ctx, proto_name, 0, NULL, fd->n, vars);
+      } else {
+        fd->proto = MIR_new_proto_arr (ctx, proto_name, 1, &rtype, fd->n, vars);
+      }
+      fd->item = MIR_new_import (ctx, fd->name);
+      free (vars);
+      continue;
+    }
     if (fd->is_proc) {
       fd->proto = MIR_new_proto_arr (ctx, proto_name, 0, NULL, fd->n, vars);
       fd->item = MIR_new_func_arr (ctx, fd->name, 0, NULL, fd->n, vars);
