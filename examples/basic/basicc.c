@@ -3833,6 +3833,96 @@ static void gen_stmt (Stmt *s) {
                                         MIR_new_reg_op (g_ctx, fn)));
     break;
   }
+  case ST_CLEAR: {
+    fprintf (stderr, "work in progress\n");
+    break;
+  }
+  case ST_SCREEN: {
+    fprintf (stderr, "work in progress\n");
+    MIR_reg_t m = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    call1 (screen_proto, screen_import, MIR_new_reg_op (g_ctx, m));
+    break;
+  }
+  case ST_CLS: {
+    fprintf (stderr, "work in progress\n");
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, cls_proto),
+                                        MIR_new_ref_op (g_ctx, cls_import)));
+    break;
+  }
+  case ST_COLOR: {
+    fprintf (stderr, "work in progress\n");
+    MIR_reg_t c = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    call1 (color_proto, color_import, MIR_new_reg_op (g_ctx, c));
+    break;
+  }
+  case ST_KEYOFF: {
+    fprintf (stderr, "work in progress\n");
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, keyoff_proto),
+                                        MIR_new_ref_op (g_ctx, keyoff_import)));
+    break;
+  }
+  case ST_LOCATE: {
+    fprintf (stderr, "work in progress\n");
+    MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.locate.row);
+    MIR_reg_t c = gen_expr (g_ctx, g_func, &g_vars, s->u.locate.col);
+    call2 (locate_proto, locate_import, MIR_new_reg_op (g_ctx, r), MIR_new_reg_op (g_ctx, c));
+    break;
+  }
+  case ST_HTAB: {
+    fprintf (stderr, "work in progress\n");
+    MIR_reg_t n = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    call1 (htab_proto, htab_import, MIR_new_reg_op (g_ctx, n));
+    break;
+  }
+  case ST_HOME: {
+    fprintf (stderr, "work in progress\n");
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, home_proto),
+                                        MIR_new_ref_op (g_ctx, home_import)));
+    break;
+  }
+  case ST_VTAB: {
+    fprintf (stderr, "work in progress\n");
+    MIR_reg_t n = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    call1 (vtab_proto, vtab_import, MIR_new_reg_op (g_ctx, n));
+    break;
+  }
+  case ST_TEXT: {
+    fprintf (stderr, "work in progress\n");
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, text_proto),
+                                        MIR_new_ref_op (g_ctx, text_import)));
+    break;
+  }
+  case ST_INVERSE: {
+    fprintf (stderr, "work in progress\n");
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, inverse_proto),
+                                        MIR_new_ref_op (g_ctx, inverse_import)));
+    break;
+  }
+  case ST_NORMAL: {
+    fprintf (stderr, "work in progress\n");
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, normal_proto),
+                                        MIR_new_ref_op (g_ctx, normal_import)));
+    break;
+  }
+  case ST_HGR2: {
+    fprintf (stderr, "work in progress\n");
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, hgr2_proto),
+                                        MIR_new_ref_op (g_ctx, hgr2_import)));
+    break;
+  }
+  case ST_HCOLOR: {
+    fprintf (stderr, "work in progress\n");
+    MIR_reg_t c = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    call1 (hcolor_proto, hcolor_import, MIR_new_reg_op (g_ctx, c));
+    break;
+  }
   case ST_FOR: {
     MIR_reg_t var = get_var (&g_vars, g_ctx, g_func, s->u.forto.var);
     MIR_reg_t start = gen_expr (g_ctx, g_func, &g_vars, s->u.forto.start);
