@@ -25,7 +25,7 @@ ifeq ($(OS),Windows_NT)
     endif
   endif
   ifeq ($(CC),gcc)
-    CFLAGS += -fPIC -g -std=gnu11 -Wno-abi -fsigned-char
+    CFLAGS += -fPIC -g -std=gnu11 -Wno-abi -fsigned-char -Wall -Wextra
     CFLAGS += -fno-tree-sra
     COPTFLAGS = -O3 -DNDEBUG
     CDEBFLAGS =
@@ -58,7 +58,7 @@ ifeq ($(OS),Windows_NT)
 else
   EXE=
   CC=gcc
-  CFLAGS += -fPIC -g -std=gnu11 -Wno-abi -fsigned-char
+  CFLAGS += -fPIC -g -std=gnu11 -Wno-abi -fsigned-char -Wall -Wextra
   ifneq ($(ADDITIONAL_INCLUDE_PATH),)
     CFLAGS += -DADDITIONAL_INCLUDE_PATH=\"$(ADDITIONAL_INCLUDE_PATH)\"
   endif

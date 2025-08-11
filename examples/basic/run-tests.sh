@@ -72,10 +72,10 @@ PY
 
         echo "Building extlib"
         if [[ "$BASICC" == *-ld ]]; then
-                cc -shared -fPIC -DBASIC_USE_LONG_DOUBLE -I"$ROOT/examples/basic" \
+                cc -shared -fPIC -Wall -Wextra -DBASIC_USE_LONG_DOUBLE -I"$ROOT/examples/basic" \
                         "$ROOT/examples/basic/extlib.c" -o "$ROOT/basic/libextlib.so"
         else
-                cc -shared -fPIC -I"$ROOT/examples/basic" \
+                cc -shared -fPIC -Wall -Wextra -I"$ROOT/examples/basic" \
                         "$ROOT/examples/basic/extlib.c" -o "$ROOT/basic/libextlib.so"
         fi
         echo "Running extern"
