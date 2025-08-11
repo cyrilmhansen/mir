@@ -444,7 +444,6 @@ typedef enum {
   ST_RESUME,
   ST_CALL,
 } StmtKind;
-typedef enum { REL_NONE, REL_EQ, REL_NE, REL_LT, REL_LE, REL_GT, REL_GE } Relop;
 typedef struct Stmt Stmt;
 typedef struct {
   Stmt *data;
@@ -1195,7 +1194,6 @@ static Node *parse_rel (Parser *p);
 static Node *parse_logical (Parser *p);
 
 static Node *parse_expr (Parser *p);
-static Relop parse_relop (Parser *p);
 
 typedef struct {
   Node *a[5];
@@ -1327,17 +1325,17 @@ static Node *parse_unary_minus (Parser *p) {
 }
 
 static Node *parse_factor (Parser *p) {
-  skip_ws (p);
   Node *n;
   if ((n = parse_not (p)) != NULL) return n;
   if ((n = parse_paren (p)) != NULL) return n;
   if ((n = parse_unary_minus (p)) != NULL) return n;
   if ((n = parse_literal (p)) != NULL) return n;
-  if (!isalpha ((unsigned char) *cur) && *cur != '_') return NULL;
+  Token t = peek_token (p);
+  if (t.type != TOK_IDENTIFIER) return NULL;
   char *id = parse_id (p);
   CallArgs a = {{0}};
-  skip_ws (p);
-  if (peek_token (p).type == TOK_LPAREN) {
+  t = peek_token (p);
+  if (t.type == TOK_LPAREN) {
     next_token (p);
     parse_call_args (p, &a);
   } else {
@@ -1352,20 +1350,21 @@ static Node *parse_term (Parser *p) {
   Node *n = parse_factor (p);
   if (n == NULL) return NULL;
   while (1) {
-    skip_ws (p);
-    char op = *cur;
-    if (op != '*' && op != '/' && op != '\\' && strncasecmp (cur, "MOD", 3) != 0) break;
-    if (op == '\\') {
-      cur++;
-    } else if (op == '*' || op == '/') {
-      cur++;
-    } else {
-      op = '%';
-      cur += 3; /* skip MOD */
+    Token t = peek_token (p);
+    if (t.type != TOK_STAR && t.type != TOK_SLASH && t.type != TOK_BACKSLASH && t.type != TOK_MOD) {
+      skip_ws (p);
+      break;
     }
+    next_token (p);
     Node *r = parse_factor (p);
     Node *nn = new_node (N_BIN);
-    nn->op = op;
+    switch (t.type) {
+    case TOK_STAR: nn->op = '*'; break;
+    case TOK_SLASH: nn->op = '/'; break;
+    case TOK_BACKSLASH: nn->op = '\\'; break;
+    case TOK_MOD: nn->op = '%'; break;
+    default: break;
+    }
     nn->left = n;
     nn->right = r;
     n = nn;
@@ -1377,16 +1376,18 @@ static Node *parse_add (Parser *p) {
   Node *n = parse_term (p);
   if (n == NULL) return NULL;
   while (1) {
-    skip_ws (p);
-    char op = *cur;
-    if (op != '+' && op != '-') break;
-    cur++;
+    Token t = peek_token (p);
+    if (t.type != TOK_PLUS && t.type != TOK_MINUS) {
+      skip_ws (p);
+      break;
+    }
+    next_token (p);
     Node *r = parse_term (p);
     Node *nn = new_node (N_BIN);
-    nn->op = op;
+    nn->op = (t.type == TOK_PLUS ? '+' : '-');
     nn->left = n;
     nn->right = r;
-    if (op == '+' && (n->is_str || r->is_str)) nn->is_str = 1;
+    if (t.type == TOK_PLUS && (n->is_str || r->is_str)) nn->is_str = 1;
     n = nn;
   }
   return n;
@@ -1394,37 +1395,56 @@ static Node *parse_add (Parser *p) {
 
 static Node *parse_rel (Parser *p) {
   Node *n = parse_add (p);
-  Relop r = parse_relop (p);
-  if (r != REL_NONE) {
-    Node *rhs = parse_add (p);
-    Node *nn = new_node (N_BIN);
-    switch (r) {
-    case REL_EQ: nn->op = '='; break;
-    case REL_NE: nn->op = '!'; break;
-    case REL_LT: nn->op = '<'; break;
-    case REL_LE: nn->op = 'L'; break;
-    case REL_GT: nn->op = '>'; break;
-    case REL_GE: nn->op = 'G'; break;
-    default: break;
+  Token t = peek_token (p);
+  TokenType op_type = TOK_EOF;
+  if (t.type == TOK_EQ || t.type == TOK_NE || t.type == TOK_LE || t.type == TOK_GE) {
+    next_token (p);
+    op_type = t.type;
+  } else if (t.type == TOK_LT || t.type == TOK_GT) {
+    next_token (p);
+    Token t2 = peek_token (p);
+    if (t.type == TOK_LT && t2.type == TOK_GT) {
+      next_token (p);
+      op_type = TOK_NE;
+    } else if (t2.type == TOK_EQ) {
+      next_token (p);
+      op_type = (t.type == TOK_LT ? TOK_LE : TOK_GE);
+    } else {
+      op_type = t.type;
     }
-    nn->left = n;
-    nn->right = rhs;
-    n = nn;
+  } else {
+    skip_ws (p);
+    return n;
   }
-  return n;
+  Node *rhs = parse_add (p);
+  Node *nn = new_node (N_BIN);
+  switch (op_type) {
+  case TOK_EQ: nn->op = '='; break;
+  case TOK_NE: nn->op = '!'; break;
+  case TOK_LT: nn->op = '<'; break;
+  case TOK_LE: nn->op = 'L'; break;
+  case TOK_GT: nn->op = '>'; break;
+  case TOK_GE: nn->op = 'G'; break;
+  default: break;
+  }
+  nn->left = n;
+  nn->right = rhs;
+  skip_ws (p);
+  return nn;
 }
 
-static Node *parse_and (Parser *p) {
-  Node *n = parse_add (p);
+static Node *parse_logical (Parser *p) {
+  Node *n = parse_rel (p);
   while (1) {
-    skip_ws (p);
-    if (strncasecmp (cur, "AND", 3) != 0 || isalnum ((unsigned char) cur[3]) || cur[3] == '_'
-        || cur[3] == '$')
+    Token t = peek_token (p);
+    if (t.type != TOK_AND && t.type != TOK_OR) {
+      skip_ws (p);
       break;
-    cur += 3;
-    Node *r = parse_add (p);
+    }
+    next_token (p);
+    Node *r = parse_rel (p);
     Node *nn = new_node (N_BIN);
-    nn->op = '&';
+    nn->op = (t.type == TOK_AND ? '&' : '|');
     nn->left = n;
     nn->right = r;
     n = nn;
@@ -1432,70 +1452,7 @@ static Node *parse_and (Parser *p) {
   return n;
 }
 
-static Node *parse_logical (Parser *p) {
-  Node *n = parse_rel (p);
-  while (1) {
-    skip_ws (p);
-    if (strncasecmp (cur, "AND", 3) == 0) {
-      cur += 3;
-      Node *r = parse_rel (p);
-      Node *nn = new_node (N_BIN);
-      nn->op = '&';
-      nn->left = n;
-      nn->right = r;
-      n = nn;
-      continue;
-    }
-    if (strncasecmp (cur, "OR", 2) == 0) {
-      cur += 2;
-      Node *r = parse_rel (p);
-      Node *nn = new_node (N_BIN);
-      nn->op = '|';
-      nn->left = n;
-      nn->right = r;
-      n = nn;
-      continue;
-    }
-    break;
-  }
-  return n;
-}
-
 static Node *parse_expr (Parser *p) { return parse_logical (p); }
-
-static Relop parse_relop (Parser *p) {
-  skip_ws (p);
-  if (*cur == '=') {
-    cur++;
-    return REL_EQ;
-  }
-  if (*cur == '<') {
-    cur++;
-    skip_ws (p);
-    Relop r = REL_LT;
-    if (*cur == '>') {
-      cur++;
-      r = REL_NE;
-    } else if (*cur == '=') {
-      cur++;
-      r = REL_LE;
-    }
-    skip_ws (p);
-    return r;
-  }
-  if (*cur == '>') {
-    cur++;
-    skip_ws (p);
-    Relop r = REL_GT;
-    if (*cur == '=') {
-      cur++;
-      r = REL_GE;
-    }
-    skip_ws (p);
-    return r;
-  }
-  return REL_NONE;
-}
 
 static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else);
 
