@@ -70,7 +70,7 @@ PY
         diff "$ROOT/examples/basic/hcolor_test.out" "$ROOT/basic/hcolor_test.out"
         echo "hcolor_test OK"
 
-        for t in hello relop adder string strfuncs instr gosub on funcproc graphics hplot_bounds readhplot hgr2reset circle box sudoku array_oob_read array_oob_write dim_expr pi baseconv mir_demo datediff date rnd_noarg; do
+        for t in hello relop adder string strfuncs inkey instr gosub on funcproc graphics hplot_bounds readhplot hgr2reset circle box sudoku array_oob_read array_oob_write dim_expr pi baseconv mir_demo datediff date time rnd_noarg; do
                 echo "Running $t"
                 run_test "$t"
                 echo "$t OK"

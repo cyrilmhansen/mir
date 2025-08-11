@@ -2247,6 +2247,7 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
           skip_ws (p);
           if (*cur == ';' || *cur == ',') {
             cur++;
+            p->has_peek = 0;
             skip_ws (p);
             if (*cur == ':' || *cur == '\0'
                 || (stop_on_else && strncasecmp (cur, "ELSE", 4) == 0)) {
@@ -2268,6 +2269,7 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
     if (*cur != ':') break;
     do {
       cur++;
+      p->has_peek = 0;
       skip_ws (p);
     } while (*cur == ':');
     if (*cur == '\0' || (stop_on_else && strncasecmp (cur, "ELSE", 4) == 0)) break;
@@ -2290,6 +2292,7 @@ static int parse_line (Parser *p, char *line, Line *out) {
     skip_ws (p);
     while (*cur == ':') {
       cur++;
+      p->has_peek = 0;
       skip_ws (p);
     }
     if (*cur == '\0') break;
@@ -2326,6 +2329,7 @@ static int parse_line (Parser *p, char *line, Line *out) {
         skip_ws (p);
         if (*cur == ';' || *cur == ',') {
           cur++;
+          p->has_peek = 0;
           skip_ws (p);
           if (*cur == ':' || *cur == '\0') {
             if (s.kind == ST_PRINT)
@@ -2346,6 +2350,7 @@ static int parse_line (Parser *p, char *line, Line *out) {
     if (*cur == ':') {
       do {
         cur++;
+        p->has_peek = 0;
         skip_ws (p);
       } while (*cur == ':');
       if (*cur == '\0') break;
