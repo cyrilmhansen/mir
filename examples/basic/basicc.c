@@ -1621,7 +1621,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
     if (next_token (p).type != TOK_BASE) return 0;
     tok = next_token (p);
     if (tok.type != TOK_NUMBER) {
-      fprintf (stderr, "expected integer\n");
+      fputs ("expected integer\n", stderr);
       return 0;
     }
     int base = (int) tok.num;
@@ -1750,7 +1750,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
     out->kind = ST_GOTO;
     tok = next_token (p);
     if (tok.type != TOK_NUMBER) {
-      fprintf (stderr, "expected integer\n");
+      fputs ("expected integer\n", stderr);
       return 0;
     }
     out->u.target = (int) tok.num;
@@ -1759,7 +1759,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
     out->kind = ST_GOSUB;
     tok = next_token (p);
     if (tok.type != TOK_NUMBER) {
-      fprintf (stderr, "expected integer\n");
+      fputs ("expected integer\n", stderr);
       return 0;
     }
     out->u.target = (int) tok.num;
@@ -2086,7 +2086,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
       out->kind = ST_ON_ERROR;
       tok = next_token (p);
       if (tok.type != TOK_NUMBER) {
-        fprintf (stderr, "expected integer\n");
+        fputs ("expected integer\n", stderr);
         return 0;
       }
       out->u.target = (int) tok.num;
@@ -2119,7 +2119,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
       while (1) {
         Token tt2 = next_token (p);
         if (tt2.type != TOK_NUMBER) {
-          fprintf (stderr, "expected integer\n");
+          fputs ("expected integer\n", stderr);
           return 0;
         }
         int tline = (int) tt2.num;
@@ -2372,7 +2372,7 @@ static int parse_line (Parser *p, char *line, Line *out) {
   int line_no = 0;
   if (t.type == TOK_NUMBER) {
     if ((basic_num_t) (int) t.num != t.num) {
-      fprintf (stderr, "expected integer\n");
+      fputs ("expected integer\n", stderr);
       return parse_error (p);
     }
     line_no = (int) parse_number (p);
@@ -3513,7 +3513,7 @@ static FILE *ctab_file;
 
 static int ctab_writer (MIR_context_t ctx MIR_UNUSED, uint8_t byte) {
   fprintf (ctab_file, "0x%02x, ", byte);
-  if (++ctab_byte_num % 16 == 0) fprintf (ctab_file, "\n");
+  if (++ctab_byte_num % 16 == 0) fputs ("\n", ctab_file);
   return 1;
 }
 
@@ -4283,7 +4283,7 @@ static void gen_stmt (Stmt *s) {
                                                                           s->u.resume.line))));
     } else {
       if (!g_line_tracking) {
-        fprintf (stderr, "RESUME without line requires line tracking\n");
+        fputs ("RESUME without line requires line tracking\n", stderr);
         exit (1);
       }
       char buf[32];
@@ -4886,10 +4886,10 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     char *ctab_name = change_suffix (exe_name, ".ctab");
     ctab_file = fopen (ctab_name, "w");
     if (ctab_file != NULL) {
-      fprintf (ctab_file, "static const unsigned char mir_code[] = {\n");
+      fputs ("static const unsigned char mir_code[] = {\n", ctab_file);
       ctab_byte_num = 0;
       MIR_write_module_with_func (ctx, ctab_writer, module);
-      fprintf (ctab_file, "};\n");
+      fputs ("};\n", ctab_file);
       fclose (ctab_file);
       const char *cc = getenv ("CC");
       if (cc == NULL) cc = "cc";
@@ -5037,7 +5037,7 @@ static void repl (void) {
         if (opt == REPL_TOK_PROFILE && *s == '\0') {
           profile_p = 1;
         } else {
-          fprintf (stderr, "unknown RUN option: %s\n", s);
+          fprintf (stderr, "unknown RUN option: %s\n", s != NULL ? s : "(null)");
           break;
         }
       }
@@ -5051,7 +5051,7 @@ static void repl (void) {
       switch (target) {
       case REPL_TOK_NATIVE:
         if (*s == '\0') {
-          fprintf (stderr, "missing output file\n");
+          fputs ("missing output file\n", stderr);
         } else {
           gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, s, "(repl)");
           if (access (s, F_OK) == 0)
@@ -5062,7 +5062,7 @@ static void repl (void) {
         break;
       case REPL_TOK_BMIR:
         if (*s == '\0') {
-          fprintf (stderr, "missing output file\n");
+          fputs ("missing output file\n", stderr);
         } else {
           gen_program (&prog, 0, 0, 1, 0, 0, 0, 0, line_tracking, s, "(repl)");
           char *name = change_suffix (s, ".bmir");
@@ -5075,7 +5075,7 @@ static void repl (void) {
         break;
       case REPL_TOK_CODE:
         if (*s == '\0') {
-          fprintf (stderr, "missing output file\n");
+          fputs ("missing output file\n", stderr);
         } else {
           gen_program (&prog, 0, 0, 0, 0, 1, 0, 0, line_tracking, s, "(repl)");
           if (access (s, F_OK) == 0)
@@ -5084,13 +5084,13 @@ static void repl (void) {
             perror (s);
         }
         break;
-      default: fprintf (stderr, "unknown COMPILE target\n"); break;
+      default: fputs ("unknown COMPILE target\n", stderr); break;
       }
       continue;
     }
     case REPL_TOK_SAVE:
       if (*s == '\0') {
-        fprintf (stderr, "missing output file\n");
+        fputs ("missing output file\n", stderr);
       } else {
         gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, s, "(repl)");
         if (access (s, F_OK) == 0)
@@ -5101,7 +5101,7 @@ static void repl (void) {
       continue;
     case REPL_TOK_LOAD:
       if (*s == '\0') {
-        fprintf (stderr, "missing input file\n");
+        fputs ("missing input file\n", stderr);
       } else {
         func_vec_clear (&func_defs);
         data_vals_clear ();
