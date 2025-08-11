@@ -981,6 +981,8 @@ typedef enum {
   TOK_MOD,
   TOK_BASE,
   TOK_FN,
+  TOK_TRUE,
+  TOK_FALSE,
   /* Punctuation */
   TOK_COMMA,
   TOK_COLON,
@@ -1009,8 +1011,6 @@ typedef struct {
 typedef struct {
   char *cur;
   Token tok;
-  Token peek;
-  int has_peek;
 } Parser;
 
 #define cur (p->cur)
@@ -1043,76 +1043,31 @@ static Token read_token (Parser *p) {
     static struct {
       const char *kw;
       TokenType type;
-    } keywords[] = {{"REM", TOK_REM},
-                    {"OPTION", TOK_OPTION},
-                    {"DIM", TOK_DIM},
-                    {"LET", TOK_LET},
-                    {"GOTO", TOK_GOTO},
-                    {"IF", TOK_IF},
-                    {"THEN", TOK_THEN},
-                    {"ELSE", TOK_ELSE},
-                    {"INPUT", TOK_INPUT},
-                    {"GET", TOK_GET},
-                    {"PUT", TOK_PUT},
-                    {"OPEN", TOK_OPEN},
-                    {"CLOSE", TOK_CLOSE},
-                    {"PRINT", TOK_PRINT},
-                    {"PRINT#", TOK_PRINT_HASH},
-                    {"INPUT#", TOK_INPUT_HASH},
-                    {"GET#", TOK_GET_HASH},
-                    {"PUT#", TOK_PUT_HASH},
-                    {"DEF", TOK_DEF},
-                    {"DATA", TOK_DATA},
-                    {"READ", TOK_READ},
-                    {"RESTORE", TOK_RESTORE},
-                    {"CLEAR", TOK_CLEAR},
-                    {"SCREEN", TOK_SCREEN},
-                    {"CLS", TOK_CLS},
-                    {"COLOR", TOK_COLOR},
-                    {"KEYOFF", TOK_KEYOFF},
-                    {"LOCATE", TOK_LOCATE},
-                    {"HTAB", TOK_HTAB},
-                    {"VTAB", TOK_VTAB},
-                    {"POKE", TOK_POKE},
-                    {"HOME", TOK_HOME},
-                    {"BEEP", TOK_BEEP},
-                    {"SOUND", TOK_SOUND},
-                    {"SYSTEM", TOK_SYSTEM},
-                    {"RANDOMIZE", TOK_RANDOMIZE},
-                    {"TEXT", TOK_TEXT},
-                    {"INVERSE", TOK_INVERSE},
-                    {"NORMAL", TOK_NORMAL},
-                    {"HGR2", TOK_HGR2},
-                    {"HCOLOR", TOK_HCOLOR},
-                    {"HPLOT", TOK_HPLOT},
-                    {"MOVE", TOK_MOVE},
-                    {"DRAW", TOK_DRAW},
-                    {"LINE", TOK_LINE},
-                    {"CIRCLE", TOK_CIRCLE},
-                    {"RECT", TOK_RECT},
-                    {"MODE", TOK_MODE},
-                    {"FILL", TOK_FILL},
-                    {"END", TOK_END},
-                    {"STOP", TOK_STOP},
-                    {"FOR", TOK_FOR},
-                    {"TO", TOK_TO},
-                    {"STEP", TOK_STEP},
-                    {"NEXT", TOK_NEXT},
-                    {"WHILE", TOK_WHILE},
-                    {"WEND", TOK_WEND},
-                    {"GOSUB", TOK_GOSUB},
-                    {"RETURN", TOK_RETURN},
-                    {"ON", TOK_ON},
-                    {"ERROR", TOK_ERROR},
-                    {"RESUME", TOK_RESUME},
-                    {"CALL", TOK_CALL},
-                    {"AND", TOK_AND},
-                    {"OR", TOK_OR},
-                    {"NOT", TOK_NOT},
-                    {"MOD", TOK_MOD},
-                    {"BASE", TOK_BASE},
-                    {"FN", TOK_FN},
-                    {NULL, TOK_EOF}};
+    } keywords[]
+      = {{"REM", TOK_REM},           {"OPTION", TOK_OPTION},   {"DIM", TOK_DIM},
+         {"LET", TOK_LET},           {"GOTO", TOK_GOTO},       {"IF", TOK_IF},
+         {"THEN", TOK_THEN},         {"ELSE", TOK_ELSE},       {"INPUT", TOK_INPUT},
+         {"GET", TOK_GET},           {"PUT", TOK_PUT},         {"OPEN", TOK_OPEN},
+         {"CLOSE", TOK_CLOSE},       {"PRINT", TOK_PRINT},     {"PRINT#", TOK_PRINT_HASH},
+         {"INPUT#", TOK_INPUT_HASH}, {"GET#", TOK_GET_HASH},   {"PUT#", TOK_PUT_HASH},
+         {"DEF", TOK_DEF},           {"DATA", TOK_DATA},       {"READ", TOK_READ},
+         {"RESTORE", TOK_RESTORE},   {"CLEAR", TOK_CLEAR},     {"SCREEN", TOK_SCREEN},
+         {"CLS", TOK_CLS},           {"COLOR", TOK_COLOR},     {"KEYOFF", TOK_KEYOFF},
+         {"LOCATE", TOK_LOCATE},     {"HTAB", TOK_HTAB},       {"VTAB", TOK_VTAB},
+         {"POKE", TOK_POKE},         {"HOME", TOK_HOME},       {"BEEP", TOK_BEEP},
+         {"SOUND", TOK_SOUND},       {"SYSTEM", TOK_SYSTEM},   {"RANDOMIZE", TOK_RANDOMIZE},
+         {"TEXT", TOK_TEXT},         {"INVERSE", TOK_INVERSE}, {"NORMAL", TOK_NORMAL},
+         {"HGR2", TOK_HGR2},         {"HCOLOR", TOK_HCOLOR},   {"HPLOT", TOK_HPLOT},
+         {"MOVE", TOK_MOVE},         {"DRAW", TOK_DRAW},       {"LINE", TOK_LINE},
+         {"CIRCLE", TOK_CIRCLE},     {"RECT", TOK_RECT},       {"MODE", TOK_MODE},
+         {"FILL", TOK_FILL},         {"END", TOK_END},         {"STOP", TOK_STOP},
+         {"FOR", TOK_FOR},           {"TO", TOK_TO},           {"STEP", TOK_STEP},
+         {"NEXT", TOK_NEXT},         {"WHILE", TOK_WHILE},     {"WEND", TOK_WEND},
+         {"GOSUB", TOK_GOSUB},       {"RETURN", TOK_RETURN},   {"ON", TOK_ON},
+         {"ERROR", TOK_ERROR},       {"RESUME", TOK_RESUME},   {"CALL", TOK_CALL},
+         {"AND", TOK_AND},           {"OR", TOK_OR},           {"NOT", TOK_NOT},
+         {"MOD", TOK_MOD},           {"BASE", TOK_BASE},       {"FN", TOK_FN},
+         {"TRUE", TOK_TRUE},         {"FALSE", TOK_FALSE},     {NULL, TOK_EOF}};
     for (int j = 0; keywords[j].kw != NULL; j++)
       if (strcmp (buf, keywords[j].kw) == 0) {
         t.type = keywords[j].type;
@@ -1180,23 +1135,15 @@ static Token read_token (Parser *p) {
 }
 
 static Token next_token (Parser *p) {
-  if (p->has_peek) {
-    p->tok = p->peek;
-    p->has_peek = 0;
-    return p->tok;
-  }
   p->tok = read_token (p);
   return p->tok;
 }
 
 static Token peek_token (Parser *p) {
-  if (!p->has_peek) {
-    char *save = cur;
-    p->peek = read_token (p);
-    cur = save;
-    p->has_peek = 1;
-  }
-  return p->peek;
+  char *save = cur;
+  Token t = read_token (p);
+  cur = save;
+  return t;
 }
 
 static int parse_int (Parser *p) {
@@ -1279,32 +1226,28 @@ static const Builtin *lookup_builtin (const char *id) {
 }
 
 static Node *parse_literal (Parser *p) {
-  if (isdigit ((unsigned char) *cur) || *cur == '.') {
-    Node *n = new_node (N_NUM);
-    n->num = parse_number (p);
+  Token t = peek_token (p);
+  Node *n;
+  switch (t.type) {
+  case TOK_NUMBER:
+    next_token (p);
+    n = new_node (N_NUM);
+    n->num = t.num;
     return n;
-  }
-  if (*cur == '"') {
-    Node *n = new_node (N_STR);
+  case TOK_STRING:
+    next_token (p);
+    n = new_node (N_STR);
     n->is_str = 1;
-    n->str = parse_string (p);
+    n->str = t.str;
     return n;
-  }
-  if (strncasecmp (cur, "TRUE", 4) == 0 && !isalnum ((unsigned char) cur[4]) && cur[4] != '_'
-      && cur[4] != '$') {
-    cur += 4;
-    Node *n = new_node (N_NUM);
-    n->num = 1;
+  case TOK_TRUE:
+  case TOK_FALSE:
+    next_token (p);
+    n = new_node (N_NUM);
+    n->num = (t.type == TOK_TRUE);
     return n;
+  default: return NULL;
   }
-  if (strncasecmp (cur, "FALSE", 5) == 0 && !isalnum ((unsigned char) cur[5]) && cur[5] != '_'
-      && cur[5] != '$') {
-    cur += 5;
-    Node *n = new_node (N_NUM);
-    n->num = 0;
-    return n;
-  }
-  return NULL;
 }
 
 static Node *parse_builtin_call (char *id, CallArgs *a) {
@@ -2360,8 +2303,7 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
 static int parse_line (Parser *p, char *line, Line *out) {
   *p = (Parser) {0};
   cur = line;
-  p->has_peek = 0;
-  p->tok.type = p->peek.type = TOK_EOF;
+  p->tok.type = TOK_EOF;
   out->src = strdup (line);
   skip_ws (p);
   int line_no = 0;
@@ -2441,8 +2383,7 @@ static int parse_line (Parser *p, char *line, Line *out) {
 static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
   *p = (Parser) {0};
   cur = line + (is_sub ? 3 : 8);
-  p->has_peek = 0;
-  p->tok.type = p->peek.type = TOK_EOF;
+  p->tok.type = TOK_EOF;
   skip_ws (p);
   char *name = parse_id (p);
   int f_is_str = name[strlen (name) - 1] == '$';
@@ -4800,11 +4741,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     if (g_vars.data[i].is_array && g_vars.data[i].size <= 1) {
       g_vars.data[i].size = 11;
       size_t elem_size = g_vars.data[i].is_str ? sizeof (char *) : sizeof (basic_num_t);
-      MIR_insn_t call = MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, calloc_proto),
-                                           MIR_new_ref_op (ctx, calloc_import),
-                                           MIR_new_reg_op (ctx, g_vars.data[i].reg),
-                                           MIR_new_int_op (ctx, 11),
-                                           MIR_new_int_op (ctx, elem_size));
+      MIR_insn_t call
+        = MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, calloc_proto),
+                             MIR_new_ref_op (ctx, calloc_import),
+                             MIR_new_reg_op (ctx, g_vars.data[i].reg), MIR_new_int_op (ctx, 11),
+                             MIR_new_int_op (ctx, elem_size));
       MIR_insert_insn_after (ctx, func, g_var_init_anchor, call);
       g_var_init_anchor = call;
     }
