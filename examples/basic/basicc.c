@@ -2350,7 +2350,13 @@ static int parse_line (Parser *p, char *line, Line *out) {
   skip_ws (p);
   Token t = peek_token (p);
   int line_no = 0;
-  if (t.type == TOK_NUMBER) line_no = (int) parse_number (p);
+  if (t.type == TOK_NUMBER) {
+    if ((basic_num_t) (int) t.num != t.num) {
+      fprintf (stderr, "expected integer\n");
+      return parse_error (p);
+    }
+    line_no = (int) parse_number (p);
+  }
   p->line_no = line_no;
   out->line = line_no;
   out->stmts = (StmtVec) {0};
