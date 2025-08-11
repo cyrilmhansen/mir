@@ -384,6 +384,22 @@ char *basic_read_str (void) {
 
 void basic_restore (void) { basic_data_pos = 0; }
 
+void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str) {
+  size_t n = (size_t) len;
+  int str_p = is_str != 0.0;
+  if (base == NULL || n == 0) return;
+  if (str_p) {
+    char **arr = (char **) base;
+    for (size_t i = 0; i < n; i++) {
+      free (arr[i]);
+      arr[i] = NULL;
+    }
+    memset (arr, 0, n * sizeof (char *));
+  } else {
+    memset (base, 0, n * sizeof (basic_num_t));
+  }
+}
+
 void basic_home (void) { printf ("\x1b[2J\x1b[H"); }
 
 void basic_vtab (basic_num_t n) { printf ("\x1b[%d;H", (int) n); }
