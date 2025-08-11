@@ -2936,7 +2936,8 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       MIR_reg_t off = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
       MIR_append_insn (ctx, func,
                        MIR_new_insn (ctx, MIR_MUL, MIR_new_reg_op (ctx, off),
-                                     MIR_new_reg_op (ctx, idx), MIR_new_int_op (ctx, 8)));
+                                     MIR_new_reg_op (ctx, idx),
+                                     MIR_new_int_op (ctx, sizeof (basic_num_t))));
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t addr = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
       MIR_append_insn (ctx, func,
@@ -3674,9 +3675,11 @@ static void gen_stmt (Stmt *s) {
         }
         sprintf (buf, "$t%d", tmp_id++);
         MIR_reg_t off = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+        size_t elem_size = v->is_str ? sizeof (char *) : sizeof (basic_num_t);
         MIR_append_insn (g_ctx, g_func,
                          MIR_new_insn (g_ctx, MIR_MUL, MIR_new_reg_op (g_ctx, off),
-                                       MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, 8)));
+                                       MIR_new_reg_op (g_ctx, idx),
+                                       MIR_new_int_op (g_ctx, elem_size)));
         sprintf (buf, "$t%d", tmp_id++);
         MIR_reg_t addr = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
         MIR_append_insn (g_ctx, g_func,
@@ -3864,9 +3867,11 @@ static void gen_stmt (Stmt *s) {
                                        MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, asize)));
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t off = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+      size_t elem_size = s->u.let.is_str ? sizeof (char *) : sizeof (basic_num_t);
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_insn (g_ctx, MIR_MUL, MIR_new_reg_op (g_ctx, off),
-                                     MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, 8)));
+                                     MIR_new_reg_op (g_ctx, idx),
+                                     MIR_new_int_op (g_ctx, elem_size)));
       sprintf (buf, "$t%d", tmp_id++);
       MIR_reg_t addr = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
       MIR_append_insn (g_ctx, g_func,
@@ -4397,12 +4402,13 @@ static void gen_stmt (Stmt *s) {
                                        MIR_new_reg_op (g_ctx, total),
                                        MIR_new_reg_op (g_ctx, size2)));
       }
+      size_t elem_size = s->u.dim.is_str[k] ? sizeof (char *) : sizeof (basic_num_t);
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_call_insn (g_ctx, 5, MIR_new_ref_op (g_ctx, calloc_proto),
                                           MIR_new_ref_op (g_ctx, calloc_import),
                                           MIR_new_reg_op (g_ctx, base),
                                           MIR_new_reg_op (g_ctx, total),
-                                          MIR_new_int_op (g_ctx, 8)));
+                                          MIR_new_int_op (g_ctx, elem_size)));
     }
     break;
   }
@@ -4793,10 +4799,12 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   for (size_t i = 0; i < g_vars.len; i++)
     if (g_vars.data[i].is_array && g_vars.data[i].size <= 1) {
       g_vars.data[i].size = 11;
+      size_t elem_size = g_vars.data[i].is_str ? sizeof (char *) : sizeof (basic_num_t);
       MIR_insn_t call = MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, calloc_proto),
                                            MIR_new_ref_op (ctx, calloc_import),
                                            MIR_new_reg_op (ctx, g_vars.data[i].reg),
-                                           MIR_new_int_op (ctx, 11), MIR_new_int_op (ctx, 8));
+                                           MIR_new_int_op (ctx, 11),
+                                           MIR_new_int_op (ctx, elem_size));
       MIR_insert_insn_after (ctx, func, g_var_init_anchor, call);
       g_var_init_anchor = call;
     }
