@@ -1173,14 +1173,12 @@ static Token peek_token (Parser *p) {
 }
 
 static int parse_int (Parser *p) {
-  skip_ws (p);
-  char *start = cur;
-  int v = strtol (cur, &cur, 10);
-  if (cur == start) {
+  Token t = next_token (p);
+  if (t.type != TOK_NUMBER) {
     fprintf (stderr, "expected integer");
     exit (1);
   }
-  return v;
+  return (int) t.num;
 }
 
 static char *parse_id (Parser *p) {
@@ -2328,7 +2326,7 @@ static int parse_line (Parser *p, char *line, Line *out) {
   out->src = strdup (line);
   skip_ws (p);
   int line_no = 0;
-  if (isdigit ((unsigned char) *cur)) line_no = parse_int (p);
+  if (peek_token (p).type == TOK_NUMBER) line_no = parse_int (p);
   p->line_no = line_no;
   out->line = line_no;
   out->stmts = (StmtVec) {0};
@@ -4888,6 +4886,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   data_vals_clear ();
 }
 
+#undef cur
+
 static void repl (void) {
   LineVec prog = {0};
   char line[256];
@@ -4898,11 +4898,12 @@ static void repl (void) {
     char *s = line;
     while (isspace ((unsigned char) *s)) s++;
     if (*s == '\0') continue;
-    if (isdigit ((unsigned char) *s)) {
-      char *end;
-      long num = strtol (s, &end, 10);
-      while (isspace ((unsigned char) *end)) end++;
-      if (*end == '\0') {
+    Parser rp = {0};
+    rp.cur = s;
+    if (peek_token (&rp).type == TOK_NUMBER) {
+      long num = parse_int (&rp);
+      while (isspace ((unsigned char) *rp.cur)) rp.cur++;
+      if (*rp.cur == '\0') {
         delete_line (&prog, num);
       } else {
         Line l;
