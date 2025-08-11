@@ -41,7 +41,11 @@ static int basic_pos_val = 1;
 static int basic_error_handler = 0;
 static int basic_line = 0;
 static basic_num_t last_hplot_x = 0.0, last_hplot_y = 0.0;
-static int current_hcolor;
+static uint32_t basic_palette[8] = {
+  0x000000, 0xFF0000, 0x00FF00, 0xFFFF00, 0x0000FF, 0xFF00FF, 0x00FFFF, 0xFFFFFF,
+};
+static uint32_t current_hcolor = 0xFFFFFF;
+static int palette_initialized = 0;
 int basic_line_tracking_enabled = 1;
 static char *system_output = NULL;
 
@@ -597,36 +601,57 @@ void basic_hgr2 (void) {
   printf ("\x1b[2J\x1b[H");
   last_hplot_x = 0.0;
   last_hplot_y = 0.0;
-  current_hcolor = 37;
+  current_hcolor = basic_palette[7];
+}
+void basic_set_palette (const uint32_t *colors, size_t n) {
+  size_t cnt = n < 8 ? n : 8;
+  for (size_t i = 0; i < cnt; i++) basic_palette[i] = colors[i];
 }
 
-static int current_hcolor = 37;
+void basic_set_palette_from_env (void) {
+  const char *env = getenv ("BASIC_PALETTE");
+  if (env == NULL) return;
+  uint32_t colors[8];
+  size_t n = 0;
+  while (*env && n < 8) {
+    char *end;
+    unsigned long v = strtoul (env, &end, 16);
+    colors[n++] = (uint32_t) (v & 0xFFFFFFu);
+    if (*end != ',') break;
+    env = end + 1;
+  }
+  basic_set_palette (colors, n);
+}
+
+static void basic_ensure_palette (void) {
+  if (!palette_initialized) {
+    basic_set_palette_from_env ();
+    palette_initialized = 1;
+  }
+}
 
 #define BASIC_MAX_WIDTH 280
 #define BASIC_MAX_HEIGHT 192
 
-void basic_hcolor (basic_num_t c) { current_hcolor = 30 + ((int) c & 7); }
+void basic_hcolor (basic_num_t c) {
+  basic_ensure_palette ();
+  int ic = (int) c;
+  if (ic >= 0 && ic < 8)
+    current_hcolor = basic_palette[ic];
+  else
+    current_hcolor = (uint32_t) ic & 0xFFFFFFu;
+}
 
-/* 1x1 PNGs for standard 8 terminal colors, base64-encoded.  */
-static const char *kitty_color_png[8] = {
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYGAAAAAEAAH2FzhVAAAAAElFTkSuQmCC",
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNg+M8AAAICAQB7CYF4AAAAAElFTkSuQmCC",
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4/58BAAT/Af9dfQKHAAAAAElFTkSuQmCC",
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYPgPAAEDAQAIicLsAAAAAElFTkSuQmCC",
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z/AfAAQAAf8iCjrwAAAAAElFTkSuQmCC",
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNg+P8fAAMBAf+2EqLVAAAAAElFTkSuQmCC",
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC",
-};
+uint32_t basic_get_hcolor (void) { return current_hcolor; }
 
 static void basic_kitty_plot (basic_num_t x, basic_num_t y) {
   int ix = (int) x, iy = (int) y;
   if (ix < 0 || ix >= BASIC_MAX_WIDTH || iy < 0 || iy >= BASIC_MAX_HEIGHT) return;
-  int color = (current_hcolor - 30) & 7;
-  const char *png = kitty_color_png[color];
-  printf (
-    "\x1b[%d;%dH\x1b]1337;File=inline=1;width=1;height=1;preserveAspectRatio=0:%s\x07\x1b[%d;%dH",
-    iy, ix, png, iy, ix + 1);
+  uint8_t pixel[4]
+    = {(current_hcolor >> 16) & 0xFF, (current_hcolor >> 8) & 0xFF, current_hcolor & 0xFF, 0xFF};
+  printf ("\x1b[%d;%dH", iy, ix);
+  kitty_draw_image (pixel, 1, 1);
+  printf ("\x1b[%d;%dH", iy, ix + 1);
   fflush (stdout);
 }
 
