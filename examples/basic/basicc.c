@@ -35,6 +35,7 @@
 #include <strings.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <math.h>
 
 #ifndef BASIC_SRC_DIR
 #define BASIC_SRC_DIR "."
@@ -1173,14 +1174,17 @@ static Token peek_token (Parser *p) {
 }
 
 static int parse_int (Parser *p) {
-  skip_ws (p);
-  char *start = cur;
-  int v = strtol (cur, &cur, 10);
-  if (cur == start) {
+  Token t = next_token (p);
+  if (t.type != TOK_NUMBER) {
     fprintf (stderr, "expected integer");
     exit (1);
   }
-  return v;
+  if (BASIC_FLOOR (t.num) != t.num) {
+    fprintf (stderr, "expected integer");
+    exit (1);
+  }
+  p->tok.type = TOK_EOF;
+  return (int) t.num;
 }
 
 static char *parse_id (Parser *p) {
