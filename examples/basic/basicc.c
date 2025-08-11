@@ -5021,9 +5021,9 @@ static void repl (void) {
         Parser p;
         if (parse_line (&p, line, &l))
           insert_or_replace_line (&prog, l);
-        else
+        else {
           /* error already reported by parse_line */
-          ;
+        }
       }
       continue;
     }
