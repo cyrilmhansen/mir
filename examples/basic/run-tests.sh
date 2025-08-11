@@ -97,6 +97,15 @@ fi
 grep -q "expected integer" "$ROOT/basic/dim_expr_error.err"
 echo "dim expression error OK"
 
+echo "Running print expression (expect error)"
+"$BASICC" "$ROOT/examples/basic/print_expr_error.bas" >/dev/null \
+        2> "$ROOT/basic/print_expr_error.err" || true
+if ! grep -q "parse error at line 10" "$ROOT/basic/print_expr_error.err"; then
+        echo "print expression should have failed"
+        exit 1
+fi
+echo "print expression error OK"
+
         echo "Running repl LOAD"
         printf 'LOAD %s\nRUN\nQUIT\n' "$ROOT/examples/basic/hello.bas" | "$BASICC" > "$ROOT/basic/repl-load.out"
         diff "$ROOT/examples/basic/repl-load.out" "$ROOT/basic/repl-load.out"
