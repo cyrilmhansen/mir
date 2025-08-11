@@ -1540,6 +1540,54 @@ static int parse_stmt (Parser *p, Stmt *out) {
     }
     return 1;
   case TOK_CLEAR: out->kind = ST_CLEAR; return 1;
+  case TOK_RESTORE: out->kind = ST_RESTORE; return 1;
+  case TOK_CLS: out->kind = ST_CLS; return 1;
+  case TOK_KEYOFF: out->kind = ST_KEYOFF; return 1;
+  case TOK_HOME: out->kind = ST_HOME; return 1;
+  case TOK_BEEP: out->kind = ST_BEEP; return 1;
+  case TOK_TEXT: out->kind = ST_TEXT; return 1;
+  case TOK_INVERSE: out->kind = ST_INVERSE; return 1;
+  case TOK_NORMAL: out->kind = ST_NORMAL; return 1;
+  case TOK_HGR2: out->kind = ST_HGR2; return 1;
+  case TOK_RANDOMIZE:
+    out->kind = ST_RANDOMIZE;
+    if (peek_token (p).type == TOK_COLON || peek_token (p).type == TOK_EOF) {
+      out->u.expr = NULL;
+    } else {
+      PARSE_EXPR_OR_ERROR (out->u.expr);
+    }
+    return 1;
+  case TOK_GOTO:
+    out->kind = ST_GOTO;
+    tok = next_token (p);
+    if (tok.type != TOK_NUMBER) {
+      fprintf (stderr, "expected integer\n");
+      return 0;
+    }
+    out->u.target = (int) tok.num;
+    return 1;
+  case TOK_GOSUB:
+    out->kind = ST_GOSUB;
+    tok = next_token (p);
+    if (tok.type != TOK_NUMBER) {
+      fprintf (stderr, "expected integer\n");
+      return 0;
+    }
+    out->u.target = (int) tok.num;
+    return 1;
+  case TOK_NEXT:
+    out->kind = ST_NEXT;
+    out->u.next.var = NULL;
+    if (peek_token (p).type == TOK_IDENTIFIER) out->u.next.var = parse_id (p);
+    return 1;
+  case TOK_WHILE:
+    out->kind = ST_WHILE;
+    PARSE_EXPR_OR_ERROR (out->u.expr);
+    return 1;
+  case TOK_WEND: out->kind = ST_WEND; return 1;
+  case TOK_RETURN: out->kind = ST_RETURN; return 1;
+  case TOK_END: out->kind = ST_END; return 1;
+  case TOK_STOP: out->kind = ST_STOP; return 1;
   default:
     cur = start;
     skip_ws (p);
@@ -1711,32 +1759,17 @@ static int parse_stmt (Parser *p, Stmt *out) {
       cur++;
     }
     return 1;
-  } else if (strncasecmp (cur, "RESTORE", 7) == 0) {
-    cur += 7;
-    out->kind = ST_RESTORE;
-    return 1;
   } else if (strncasecmp (cur, "SCREEN", 6) == 0) {
     cur += 6;
     skip_ws (p);
     out->kind = ST_SCREEN;
     PARSE_EXPR_OR_ERROR (out->u.expr);
     return 1;
-  } else if (strncasecmp (cur, "CLS", 3) == 0) {
-    cur += 3;
-    out->kind = ST_CLS;
-    return 1;
   } else if (strncasecmp (cur, "COLOR", 5) == 0) {
     cur += 5;
     skip_ws (p);
     out->kind = ST_COLOR;
     PARSE_EXPR_OR_ERROR (out->u.expr);
-    return 1;
-  } else if (strncasecmp (cur, "KEY", 3) == 0) {
-    cur += 3;
-    skip_ws (p);
-    if (strncasecmp (cur, "OFF", 3) != 0) return 0;
-    cur += 3;
-    out->kind = ST_KEYOFF;
     return 1;
   } else if (strncasecmp (cur, "LOCATE", 6) == 0) {
     cur += 6;
@@ -1764,19 +1797,11 @@ static int parse_stmt (Parser *p, Stmt *out) {
     cur++;
     PARSE_EXPR_OR_ERROR (out->u.poke.value);
     return 1;
-  } else if (strncasecmp (cur, "HOME", 4) == 0) {
-    cur += 4;
-    out->kind = ST_HOME;
-    return 1;
   } else if (strncasecmp (cur, "VTAB", 4) == 0) {
     cur += 4;
     skip_ws (p);
     out->kind = ST_VTAB;
     PARSE_EXPR_OR_ERROR (out->u.expr);
-    return 1;
-  } else if (strncasecmp (cur, "BEEP", 4) == 0) {
-    cur += 4;
-    out->kind = ST_BEEP;
     return 1;
   } else if (strncasecmp (cur, "SOUND", 5) == 0) {
     cur += 5;
@@ -1803,32 +1828,6 @@ static int parse_stmt (Parser *p, Stmt *out) {
     cur++;
     out->u.system.out = parse_id (p);
     if (out->u.system.out[strlen (out->u.system.out) - 1] != '$') return 0;
-    return 1;
-  } else if (strncasecmp (cur, "RANDOMIZE", 9) == 0) {
-    cur += 9;
-    skip_ws (p);
-    out->kind = ST_RANDOMIZE;
-    if (*cur == '\0' || *cur == ':') {
-      out->u.expr = NULL;
-    } else {
-      PARSE_EXPR_OR_ERROR (out->u.expr);
-    }
-    return 1;
-  } else if (strncasecmp (cur, "TEXT", 4) == 0) {
-    cur += 4;
-    out->kind = ST_TEXT;
-    return 1;
-  } else if (strncasecmp (cur, "INVERSE", 7) == 0) {
-    cur += 7;
-    out->kind = ST_INVERSE;
-    return 1;
-  } else if (strncasecmp (cur, "NORMAL", 6) == 0) {
-    cur += 6;
-    out->kind = ST_NORMAL;
-    return 1;
-  } else if (strncasecmp (cur, "HGR2", 4) == 0) {
-    cur += 4;
-    out->kind = ST_HGR2;
     return 1;
   } else if (strncasecmp (cur, "HCOLOR=", 7) == 0) {
     cur += 7;
@@ -1968,26 +1967,6 @@ static int parse_stmt (Parser *p, Stmt *out) {
     out->u.let.expr = e;
     out->u.let.is_str = v->is_str;
     return 1;
-  } else if (strncasecmp (cur, "GOTO", 4) == 0) {
-    cur += 4;
-    out->kind = ST_GOTO;
-    Token t = next_token (p);
-    if (t.type != TOK_NUMBER) {
-      fprintf (stderr, "expected integer\n");
-      return 0;
-    }
-    out->u.target = (int) t.num;
-    return 1;
-  } else if (strncasecmp (cur, "GOSUB", 5) == 0) {
-    cur += 5;
-    out->kind = ST_GOSUB;
-    Token t = next_token (p);
-    if (t.type != TOK_NUMBER) {
-      fprintf (stderr, "expected integer\n");
-      return 0;
-    }
-    out->u.target = (int) t.num;
-    return 1;
   } else if (strncasecmp (cur, "IF", 2) == 0) {
     cur += 2;
     Stmt s;
@@ -2024,26 +2003,6 @@ static int parse_stmt (Parser *p, Stmt *out) {
       one->num = 1;
       out->u.forto.step = one;
     }
-    return 1;
-  } else if (strncasecmp (cur, "NEXT", 4) == 0) {
-    cur += 4;
-    out->kind = ST_NEXT;
-    out->u.next.var = NULL;
-    skip_ws (p);
-    if (isalpha ((unsigned char) *cur)) out->u.next.var = parse_id (p);
-    return 1;
-  } else if (strncasecmp (cur, "WHILE", 5) == 0) {
-    cur += 5;
-    out->kind = ST_WHILE;
-    PARSE_EXPR_OR_ERROR (out->u.expr);
-    return 1;
-  } else if (strncasecmp (cur, "WEND", 4) == 0) {
-    cur += 4;
-    out->kind = ST_WEND;
-    return 1;
-  } else if (strncasecmp (cur, "RETURN", 6) == 0) {
-    cur += 6;
-    out->kind = ST_RETURN;
     return 1;
   } else if (strncasecmp (cur, "ON", 2) == 0) {
     cur += 2;
@@ -2101,14 +2060,6 @@ static int parse_stmt (Parser *p, Stmt *out) {
       if (sep.type != TOK_COMMA) break;
       next_token (p);
     }
-    return 1;
-  } else if (strncasecmp (cur, "END", 3) == 0) {
-    cur += 3;
-    out->kind = ST_END;
-    return 1;
-  } else if (strncasecmp (cur, "STOP", 4) == 0) {
-    cur += 4;
-    out->kind = ST_STOP;
     return 1;
   } else if (strncasecmp (cur, "RESUME", 6) == 0) {
     cur += 6;
