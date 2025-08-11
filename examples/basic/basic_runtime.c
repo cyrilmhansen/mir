@@ -11,6 +11,30 @@
 #include <sys/wait.h>
 #include "kitty/kitty.h"
 #include "basic_runtime.h"
+#if defined(BASIC_USE_LONG_DOUBLE)
+#define MIR_T_D MIR_T_LD
+#define MIR_new_double_op MIR_new_ldouble_op
+#define MIR_D2I MIR_LD2I
+#define MIR_I2D MIR_I2LD
+#define MIR_DMOV MIR_LDMOV
+#define MIR_DNEG MIR_LDNEG
+#define MIR_DEQ MIR_LDEQ
+#define MIR_DNE MIR_LDNE
+#define MIR_DLT MIR_LDLT
+#define MIR_DLE MIR_LDLE
+#define MIR_DGT MIR_LDGT
+#define MIR_DGE MIR_LDGE
+#define MIR_DADD MIR_LDADD
+#define MIR_DSUB MIR_LDSUB
+#define MIR_DMUL MIR_LDMUL
+#define MIR_DDIV MIR_LDDIV
+#define MIR_DBEQ MIR_LDBEQ
+#define MIR_DBNE MIR_LDBNE
+#define MIR_DBLT MIR_LDBLT
+#define MIR_DBLE MIR_LDBLE
+#define MIR_DBGT MIR_LDBGT
+#define MIR_DBGE MIR_LDBGE
+#endif
 
 static int seeded = 0;
 static int basic_pos_val = 1;
@@ -746,15 +770,15 @@ typedef struct {
 static Handle *handle_tab = NULL;
 static size_t handle_len = 0;
 
-static double new_handle (HandleKind kind, MIR_context_t ctx, void *ptr) {
+static basic_num_t new_handle (HandleKind kind, MIR_context_t ctx, void *ptr) {
   handle_tab = realloc (handle_tab, (handle_len + 1) * sizeof (Handle));
   handle_tab[handle_len] = (Handle) {kind, ctx, ptr};
-  return (double) ++handle_len;
+  return (basic_num_t) ++handle_len;
 }
 
-static Handle *get_handle (double h) {
+static Handle *get_handle (basic_num_t h) {
   size_t idx = (size_t) h;
-  if (idx == 0 || (double) idx != h || idx > handle_len) return NULL;
+  if (idx == 0 || (basic_num_t) idx != h || idx > handle_len) return NULL;
   return &handle_tab[idx - 1];
 }
 
@@ -764,17 +788,17 @@ typedef struct {
   size_t nargs;
 } FuncHandle;
 
-static double basic_mir_ctx_impl (void) {
-  static double ctx_handle = 0;
+static basic_num_t basic_mir_ctx_impl (void) {
+  static basic_num_t ctx_handle = 0;
   if (ctx_handle != 0) return ctx_handle;
   MIR_context_t ctx = MIR_init ();
   ctx_handle = new_handle (H_CTX, ctx, ctx);
   return ctx_handle;
 }
 
-double basic_mir_ctx (void) { return basic_mir_ctx_impl (); }
+basic_num_t basic_mir_ctx (void) { return basic_mir_ctx_impl (); }
 
-double basic_mir_mod (double ctx_h, const char *name) {
+basic_num_t basic_mir_mod (basic_num_t ctx_h, const char *name) {
   Handle *h = get_handle (ctx_h);
   if (h == NULL || h->kind != H_CTX) return 0.0;
   MIR_context_t ctx = h->ctx;
@@ -782,7 +806,7 @@ double basic_mir_mod (double ctx_h, const char *name) {
   return new_handle (H_MOD, ctx, mod);
 }
 
-double basic_mir_func (double mod_h, const char *name, double nargs_d) {
+basic_num_t basic_mir_func (basic_num_t mod_h, const char *name, basic_num_t nargs_d) {
   Handle *h = get_handle (mod_h);
   if (h == NULL || h->kind != H_MOD) return 0.0;
   MIR_context_t ctx = h->ctx;
@@ -805,7 +829,7 @@ double basic_mir_func (double mod_h, const char *name, double nargs_d) {
   return new_handle (H_FUNC, ctx, fh);
 }
 
-double basic_mir_reg (double func_h) {
+basic_num_t basic_mir_reg (basic_num_t func_h) {
   Handle *h = get_handle (func_h);
   if (h == NULL || h->kind != H_FUNC) return 0.0;
   FuncHandle *fh = h->ptr;
@@ -822,7 +846,7 @@ double basic_mir_reg (double func_h) {
   return new_handle (H_REG, ctx, (void *) (uintptr_t) r);
 }
 
-double basic_mir_label (double func_h) {
+basic_num_t basic_mir_label (basic_num_t func_h) {
   Handle *h = get_handle (func_h);
   if (h == NULL || h->kind != H_FUNC) return 0.0;
   MIR_context_t ctx = h->ctx;
@@ -830,16 +854,24 @@ double basic_mir_label (double func_h) {
   return new_handle (H_LABEL, ctx, (void *) lab);
 }
 
-double basic_mir_emit (double func_h, const char *op, double a, double b, double c) {
+basic_num_t basic_mir_emit (basic_num_t func_h, const char *op, basic_num_t a, basic_num_t b,
+                            basic_num_t c) {
   Handle *h = get_handle (func_h);
   if (h == NULL || h->kind != H_FUNC) return 0.0;
   FuncHandle *fh = h->ptr;
   MIR_context_t ctx = h->ctx;
+#if defined(BASIC_USE_LONG_DOUBLE)
+  char op_buf[16];
+  if (op != NULL && op[0] == 'D') {
+    snprintf (op_buf, sizeof (op_buf), "LD%s", op + 1);
+    op = op_buf;
+  }
+#endif
   MIR_insn_code_t code;
   for (code = 0; code < MIR_INSN_BOUND; code++)
     if (strcasecmp (op, MIR_insn_name (ctx, code)) == 0) break;
   if (code >= MIR_INSN_BOUND) return 0.0;
-  double vals[3] = {a, b, c};
+  basic_num_t vals[3] = {a, b, c};
   MIR_op_t ops[3];
   size_t nops = 0;
   int out_p;
@@ -857,7 +889,7 @@ double basic_mir_emit (double func_h, const char *op, double a, double b, double
   return 0.0;
 }
 
-double basic_mir_emitlbl (double func_h, double lab_h) {
+basic_num_t basic_mir_emitlbl (basic_num_t func_h, basic_num_t lab_h) {
   Handle *fh = get_handle (func_h);
   Handle *lh = get_handle (lab_h);
   if (fh == NULL || lh == NULL || fh->kind != H_FUNC || lh->kind != H_LABEL) return 0.0;
@@ -866,7 +898,7 @@ double basic_mir_emitlbl (double func_h, double lab_h) {
   return 0.0;
 }
 
-double basic_mir_ret (double func_h, double reg_h) {
+basic_num_t basic_mir_ret (basic_num_t func_h, basic_num_t reg_h) {
   Handle *fh = get_handle (func_h);
   Handle *rh = get_handle (reg_h);
   if (fh == NULL || rh == NULL || fh->kind != H_FUNC || rh->kind != H_REG) return 0.0;
@@ -878,7 +910,7 @@ double basic_mir_ret (double func_h, double reg_h) {
   return 0.0;
 }
 
-double basic_mir_finish (double mod_h) {
+basic_num_t basic_mir_finish (basic_num_t mod_h) {
   Handle *mh = get_handle (mod_h);
   if (mh == NULL || mh->kind != H_MOD) return 0.0;
   MIR_context_t ctx = mh->ctx;
@@ -889,25 +921,29 @@ double basic_mir_finish (double mod_h) {
   return 0.0;
 }
 
-double basic_mir_run (double func_h, double a1, double a2, double a3, double a4) {
+basic_num_t basic_mir_run (basic_num_t func_h, basic_num_t a1, basic_num_t a2,
+                           basic_num_t a3, basic_num_t a4) {
   Handle *fh = get_handle (func_h);
   if (fh == NULL || fh->kind != H_FUNC) return 0.0;
   FuncHandle *f = fh->ptr;
   MIR_context_t ctx = fh->ctx;
+  (void) ctx;
   void *addr = f->item->addr;
-  double res = 0.0;
+  basic_num_t res = 0.0;
   switch (f->nargs) {
-  case 0: res = ((double (*) (void)) addr) (); break;
-  case 1: res = ((double (*) (double)) addr) (a1); break;
-  case 2: res = ((double (*) (double, double)) addr) (a1, a2); break;
-  case 3: res = ((double (*) (double, double, double)) addr) (a1, a2, a3); break;
-  case 4: res = ((double (*) (double, double, double, double)) addr) (a1, a2, a3, a4); break;
+  case 0: res = ((basic_num_t (*) (void)) addr) (); break;
+  case 1: res = ((basic_num_t (*) (basic_num_t)) addr) (a1); break;
+  case 2: res = ((basic_num_t (*) (basic_num_t, basic_num_t)) addr) (a1, a2); break;
+  case 3: res = ((basic_num_t (*) (basic_num_t, basic_num_t, basic_num_t)) addr) (a1, a2, a3); break;
+  case 4:
+    res = ((basic_num_t (*) (basic_num_t, basic_num_t, basic_num_t, basic_num_t)) addr) (a1, a2, a3, a4);
+    break;
   default: break;
   }
   return res;
 }
 
-double basic_mir_dump (double func_h) {
+basic_num_t basic_mir_dump (basic_num_t func_h) {
   Handle *fh = get_handle (func_h);
   if (fh == NULL || fh->kind != H_FUNC) return 0.0;
   FuncHandle *f = fh->ptr;
