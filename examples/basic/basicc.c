@@ -2185,7 +2185,6 @@ static int parse_line (Parser *p, char *line, Line *out) {
   p->tok.type = TOK_EOF;
   p->line_start = line;
   out->src = strdup (line);
-  skip_ws (p);
   Token t = peek_token (p);
   int line_no = 0;
   if (t.type == TOK_NUMBER) {
@@ -2199,14 +2198,13 @@ static int parse_line (Parser *p, char *line, Line *out) {
   out->line = line_no;
   out->stmts = (StmtVec) {0};
   while (1) {
-    skip_ws (p);
-    while (*cur == ':') {
-      cur++;
-      skip_ws (p);
+    t = peek_token (p);
+    while (t.type == TOK_COLON) {
+      next_token (p);
+      t = peek_token (p);
     }
-    if (*cur == '\0') break;
+    if (t.type == TOK_EOF) break;
     Stmt s;
-    p->has_peek = 0;
     if (!parse_stmt (p, &s)) return parse_error (p);
     if (s.kind == ST_PRINT || s.kind == ST_PRINT_HASH) {
       size_t cap = 0;
@@ -2220,8 +2218,8 @@ static int parse_line (Parser *p, char *line, Line *out) {
         s.u.printhash.no_nl = 0;
       }
       while (1) {
-        skip_ws (p);
-        if (*cur == ':' || *cur == '\0') break;
+        t = peek_token (p);
+        if (t.type == TOK_COLON || t.type == TOK_EOF) break;
         Node *e;
         PARSE_EXPR_OR_ERROR (e);
         if (s.kind == ST_PRINT) {
@@ -2237,11 +2235,11 @@ static int parse_line (Parser *p, char *line, Line *out) {
           }
           s.u.printhash.items[s.u.printhash.n++] = e;
         }
-        skip_ws (p);
-        if (*cur == ';' || *cur == ',') {
-          cur++;
-          skip_ws (p);
-          if (*cur == ':' || *cur == '\0') {
+        Token sep = peek_token (p);
+        if (sep.type == TOK_SEMICOLON || sep.type == TOK_COMMA) {
+          next_token (p);
+          t = peek_token (p);
+          if (t.type == TOK_COLON || t.type == TOK_EOF) {
             if (s.kind == ST_PRINT)
               s.u.print.no_nl = 1;
             else
@@ -2252,17 +2250,16 @@ static int parse_line (Parser *p, char *line, Line *out) {
         }
         break;
       }
-      skip_ws (p);
     }
     stmt_vec_push (&out->stmts, s);
     if (s.kind == ST_REM) break;
-    skip_ws (p);
-    if (*cur == ':') {
+    t = peek_token (p);
+    if (t.type == TOK_COLON) {
       do {
-        cur++;
-        skip_ws (p);
-      } while (*cur == ':');
-      if (*cur == '\0') break;
+        next_token (p);
+        t = peek_token (p);
+      } while (t.type == TOK_COLON);
+      if (t.type == TOK_EOF) break;
       continue;
     }
     break;
