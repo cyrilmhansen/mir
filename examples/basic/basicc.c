@@ -65,7 +65,6 @@ extern int basic_strcmp (const char *, const char *);
 extern basic_num_t basic_read (void);
 extern char *basic_read_str (void);
 extern void basic_restore (void);
-extern void basic_clear_array (void *, basic_num_t, basic_num_t);
 extern char *basic_strdup (const char *);
 extern void basic_free (char *);
 
