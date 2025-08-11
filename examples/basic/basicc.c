@@ -1173,20 +1173,6 @@ static Token peek_token (Parser *p) {
   return p->peek;
 }
 
-static int parse_int (Parser *p) {
-  Token t = next_token (p);
-  if (t.type != TOK_NUMBER) {
-    fprintf (stderr, "expected integer");
-    exit (1);
-  }
-  if (BASIC_FLOOR (t.num) != t.num) {
-    fprintf (stderr, "expected integer");
-    exit (1);
-  }
-  p->tok.type = TOK_EOF;
-  return (int) t.num;
-}
-
 static char *parse_id (Parser *p) {
   Token t = next_token (p);
   if (t.type != TOK_IDENTIFIER) return NULL;
@@ -1195,8 +1181,12 @@ static char *parse_id (Parser *p) {
 
 static basic_num_t parse_number (Parser *p) {
   Token t = next_token (p);
-  if (t.type != TOK_NUMBER) return 0;
-  return t.num;
+  if (t.type == TOK_NUMBER) return t.num;
+  if (t.type == TOK_MINUS) {
+    t = next_token (p);
+    if (t.type == TOK_NUMBER) return -t.num;
+  }
+  return 0;
 }
 
 static char *parse_string (Parser *p) {
@@ -1510,7 +1500,12 @@ static int parse_stmt (Parser *p, Stmt *out) {
     if (strncasecmp (cur, "BASE", 4) != 0) return 0;
     cur += 4;
     skip_ws (p);
-    int base = parse_int (p);
+    Token t = next_token (p);
+    if (t.type != TOK_NUMBER) {
+      fprintf (stderr, "expected integer\n");
+      return 0;
+    }
+    int base = (int) t.num;
     if (base != 0 && base != 1) return 0;
     array_base = base;
     out->kind = ST_REM;
@@ -1987,12 +1982,22 @@ static int parse_stmt (Parser *p, Stmt *out) {
   } else if (strncasecmp (cur, "GOTO", 4) == 0) {
     cur += 4;
     out->kind = ST_GOTO;
-    out->u.target = parse_int (p);
+    Token t = next_token (p);
+    if (t.type != TOK_NUMBER) {
+      fprintf (stderr, "expected integer\n");
+      return 0;
+    }
+    out->u.target = (int) t.num;
     return 1;
   } else if (strncasecmp (cur, "GOSUB", 5) == 0) {
     cur += 5;
     out->kind = ST_GOSUB;
-    out->u.target = parse_int (p);
+    Token t = next_token (p);
+    if (t.type != TOK_NUMBER) {
+      fprintf (stderr, "expected integer\n");
+      return 0;
+    }
+    out->u.target = (int) t.num;
     return 1;
   } else if (strncasecmp (cur, "IF", 2) == 0) {
     cur += 2;
@@ -2061,7 +2066,12 @@ static int parse_stmt (Parser *p, Stmt *out) {
       if (strncasecmp (cur, "GOTO", 4) != 0) return 0;
       cur += 4;
       out->kind = ST_ON_ERROR;
-      out->u.target = parse_int (p);
+      Token t = next_token (p);
+      if (t.type != TOK_NUMBER) {
+        fprintf (stderr, "expected integer\n");
+        return 0;
+      }
+      out->u.target = (int) t.num;
       return 1;
     }
     Node *e;
@@ -2089,7 +2099,12 @@ static int parse_stmt (Parser *p, Stmt *out) {
     }
     size_t cap = 0;
     while (1) {
-      int t = parse_int (p);
+      Token tok = next_token (p);
+      if (tok.type != TOK_NUMBER) {
+        fprintf (stderr, "expected integer\n");
+        return 0;
+      }
+      int t = (int) tok.num;
       if (*n_targets == cap) {
         cap = cap ? cap * 2 : 4;
         *targets = realloc (*targets, cap * sizeof (int));
@@ -2112,9 +2127,10 @@ static int parse_stmt (Parser *p, Stmt *out) {
     cur += 6;
     out->kind = ST_RESUME;
     skip_ws (p);
-    if (isdigit ((unsigned char) *cur)) {
+    Token t = peek_token (p);
+    if (t.type == TOK_NUMBER) {
       out->u.resume.has_line = 1;
-      out->u.resume.line = parse_int (p);
+      out->u.resume.line = (int) parse_number (p);
     } else {
       out->u.resume.has_line = 0;
       out->u.resume.line = 0;
@@ -2256,9 +2272,10 @@ static int parse_stmt (Parser *p, Stmt *out) {
 static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
   while (1) {
     Stmt bs;
-    if (isdigit ((unsigned char) *cur)) {
+    Token t = peek_token (p);
+    if (t.type == TOK_NUMBER) {
       bs.kind = ST_GOTO;
-      bs.u.target = parse_int (p);
+      bs.u.target = (int) parse_number (p);
     } else {
       p->has_peek = 0;
       if (!parse_stmt (p, &bs)) return 0;
@@ -2331,8 +2348,9 @@ static int parse_line (Parser *p, char *line, Line *out) {
   p->line_start = line;
   out->src = strdup (line);
   skip_ws (p);
+  Token t = peek_token (p);
   int line_no = 0;
-  if (isdigit ((unsigned char) *cur)) line_no = parse_int (p);
+  if (t.type == TOK_NUMBER) line_no = (int) parse_number (p);
   p->line_no = line_no;
   out->line = line_no;
   out->stmts = (StmtVec) {0};
@@ -2494,6 +2512,7 @@ static int load_program (LineVec *prog, const char *path) {
   }
   int auto_line = 10;
   char line[256];
+  int ok = 1;
   while (fgets (line, sizeof (line), f)) {
     char *s = line;
     line[strcspn (line, "\n")] = '\0';
@@ -2518,10 +2537,12 @@ static int load_program (LineVec *prog, const char *path) {
       insert_or_replace_line (prog, l);
     } else {
       /* error already reported by parse_line */
+      ok = 0;
+      break;
     }
   }
   fclose (f);
-  return 1;
+  return ok;
 }
 
 /* Variable mapping */
