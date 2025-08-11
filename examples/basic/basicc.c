@@ -2478,15 +2478,19 @@ static int load_program (LineVec *prog, const char *path) {
     Parser p_obj = {0};
     Parser *p = &p_obj;
     cur = line;
-    skip_ws (p);
-    if (*cur == '\0') continue;
+    Token t = peek_token (p);
+    if (t.type == TOK_EOF) {
+      next_token (p);
+      continue;
+    }
     char *s = cur;
-    Token t = next_token (p);
     if (t.type == TOK_FUNCTION || t.type == TOK_SUB) {
+      t = next_token (p);
       if (t.str != NULL) free (t.str);
       parse_func (p, f, s, t.type == TOK_SUB);
       continue;
     }
+    t = next_token (p);
     if (t.str != NULL) free (t.str);
     Line l;
     if (parse_line (p, line, &l)) {
