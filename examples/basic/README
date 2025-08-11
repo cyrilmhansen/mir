@@ -54,6 +54,40 @@ Example:
 
 This program builds a function that adds its two arguments and prints `5`.
 
+External Routines
+-----------------
+Native code can be invoked from BASIC by declaring an external routine.
+Write the routine in assembly (or another language), compile it to a shared
+object following the platform's C ABI, and preload it when running the BASIC
+program.
+
+Example `ext_add.s`:
+
+```
+    .globl ext_add
+ext_add:
+    add %rsi, %rdi    # example integer addition
+    mov %rdi, %rax
+    ret
+```
+
+Compile and run:
+
+```
+cc -c ext_add.s -o ext_add.o
+cc -shared -o libext_add.so ext_add.o
+LD_PRELOAD=./libext_add.so ./basic/basicc examples/basic/extern.bas
+```
+
+The BASIC program declares and calls the routine:
+
+```
+10 EXTERNAL FUNCTION EXT_ADD(A,B)
+20 PRINT EXT_ADD(2,3)
+```
+
+This prints `5`.
+
 DATE$ Example
 -------------
 The `DATE$` function returns the current date in `YYYY-MM-DD` format. The
