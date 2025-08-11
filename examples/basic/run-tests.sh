@@ -35,6 +35,8 @@ run_tests() {
                 else
                         "$BASICC" "$src" > "$out"
                 fi
+                # Strip terminal alternate screen sequences to keep diffs stable
+                perl -0 -i -pe 's/\x1b\[\?1049[hl]//g' "$out"
                 if [ "$name" = "circle" ] || [ "$name" = "box" ]; then
                         grep -ao "$(echo "$name" | tr a-z A-Z)" "$out" > "$out.filtered" || true
                         mv "$out.filtered" "$out"
