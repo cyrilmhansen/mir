@@ -1478,7 +1478,11 @@ static Node *parse_logical (Parser *p) {
   return n;
 }
 
-static Node *parse_expr (Parser *p) { return parse_logical (p); }
+static Node *parse_expr (Parser *p) {
+  Node *n = parse_logical (p);
+  p->has_peek = 0;
+  return n;
+}
 
 static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else);
 
