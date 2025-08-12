@@ -12,3 +12,4 @@ Supported BASIC instructions now include:
 - input with `INPUT` and single-character `GET`.
 - state reset via `CLEAR`.
 - multi-way branching with `ON...GOTO` and `ON...GOSUB`.
+- program chaining with `CHAIN <expr>` to replace the current program with another BASIC file (interpreter-only).

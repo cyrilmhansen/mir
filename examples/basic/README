@@ -7,6 +7,11 @@ speed up compiled programs but removes support for `RESUME` without an explicit
 line number and causes the `basic_get_line` helper to report an error if
 invoked.
 
+The interpreter also recognizes a `CHAIN <expr>` statement that clears the
+current program and loads another BASIC source file.  Because it depends on the
+interpreter runtime, programs containing `CHAIN` are rejected by compilation
+flags such as `-S`, `-c`, `-r`, `-b`, and `-j`.
+
 String formatting within `basicc` uses a `safe_snprintf` wrapper that aborts
 on truncation. Use this helper for any new text generation to avoid silent
 buffer overflows.
