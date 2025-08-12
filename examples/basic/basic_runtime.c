@@ -17,6 +17,7 @@
 #include <sys/time.h>
 #include "kitty/kitty.h"
 #include "basic_runtime.h"
+#include "basic_pool.h"
 #if defined(BASIC_USE_LONG_DOUBLE)
 #define MIR_T_D MIR_T_LD
 #define MIR_new_double_op MIR_new_ldouble_op
@@ -395,6 +396,21 @@ char *basic_read_str (void) {
 
 void basic_restore (void) { basic_data_pos = 0; }
 
+void basic_dim_alloc (void **base, basic_num_t len, basic_num_t is_str) {
+  size_t n = (size_t) len;
+  int str_p = is_str != 0.0;
+  if (base == NULL || n == 0) {
+    if (base != NULL) *base = NULL;
+    return;
+  }
+  *base = basic_alloc_array (n, str_p ? sizeof (char *) : sizeof (basic_num_t), 1);
+  if (*base == NULL) return;
+  if (str_p) {
+    char **arr = (char **) *base;
+    for (size_t i = 0; i < n; i++) arr[i] = basic_strdup ("");
+  }
+}
+
 void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str) {
   size_t n = (size_t) len;
   int str_p = is_str != 0.0;
@@ -403,9 +419,8 @@ void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str) {
     char **arr = (char **) base;
     for (size_t i = 0; i < n; i++) {
       free (arr[i]);
-      arr[i] = NULL;
+      arr[i] = basic_strdup ("");
     }
-    memset (arr, 0, n * sizeof (char *));
   } else {
     memset (base, 0, n * sizeof (basic_num_t));
   }

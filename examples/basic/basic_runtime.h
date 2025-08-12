@@ -18,6 +18,7 @@ basic_num_t basic_mir_run (basic_num_t func, basic_num_t a1, basic_num_t a2, bas
                            basic_num_t a4);
 basic_num_t basic_mir_dump (basic_num_t func);
 
+void basic_dim_alloc (void **base, basic_num_t len, basic_num_t is_str);
 void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str);
 
 #endif /* BASIC_RUNTIME_H */
