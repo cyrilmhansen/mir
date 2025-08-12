@@ -3989,6 +3989,18 @@ static void gen_stmt (Stmt *s) {
                                         MIR_new_ref_op (g_ctx, restore_import)));
     break;
   }
+  case ST_INVERSE: {
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, inverse_proto),
+                                        MIR_new_ref_op (g_ctx, inverse_import)));
+    break;
+  }
+  case ST_NORMAL: {
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, normal_proto),
+                                        MIR_new_ref_op (g_ctx, normal_import)));
+    break;
+  }
   case ST_OPEN: {
     MIR_reg_t fn = gen_expr (g_ctx, g_func, &g_vars, s->u.open.num);
     MIR_reg_t path = gen_expr (g_ctx, g_func, &g_vars, s->u.open.path);
