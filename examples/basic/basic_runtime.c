@@ -895,9 +895,11 @@ char *basic_system_out (void) {
   return system_output ? basic_strdup (system_output) : basic_strdup ("");
 }
 
+void basic_runtime_fini (void);
+
 void basic_stop (void) {
   fflush (stdout);
-  basic_pool_destroy ();
+  basic_runtime_fini ();
   exit (0);
 }
 
@@ -911,6 +913,20 @@ typedef struct {
 
 static Handle *handle_tab = NULL;
 static size_t handle_len = 0;
+
+void basic_runtime_fini (void) {
+  for (size_t i = 0; i < handle_len; ++i) {
+    if (handle_tab[i].kind == H_FUNC) {
+      free (handle_tab[i].ptr);
+    } else if (handle_tab[i].kind == H_CTX) {
+      MIR_finish (handle_tab[i].ctx);
+    }
+  }
+  free (handle_tab);
+  handle_tab = NULL;
+  handle_len = 0;
+  basic_pool_destroy ();
+}
 
 static basic_num_t new_handle (HandleKind kind, MIR_context_t ctx, void *ptr) {
   handle_tab = realloc (handle_tab, (handle_len + 1) * sizeof (Handle));
