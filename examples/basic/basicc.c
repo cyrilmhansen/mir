@@ -3836,7 +3836,6 @@ static void gen_stmt (Stmt *s) {
   switch (s->kind) {
   case ST_DEF:
     /* no code generation needed */
-    safe_fprintf (stderr, "DEF not implemented\n");
     break;
   case ST_EXTERN:
     /* no code generation needed */
@@ -4016,6 +4015,18 @@ static void gen_stmt (Stmt *s) {
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, close_proto),
                                         MIR_new_ref_op (g_ctx, close_import),
                                         MIR_new_reg_op (g_ctx, fn)));
+    break;
+  }
+  case ST_HOME: {
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, home_proto),
+                                        MIR_new_ref_op (g_ctx, home_import)));
+  case ST_HTAB: {
+    MIR_reg_t n = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, htab_proto),
+                                        MIR_new_ref_op (g_ctx, htab_import),
+                                        MIR_new_reg_op (g_ctx, n)));
     break;
   }
   case ST_SCREEN: {
@@ -5215,6 +5226,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     MIR_load_module (ctx, module);
     MIR_gen_init (ctx);
     MIR_link (ctx, MIR_set_gen_interface, resolve);
+    for (size_t i = 0; i < func_defs.len; i++) {
+      FuncDef *fd = &func_defs.data[i];
+      if (fd->is_extern) continue;
+      if (fd->body != NULL || fd->body_stmts.len != 0) MIR_gen (ctx, fd->item);
+    }
     MIR_gen (ctx, func);
     uint8_t *start = func->addr;
     uint8_t *end = _MIR_get_new_code_addr (ctx, 0);
@@ -5235,6 +5251,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   if (jit) {
     MIR_gen_init (ctx);
     MIR_link (ctx, MIR_set_gen_interface, resolve);
+    for (size_t i = 0; i < func_defs.len; i++) {
+      FuncDef *fd = &func_defs.data[i];
+      if (fd->is_extern) continue;
+      if (fd->body != NULL || fd->body_stmts.len != 0) MIR_gen (ctx, fd->item);
+    }
     typedef int (*main_t) (void);
     main_t m = MIR_gen (ctx, func);
     m ();
