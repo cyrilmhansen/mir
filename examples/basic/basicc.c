@@ -3838,8 +3838,7 @@ static void gen_stmt (Stmt *s) {
     /* no code generation needed */
     break;
   case ST_EXTERN:
-    /* no code generation needed */
-    safe_fprintf (stderr, "EXTERN not implemented\n");
+    /* extern declarations are handled during parsing */
     break;
   case ST_PRINT: gen_print (s); break;
   case ST_PRINT_HASH: gen_print_hash (s); break;
