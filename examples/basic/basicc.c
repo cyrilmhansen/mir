@@ -3840,7 +3840,6 @@ static void gen_stmt (Stmt *s) {
     break;
   case ST_EXTERN:
     /* no code generation needed */
-    safe_fprintf (stderr, "EXTERN not implemented\n");
     break;
   case ST_PRINT: gen_print (s); break;
   case ST_PRINT_HASH: gen_print_hash (s); break;
