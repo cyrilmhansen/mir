@@ -17,6 +17,7 @@
 #include <sys/time.h>
 #include "kitty/kitty.h"
 #include "basic_runtime.h"
+#include "basic_pool.h"
 #if defined(BASIC_USE_LONG_DOUBLE)
 #define MIR_T_D MIR_T_LD
 #define MIR_new_double_op MIR_new_ldouble_op
@@ -201,10 +202,18 @@ basic_num_t basic_get_line (void) {
 }
 
 /* Release a string allocated by BASIC runtime helpers. */
-void basic_free (char *s) { free (s); }
+void basic_free (char *s) {
+  /* Memory is managed by an arena; individual frees are unnecessary. */
+  (void) s;
+}
 
-/* Duplicate a C string using malloc; result must be freed with basic_free. */
-char *basic_strdup (const char *s) { return strdup (s); }
+/* Duplicate a C string using the BASIC allocator. */
+char *basic_strdup (const char *s) {
+  size_t len = strlen (s);
+  char *res = basic_alloc_string (len);
+  if (res != NULL) memcpy (res, s, len);
+  return res;
+}
 
 basic_num_t basic_input (void) {
   basic_num_t x = 0.0;
@@ -230,19 +239,25 @@ basic_num_t basic_pos (void) { return (basic_num_t) basic_pos_val; }
    Caller must free the returned buffer with basic_free. */
 char *basic_input_str (void) {
   char buf[256];
-  if (fgets (buf, sizeof (buf), stdin) == NULL) return strdup ("");
+  if (fgets (buf, sizeof (buf), stdin) == NULL) {
+    return basic_alloc_string (0);
+  }
   size_t len = strlen (buf);
-  if (len > 0 && buf[len - 1] == '\n') buf[len - 1] = '\0';
-  return strdup (buf);
+  if (len > 0 && buf[len - 1] == '\n') {
+    buf[len - 1] = '\0';
+    len--;
+  }
+  char *res = basic_alloc_string (len);
+  if (res != NULL) memcpy (res, buf, len);
+  return res;
 }
 /* Allocate a one-character string from stdin.
    Caller must free the returned buffer with basic_free. */
 char *basic_get (void) {
   int c = getchar ();
   if (c == EOF) c = 0;
-  char *s = malloc (2);
-  s[0] = (char) c;
-  s[1] = '\0';
+  char *s = basic_alloc_string (1);
+  if (s != NULL) s[0] = (char) c;
   return s;
 }
 
@@ -256,14 +271,12 @@ char *basic_inkey (void) {
   if (select (1, &fds, NULL, NULL, &tv) > 0) {
     int c = getchar ();
     if (c == EOF) c = 0;
-    char *s = malloc (2);
-    s[0] = (char) c;
-    s[1] = '\0';
+    char *s = basic_alloc_string (1);
+    if (s != NULL) s[0] = (char) c;
     return s;
   }
-  char *s = malloc (2);
-  s[0] = 0;
-  s[1] = '\0';
+  char *s = basic_alloc_string (1);
+  if (s != NULL) s[0] = 0;
   return s;
 }
 
@@ -331,12 +344,21 @@ basic_num_t basic_input_hash (basic_num_t n) {
    Caller must free the result with basic_free. */
 char *basic_input_hash_str (basic_num_t n) {
   int idx = (int) n;
-  if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return strdup ("");
+  if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) {
+    return basic_alloc_string (0);
+  }
   char buf[256];
-  if (fgets (buf, sizeof (buf), basic_files[idx]) == NULL) return strdup ("");
+  if (fgets (buf, sizeof (buf), basic_files[idx]) == NULL) {
+    return basic_alloc_string (0);
+  }
   size_t len = strlen (buf);
-  if (len > 0 && buf[len - 1] == '\n') buf[len - 1] = '\0';
-  return strdup (buf);
+  if (len > 0 && buf[len - 1] == '\n') {
+    buf[len - 1] = '\0';
+    len--;
+  }
+  char *res = basic_alloc_string (len);
+  if (res != NULL) memcpy (res, buf, len);
+  return res;
 }
 
 /* Read a single character from an open file and return it as a
@@ -344,16 +366,14 @@ char *basic_input_hash_str (basic_num_t n) {
 char *basic_get_hash (basic_num_t n) {
   int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) {
-    char *s = malloc (2);
-    s[0] = 0;
-    s[1] = '\0';
+    char *s = basic_alloc_string (1);
+    if (s != NULL) s[0] = 0;
     return s;
   }
   int c = fgetc (basic_files[idx]);
   if (c == EOF) c = 0;
-  char *s = malloc (2);
-  s[0] = (char) c;
-  s[1] = '\0';
+  char *s = basic_alloc_string (1);
+  if (s != NULL) s[0] = (char) c;
   return s;
 }
 
@@ -480,9 +500,8 @@ basic_num_t basic_exp (basic_num_t x) { return BASIC_EXP (x); }
 
 /* Allocate a one-character string. Caller must free with basic_free. */
 char *basic_chr (basic_num_t n) {
-  char *s = malloc (2);
-  s[0] = (char) ((int) n);
-  s[1] = '\0';
+  char *s = basic_alloc_string (1);
+  if (s != NULL) s[0] = (char) ((int) n);
   return s;
 }
 
@@ -491,9 +510,10 @@ char *basic_chr (basic_num_t n) {
 char *basic_string (basic_num_t n, const char *s) {
   int len = (int) n;
   char ch = s != NULL && s[0] != '\0' ? s[0] : '\0';
-  char *res = malloc ((size_t) len + 1);
-  for (int i = 0; i < len; i++) res[i] = ch;
-  res[len] = '\0';
+  char *res = basic_alloc_string ((size_t) len);
+  if (res != NULL) {
+    for (int i = 0; i < len; i++) res[i] = ch;
+  }
   return res;
 }
 
@@ -502,9 +522,11 @@ char *basic_string (basic_num_t n, const char *s) {
 char *basic_concat (const char *a, const char *b) {
   size_t la = strlen (a);
   size_t lb = strlen (b);
-  char *res = malloc (la + lb + 1);
-  memcpy (res, a, la);
-  memcpy (res + la, b, lb + 1);
+  char *res = basic_alloc_string (la + lb);
+  if (res != NULL) {
+    memcpy (res, a, la);
+    memcpy (res + la, b, lb + 1);
+  }
   return res;
 }
 
@@ -514,9 +536,8 @@ char *basic_left (const char *s, basic_num_t n) {
   size_t len = strlen (s);
   size_t cnt = (size_t) n;
   if (cnt > len) cnt = len;
-  char *res = malloc (cnt + 1);
-  memcpy (res, s, cnt);
-  res[cnt] = '\0';
+  char *res = basic_alloc_string (cnt);
+  if (res != NULL) memcpy (res, s, cnt);
   return res;
 }
 
@@ -526,7 +547,9 @@ char *basic_right (const char *s, basic_num_t n) {
   size_t len = strlen (s);
   size_t cnt = (size_t) n;
   if (cnt > len) cnt = len;
-  return strdup (s + len - cnt);
+  char *res = basic_alloc_string (cnt);
+  if (res != NULL) memcpy (res, s + len - cnt, cnt);
+  return res;
 }
 
 /* Return a substring of S starting at START_D with length LEN_D.
@@ -536,12 +559,11 @@ char *basic_mid (const char *s, basic_num_t start_d, basic_num_t len_d) {
   size_t start = (size_t) start_d;
   if (start < 1) start = 1;
   start--;
-  if (start >= len) return strdup ("");
+  if (start >= len) return basic_alloc_string (0);
   size_t cnt = len_d < 0 ? len - start : (size_t) len_d;
   if (start + cnt > len) cnt = len - start;
-  char *res = malloc (cnt + 1);
-  memcpy (res, s + start, cnt);
-  res[cnt] = '\0';
+  char *res = basic_alloc_string (cnt);
+  if (res != NULL) memcpy (res, s + start, cnt);
   return res;
 }
 
@@ -560,7 +582,10 @@ basic_num_t basic_val (const char *s) { return BASIC_STRTOF (s, NULL); }
 char *basic_str (basic_num_t n) {
   char buf[128];
   basic_num_to_chars (n, buf, sizeof (buf));
-  return strdup (buf);
+  size_t len = strlen (buf);
+  char *res = basic_alloc_string (len);
+  if (res != NULL) memcpy (res, buf, len);
+  return res;
 }
 
 basic_num_t basic_asc (const char *s) {
@@ -584,7 +609,10 @@ char *basic_time_str (void) {
   struct tm *tm_info = localtime (&t);
   char buf[9];
   strftime (buf, sizeof (buf), "%H:%M:%S", tm_info);
-  return strdup (buf);
+  size_t len = strlen (buf);
+  char *res = basic_alloc_string (len);
+  if (res != NULL) memcpy (res, buf, len);
+  return res;
 }
 
 basic_num_t basic_date (void) {
@@ -597,21 +625,26 @@ char *basic_date_str (void) {
   struct tm *tm_info = localtime (&t);
   char buf[11];
   strftime (buf, sizeof (buf), "%Y-%m-%d", tm_info);
-  return strdup (buf);
+  size_t len = strlen (buf);
+  char *res = basic_alloc_string (len);
+  if (res != NULL) memcpy (res, buf, len);
+  return res;
 }
 
 /* Read N characters from stdin and return them as a newly allocated string.
    Caller must free the result with basic_free. */
 char *basic_input_chr (basic_num_t n) {
   int len = (int) n;
-  char *res = malloc ((size_t) len + 1);
+  char *res = basic_alloc_string ((size_t) len);
   int i = 0;
-  for (; i < len; i++) {
-    int c = getchar ();
-    if (c == EOF) break;
-    res[i] = (char) c;
+  if (res != NULL) {
+    for (; i < len; i++) {
+      int c = getchar ();
+      if (c == EOF) break;
+      res[i] = (char) c;
+    }
+    res[i] = '\0';
   }
-  res[i] = '\0';
   return res;
 }
 
@@ -845,12 +878,14 @@ double basic_system (const char *cmd) {
     out[len] = '\0';
   }
   int status = pclose (fp);
-  system_output = out ? out : strdup ("");
+  system_output = out ? out : basic_strdup ("");
   if (WIFEXITED (status)) return (double) WEXITSTATUS (status);
   return -1.0;
 }
 
-char *basic_system_out (void) { return system_output ? strdup (system_output) : strdup (""); }
+char *basic_system_out (void) {
+  return system_output ? basic_strdup (system_output) : basic_strdup ("");
+}
 
 void basic_stop (void) {
   fflush (stdout);
