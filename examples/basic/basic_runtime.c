@@ -207,7 +207,8 @@ basic_num_t basic_get_line (void) {
 
 /* Release a string allocated by BASIC runtime helpers. */
 void basic_free (char *s) {
-  /* Memory is managed by an arena; individual frees are unnecessary. */
+  /* Memory is managed by a pool allocator; individual frees are unnecessary due to pooled
+   * allocation. */
   (void) s;
 }
 
