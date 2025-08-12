@@ -416,19 +416,19 @@ endif
 
 $(BUILD_DIR)/basic/basicc$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
         $(SRC_DIR)/examples/basic/basicc.c $(SRC_DIR)/examples/basic/basic_runtime.c \
-        $(SRC_DIR)/examples/basic/arena.c \
+        $(SRC_DIR)/examples/basic/basic_pool.c $(SRC_DIR)/examples/basic/arena.c \
         $(SRC_DIR)/examples/basic/ryu/d2s.c $(SRC_DIR)/examples/basic/ryu/f2s.c \
         $(SRC_DIR)/examples/basic/kitty/kitty.c $(SRC_DIR)/examples/basic/kitty/lodepng.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/examples/basic -DBASIC_SRC_DIR=\"$(SRC_DIR)\" $^ -lm $(EXEO)$@
 $(BUILD_DIR)/basic/basicc_ld$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
         $(SRC_DIR)/examples/basic/basicc.c $(SRC_DIR)/examples/basic/basic_runtime.c \
-        $(SRC_DIR)/examples/basic/arena.c \
+        $(SRC_DIR)/examples/basic/basic_pool.c $(SRC_DIR)/examples/basic/arena.c \
         $(SRC_DIR)/examples/basic/ryu/d2s.c $(SRC_DIR)/examples/basic/ryu/f2s.c \
         $(SRC_DIR)/examples/basic/kitty/kitty.c $(SRC_DIR)/examples/basic/kitty/lodepng.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/examples/basic -DBASIC_SRC_DIR=\"$(SRC_DIR)\" -DBASIC_USE_LONG_DOUBLE $^ -lm $(EXEO)$@
 
 
 $(BUILD_DIR)/basic/basicc-ld$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
         $(SRC_DIR)/examples/basic/basicc.c $(SRC_DIR)/examples/basic/basic_runtime.c \
-        $(SRC_DIR)/examples/basic/arena.c \
+        $(SRC_DIR)/examples/basic/basic_pool.c $(SRC_DIR)/examples/basic/arena.c \
         $(SRC_DIR)/examples/basic/ryu/d2s.c $(SRC_DIR)/examples/basic/ryu/f2s.c \
         $(SRC_DIR)/examples/basic/ryu/ld2s.c \
         $(SRC_DIR)/examples/basic/kitty/kitty.c $(SRC_DIR)/examples/basic/kitty/lodepng.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/examples/basic -DBASIC_USE_LONG_DOUBLE -DBASIC_SRC_DIR=\"$(SRC_DIR)\" $^ -lm $(EXEO)$@
@@ -443,6 +443,7 @@ $(BUILD_DIR)/basic/kitty_test$(EXE): \
 $(BUILD_DIR)/basic/hcolor_test$(EXE): \
         $(SRC_DIR)/examples/basic/hcolor_test.c \
         $(SRC_DIR)/examples/basic/basic_runtime.c \
+        $(SRC_DIR)/examples/basic/basic_pool.c \
         $(SRC_DIR)/examples/basic/ryu/d2s.c $(SRC_DIR)/examples/basic/ryu/f2s.c \
         $(SRC_DIR)/examples/basic/kitty/kitty.c \
         $(SRC_DIR)/examples/basic/kitty/lodepng.c \
@@ -452,6 +453,7 @@ $(BUILD_DIR)/basic/hcolor_test$(EXE): \
 
 $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB): \
         $(SRC_DIR)/examples/basic/basic_runtime.c \
+        $(SRC_DIR)/examples/basic/basic_pool.c \
         $(SRC_DIR)/examples/basic/ryu/d2s.c $(SRC_DIR)/examples/basic/ryu/f2s.c \
         $(SRC_DIR)/examples/basic/kitty/kitty.c \
         $(SRC_DIR)/examples/basic/kitty/lodepng.c \
@@ -459,6 +461,7 @@ $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB): \
 
 $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD): \
         $(SRC_DIR)/examples/basic/basic_runtime.c \
+        $(SRC_DIR)/examples/basic/basic_pool.c \
         $(SRC_DIR)/examples/basic/ryu/d2s.c $(SRC_DIR)/examples/basic/ryu/f2s.c \
         $(SRC_DIR)/examples/basic/ryu/ld2s.c \
         $(SRC_DIR)/examples/basic/kitty/kitty.c \

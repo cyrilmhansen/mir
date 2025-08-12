@@ -9,9 +9,12 @@ int main (void) {
   strcpy (s, "hello");
   if (strcmp (s, "hello") != 0) return 1;
 
-  int *arr = basic_alloc_array (4, sizeof (int), 1);
+  int *arr1 = basic_calloc (4, sizeof (int));
+  int *arr2 = basic_calloc (4, sizeof (int));
   for (int i = 0; i < 4; ++i)
-    if (arr[i] != 0) return 1;
+    if (arr1[i] != 0 || arr2[i] != 0) return 1;
+  if (basic_clear_array_pool (arr1, 4, sizeof (int))) return 1;
+  if (!basic_clear_array_pool (arr2, 4, sizeof (int))) return 1;
 
   basic_pool_reset ();
   char *s2 = basic_alloc_string (3);
