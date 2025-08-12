@@ -3,6 +3,9 @@
 
 #include <stddef.h>
 
+/* Call once before any pool allocations.  The BASIC runtime initializes
+   the pool during startup, so standalone tools must invoke this manually
+   with the desired initial size. */
 void basic_pool_init (size_t size);
 void *basic_pool_alloc (size_t size);
 void basic_pool_reset (void);
