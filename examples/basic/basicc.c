@@ -4043,6 +4043,10 @@ static void gen_stmt (Stmt *s) {
                                         MIR_new_reg_op (g_ctx, m)));
     break;
   }
+  case ST_HGR2: {
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, hgr2_proto),
+                                        MIR_new_ref_op (g_ctx, hgr2_import)));
   case ST_COLOR: {
     MIR_reg_t c = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
     MIR_append_insn (g_ctx, g_func,
