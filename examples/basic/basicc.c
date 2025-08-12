@@ -4315,6 +4315,12 @@ static void gen_stmt (Stmt *s) {
     MIR_append_insn (g_ctx, g_func, after);
     break;
   }
+  case ST_INVERSE: {
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, inverse_proto),
+                                        MIR_new_ref_op (g_ctx, inverse_import)));
+    break;
+  }
   case ST_HPLOT: {
     char buf[32];
     MIR_reg_t xprev, yprev;
