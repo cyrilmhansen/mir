@@ -306,6 +306,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_sound")) return basic_sound;
   if (!strcmp (name, "basic_system")) return basic_system;
   if (!strcmp (name, "basic_system_out")) return basic_system_out;
+  if (!strcmp (name, "basic_clear")) return basic_clear;
 
   if (!strcmp (name, "basic_strdup")) return basic_strdup;
   if (!strcmp (name, "basic_free")) return basic_free;
@@ -346,24 +347,24 @@ static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, st
 /* Runtime call prototypes for statements */
 static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_proto, input_import,
   input_str_proto, input_str_import, get_proto, get_import, put_proto, put_import, read_proto,
-  read_import, read_str_proto, read_str_import, restore_proto, restore_import, screen_proto,
-  screen_import, cls_proto, cls_import, color_proto, color_import, keyoff_proto, keyoff_import,
-  locate_proto, locate_import, htab_proto, htab_import, home_proto, poke_proto, poke_import,
-  home_import, vtab_proto, vtab_import, text_proto, text_import, inverse_proto, inverse_import,
-  normal_proto, normal_import, hgr2_proto, hgr2_import, hcolor_proto, hcolor_import, hplot_proto,
-  hplot_import, hplotto_proto, hplotto_import, hplottocur_proto, hplottocur_import, move_proto,
-  move_import, draw_proto, draw_import, line_proto, line_import, circle_proto, circle_import,
-  rect_proto, rect_import, mode_proto, mode_import, fill_proto, fill_import, calloc_proto,
-  calloc_import, memset_proto, memset_import, clear_array_proto, clear_array_import, strcmp_proto,
-  strcmp_import, open_proto, open_import, close_proto, close_import, printh_proto, printh_import,
-  prinths_proto, prinths_import, input_hash_proto, input_hash_import, input_hash_str_proto,
-  input_hash_str_import, get_hash_proto, get_hash_import, put_hash_proto, put_hash_import,
-  randomize_proto, randomize_import, stop_proto, stop_import, on_error_proto, on_error_import,
-  set_line_proto, set_line_import, get_line_proto, get_line_import, line_track_proto,
-  line_track_import, profile_line_proto, profile_line_import, profile_func_enter_proto,
-  profile_func_enter_import, profile_func_exit_proto, profile_func_exit_import, beep_proto,
-  beep_import, sound_proto, sound_import, system_proto, system_import, system_out_proto,
-  system_out_import, free_proto, free_import;
+  read_import, read_str_proto, read_str_import, restore_proto, restore_import, clear_proto,
+  clear_import, screen_proto, screen_import, cls_proto, cls_import, color_proto, color_import,
+  keyoff_proto, keyoff_import, locate_proto, locate_import, htab_proto, htab_import, home_proto,
+  poke_proto, poke_import, home_import, vtab_proto, vtab_import, text_proto, text_import,
+  inverse_proto, inverse_import, normal_proto, normal_import, hgr2_proto, hgr2_import, hcolor_proto,
+  hcolor_import, hplot_proto, hplot_import, hplotto_proto, hplotto_import, hplottocur_proto,
+  hplottocur_import, move_proto, move_import, draw_proto, draw_import, line_proto, line_import,
+  circle_proto, circle_import, rect_proto, rect_import, mode_proto, mode_import, fill_proto,
+  fill_import, calloc_proto, calloc_import, memset_proto, memset_import, clear_array_proto,
+  clear_array_import, strcmp_proto, strcmp_import, open_proto, open_import, close_proto,
+  close_import, printh_proto, printh_import, prinths_proto, prinths_import, input_hash_proto,
+  input_hash_import, input_hash_str_proto, input_hash_str_import, get_hash_proto, get_hash_import,
+  put_hash_proto, put_hash_import, randomize_proto, randomize_import, stop_proto, stop_import,
+  on_error_proto, on_error_import, set_line_proto, set_line_import, get_line_proto, get_line_import,
+  line_track_proto, line_track_import, profile_line_proto, profile_line_import,
+  profile_func_enter_proto, profile_func_enter_import, profile_func_exit_proto,
+  profile_func_exit_import, beep_proto, beep_import, sound_proto, sound_import, system_proto,
+  system_import, system_out_proto, system_out_import, free_proto, free_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL } NodeKind;
@@ -3866,8 +3867,8 @@ static void gen_stmt (Stmt *s) {
       }
     }
     MIR_append_insn (g_ctx, g_func,
-                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, restore_proto),
-                                        MIR_new_ref_op (g_ctx, restore_import)));
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, clear_proto),
+                                        MIR_new_ref_op (g_ctx, clear_import)));
     break;
   }
   case ST_INVERSE: {
@@ -4681,6 +4682,7 @@ static void gen_stmt (Stmt *s) {
 static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p, int code_p,
                          int reduce_libs, int profile_p, int track_lines, const char *out_name,
                          const char *src_name) {
+  basic_arena_finish ();
   MIR_context_t ctx = MIR_init ();
   MIR_module_t module = MIR_new_module (ctx, "BASIC");
   print_proto = MIR_new_proto (ctx, "basic_print_p", 0, NULL, 1, MIR_T_D, "x");
@@ -4915,6 +4917,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   clear_array_import = MIR_new_import (ctx, "basic_clear_array");
   restore_proto = MIR_new_proto (ctx, "basic_restore_p", 0, NULL, 0);
   restore_import = MIR_new_import (ctx, "basic_restore");
+  clear_proto = MIR_new_proto (ctx, "basic_clear_p", 0, NULL, 0);
+  clear_import = MIR_new_import (ctx, "basic_clear");
   g_ctx = ctx;
   for (size_t i = 0; i < func_defs.len; i++) {
     FuncDef *fd = &func_defs.data[i];
@@ -5367,6 +5371,7 @@ static void repl (void) {
         func_vec_clear (&func_defs);
         data_vals_clear ();
         line_vec_destroy (&prog);
+        basic_arena_finish ();
         load_program (&prog, fname);
       }
       free (fname);
@@ -5377,6 +5382,7 @@ static void repl (void) {
       func_vec_clear (&func_defs);
       data_vals_clear ();
       line_vec_destroy (&prog);
+      basic_arena_finish ();
       arena_release (&ast_arena);
       continue;
     case REPL_TOK_QUIT:
@@ -5385,6 +5391,7 @@ static void repl (void) {
     }
     if (exit_repl) break;
   }
+  basic_arena_finish ();
   arena_release (&ast_arena);
 }
 
@@ -5421,10 +5428,12 @@ int main (int argc, char **argv) {
   }
   LineVec prog = {0};
   if (!load_program (&prog, fname)) {
+    basic_arena_finish ();
     arena_release (&ast_arena);
     return 1;
   }
   gen_program (&prog, jit, asm_p, obj_p, bin_p, 0, reduce_libs, 0, line_tracking, out_name, fname);
+  basic_arena_finish ();
   arena_release (&ast_arena);
   return 0;
 }

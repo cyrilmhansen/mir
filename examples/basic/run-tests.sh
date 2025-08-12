@@ -121,6 +121,23 @@ PY
         diff "$ROOT/examples/basic/basic_pool_test.out" "$ROOT/basic/basic_pool_test.out"
         echo "basic_pool_test OK"
 
+        echo "Building basic_arena_test"
+        cc -Wall -Wextra -I"$ROOT/examples/basic" \
+                "$ROOT/examples/basic/arena.c" \
+                "$ROOT/examples/basic/basic_arena.c" \
+                "$ROOT/examples/basic/basic_arena_test.c" \
+                -o "$ROOT/basic/basic_arena_test"
+        echo "Running basic_arena_test"
+        "$ROOT/basic/basic_arena_test" > "$ROOT/basic/basic_arena_test.out" 2> "$ROOT/basic/basic_arena_test.err"
+        if [ -s "$ROOT/basic/basic_arena_test.err" ]; then
+                echo "Unexpected stderr for basic_arena_test"
+                cat "$ROOT/basic/basic_arena_test.err"
+                exit 1
+        fi
+        rm -f "$ROOT/basic/basic_arena_test.err"
+        diff "$ROOT/examples/basic/basic_arena_test.out" "$ROOT/basic/basic_arena_test.out"
+        echo "basic_arena_test OK"
+
         echo "Building extlib"
         if [[ "$BASICC" == *-ld ]]; then
                 cc -shared -fPIC -Wall -Wextra -DBASIC_USE_LONG_DOUBLE -I"$ROOT/examples/basic" \

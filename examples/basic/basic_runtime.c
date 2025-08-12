@@ -395,6 +395,11 @@ char *basic_read_str (void) {
 
 void basic_restore (void) { basic_data_pos = 0; }
 
+void basic_clear (void) {
+  basic_restore ();
+  basic_arena_reset ();
+}
+
 void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str) {
   size_t n = (size_t) len;
   int str_p = is_str != 0.0;
