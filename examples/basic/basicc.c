@@ -39,6 +39,12 @@
 #include <dlfcn.h>
 #include <math.h>
 
+#if defined(__STDC_LIB_EXT1__)
+#define FPRINTF_S fprintf_s
+#else
+#define FPRINTF_S fprintf
+#endif
+
 #ifndef BASIC_SRC_DIR
 #define BASIC_SRC_DIR "."
 #endif
@@ -1142,11 +1148,21 @@ typedef struct {
 
 static void report_parse_error_details (int line_no, const char *line, const char *pos) {
   const char *near = pos != NULL ? pos : line;
-  if (line_no > 0)
-    fprintf (stderr, "parse error at line %d near '%s'\n", line_no, near ? near : "");
-  else
-    fprintf (stderr, "parse error near '%s'\n", near ? near : "");
-  if (line != NULL) fprintf (stderr, "%s\n", line);
+  size_t near_len = near != NULL ? strnlen (near, 256) : 0;
+  if (line_no > 0) {
+    if (FPRINTF_S (stderr, "parse error at line %d near '%.*s'\n", line_no, (int) near_len,
+                   near != NULL ? near : "")
+        < 0)
+      perror ("fprintf");
+  } else {
+    if (FPRINTF_S (stderr, "parse error near '%.*s'\n", (int) near_len, near != NULL ? near : "")
+        < 0)
+      perror ("fprintf");
+  }
+  if (line != NULL) {
+    size_t line_len = strnlen (line, 256);
+    if (FPRINTF_S (stderr, "%.*s\n", (int) line_len, line) < 0) perror ("fprintf");
+  }
 }
 
 static int parse_error (Parser *p) {
@@ -5264,7 +5280,11 @@ static void repl (void) {
         if (opt == REPL_TOK_PROFILE && peek_token (p).type == TOK_EOF) {
           profile_p = 1;
         } else {
-          fprintf (stderr, "unknown RUN option: %s\n", opt_tok.str ? opt_tok.str : "");
+          size_t opt_len = opt_tok.str != NULL ? strnlen (opt_tok.str, 256) : 0;
+          if (FPRINTF_S (stderr, "unknown RUN option: %.*s\n", (int) opt_len,
+                         opt_tok.str != NULL ? opt_tok.str : "")
+              < 0)
+            perror ("fprintf");
           if (opt_tok.str != NULL) free (opt_tok.str);
           break;
         }
