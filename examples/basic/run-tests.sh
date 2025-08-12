@@ -28,18 +28,31 @@ run_tests() {
                 local src="$ROOT/examples/basic/$name.bas"
                 local exp="$ROOT/examples/basic/$name.out"
                 local out="$ROOT/basic/$name.out"
-                if [ -f "$in_file" ]; then
-                        "$BASICC" "$src" < "$in_file" > "$out"
-                elif [ "$name" = "mandelbrot" ]; then
-                        timeout 0.6 "$BASICC" "$src" | head -n 200 > "$out" || true
+                local err="$ROOT/basic/$name.err"
+                if [ "$name" = "vtab" ]; then
+                        "$BASICC" "$src" > "$out" 2> "$err"
                 else
-                        "$BASICC" "$src" > "$out"
+                        if [ -f "$in_file" ]; then
+                                "$BASICC" "$src" < "$in_file" > "$out"
+                        elif [ "$name" = "mandelbrot" ]; then
+                                timeout 0.6 "$BASICC" "$src" | head -n 200 > "$out" || true
+                        else
+                                "$BASICC" "$src" > "$out"
+                        fi
                 fi
                 # Strip terminal alternate screen sequences to keep diffs stable
                 perl -0 -i -pe 's/\x1b\[\?1049[hl]//g' "$out"
                 if [ "$name" = "circle" ] || [ "$name" = "box" ]; then
                         grep -ao "$(echo "$name" | tr a-z A-Z)" "$out" > "$out.filtered" || true
                         mv "$out.filtered" "$out"
+                fi
+                if [ "$name" = "vtab" ]; then
+                        if [ -s "$err" ]; then
+                                echo "$name produced stderr"
+                                cat "$err"
+                                exit 1
+                        fi
+                        rm -f "$err"
                 fi
                 if [ "$name" = "datediff" ]; then
                         local y m d doy total
@@ -86,7 +99,7 @@ PY
         diff "$ROOT/examples/basic/extern.out" "$ROOT/basic/extern.out"
         echo "extern OK"
 
-for t in hello relop adder string strfuncs instr gosub on funcproc graphics screen hplot_bounds readhplot restore data_read data_multi clear hgr2reset circle box sudoku array_oob_read array_oob_write dim_expr pi baseconv mir_demo datediff date random rnd_noarg hexoct; do
+for t in hello relop adder string strfuncs instr gosub on funcproc graphics vtab screen hplot_bounds readhplot restore data_read data_multi clear hgr2reset circle box sudoku array_oob_read array_oob_write dim_expr pi baseconv mir_demo datediff date random rnd_noarg hexoct; do
                 echo "Running $t"
                 run_test "$t"
                 echo "$t OK"
