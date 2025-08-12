@@ -132,6 +132,12 @@ void basic_pool_free (void *p) {
 
 int basic_clear_array_pool (void *base, size_t count, size_t elem_size) {
   if (base == NULL) return 0;
-  memset (base, 0, count * elem_size);
-  return 1;
+  size_t n = count * elem_size;
+  for (PoolBlock *b = pool; b != NULL; b = b->next) {
+    if ((char *) base >= b->data && (char *) base + n <= b->data + b->size) {
+      memset (base, 0, n);
+      return 1;
+    }
+  }
+  return 0;
 }

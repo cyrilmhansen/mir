@@ -32,6 +32,10 @@ int main (void) {
   if (ldarr2 != ldarr1) return 1;
   for (int i = 0; i < 4; ++i)
     if (ldarr2[i] != 0.0L) return 1;
+  for (int i = 0; i < 4; ++i) ldarr2[i] = (long double) (i + 1);
+  if (!basic_clear_array_pool (ldarr2, 4, sizeof (long double))) return 1;
+  for (int i = 0; i < 4; ++i)
+    if (ldarr2[i] != 0.0L) return 1;
 #endif
 
   basic_pool_destroy ();
