@@ -2,6 +2,7 @@
 #include "mir-gen.h"
 #include "basic_runtime.h"
 #include "basic_num.h"
+#include "arena.h"
 
 #if defined(BASIC_USE_LONG_DOUBLE)
 #define MIR_T_D MIR_T_LD
@@ -189,6 +190,7 @@ extern char *basic_system_out (void);
 
 static int array_base = 0;
 static int line_tracking = 1;
+arena_t ast_arena;
 
 /* Use safe_snprintf for any new string generation to detect truncation. */
 static int safe_snprintf (char *buf, size_t size, const char *fmt, ...) {
@@ -399,7 +401,7 @@ struct Node {
 };
 
 static Node *new_node (NodeKind k) {
-  Node *n = malloc (sizeof (Node));
+  Node *n = arena_alloc (&ast_arena, sizeof (Node));
   n->kind = k;
   n->is_str = 0;
   n->num = 0;
@@ -428,8 +430,6 @@ static void data_vec_push (DataVec *v, BasicData d) {
 }
 
 static void data_vals_clear (void) {
-  for (size_t i = 0; i < data_vals.len; i++)
-    if (data_vals.data[i].is_str) free (data_vals.data[i].str);
   free (data_vals.data);
   data_vals.data = NULL;
   data_vals.len = data_vals.cap = 0;
@@ -749,8 +749,6 @@ typedef struct {
 
 static FuncVec func_defs;
 
-static void func_def_destroy (FuncDef *fd);
-
 static void func_vec_push (FuncVec *v, FuncDef f) {
   if (v->len == v->cap) {
     v->cap = v->cap ? 2 * v->cap : 4;
@@ -762,7 +760,6 @@ static void func_vec_push (FuncVec *v, FuncDef f) {
 }
 
 static void func_vec_clear (FuncVec *v) {
-  for (size_t i = 0; i < v->len; i++) func_def_destroy (&v->data[i]);
   free (v->data);
   v->data = NULL;
   v->len = v->cap = 0;
@@ -792,191 +789,6 @@ typedef struct {
   int is_while;
 } LoopInfo;
 
-static void free_node (Node *n);
-static void free_stmt (Stmt *s);
-static void free_stmt_vec (StmtVec *v);
-
-static void free_node (Node *n) {
-  if (n == NULL) return;
-  free_node (n->left);
-  free_node (n->right);
-  free_node (n->index);
-  free_node (n->index2);
-  free (n->var);
-  free (n->str);
-  free (n);
-}
-
-static void free_stmt_vec (StmtVec *v) {
-  for (size_t i = 0; i < v->len; i++) free_stmt (&v->data[i]);
-  free (v->data);
-  v->data = NULL;
-  v->len = v->cap = 0;
-}
-
-static void free_stmt (Stmt *s) {
-  switch (s->kind) {
-  case ST_PRINT:
-    for (size_t i = 0; i < s->u.print.n; i++) free_node (s->u.print.items[i]);
-    free (s->u.print.items);
-    break;
-  case ST_LET:
-    free_node (s->u.let.var);
-    free_node (s->u.let.expr);
-    break;
-  case ST_IF:
-    free_node (s->u.iff.cond);
-    free_stmt_vec (&s->u.iff.then_stmts);
-    free_stmt_vec (&s->u.iff.else_stmts);
-    break;
-  case ST_INPUT: free (s->u.input.var); break;
-  case ST_GET: free (s->u.get.var); break;
-  case ST_PUT: free_node (s->u.put.expr); break;
-  case ST_OPEN:
-    free_node (s->u.open.num);
-    free_node (s->u.open.path);
-    break;
-  case ST_CLOSE: free_node (s->u.close.num); break;
-  case ST_PRINT_HASH:
-    free_node (s->u.printhash.num);
-    for (size_t i = 0; i < s->u.printhash.n; i++) free_node (s->u.printhash.items[i]);
-    free (s->u.printhash.items);
-    break;
-  case ST_INPUT_HASH:
-    free_node (s->u.inputhash.num);
-    free (s->u.inputhash.var);
-    break;
-  case ST_GET_HASH:
-    free_node (s->u.gethash.num);
-    free (s->u.gethash.var);
-    break;
-  case ST_PUT_HASH:
-    free_node (s->u.puthash.num);
-    free_node (s->u.puthash.expr);
-    break;
-  case ST_READ:
-    for (size_t i = 0; i < s->u.read.n; i++) free_node (s->u.read.vars[i]);
-    free (s->u.read.vars);
-    break;
-  case ST_DIM:
-    for (size_t i = 0; i < s->u.dim.n; i++) {
-      free (s->u.dim.names[i]);
-      free_node (s->u.dim.sizes1[i]);
-      free_node (s->u.dim.sizes2[i]);
-    }
-    free (s->u.dim.names);
-    free (s->u.dim.sizes1);
-    free (s->u.dim.sizes2);
-    free (s->u.dim.is_str);
-    break;
-  case ST_FOR:
-    free (s->u.forto.var);
-    free_node (s->u.forto.start);
-    free_node (s->u.forto.end);
-    free_node (s->u.forto.step);
-    break;
-  case ST_NEXT: free (s->u.next.var); break;
-  case ST_LOCATE:
-    free_node (s->u.locate.row);
-    free_node (s->u.locate.col);
-    break;
-  case ST_MOVE:
-    free_node (s->u.move.x);
-    free_node (s->u.move.y);
-    break;
-  case ST_DRAW:
-    free_node (s->u.draw.x);
-    free_node (s->u.draw.y);
-    break;
-  case ST_LINE:
-    free_node (s->u.line.x0);
-    free_node (s->u.line.y0);
-    free_node (s->u.line.x1);
-    free_node (s->u.line.y1);
-    break;
-  case ST_CIRCLE:
-    free_node (s->u.circle.x);
-    free_node (s->u.circle.y);
-    free_node (s->u.circle.r);
-    break;
-  case ST_RECT:
-    free_node (s->u.rect.x0);
-    free_node (s->u.rect.y0);
-    free_node (s->u.rect.x1);
-    free_node (s->u.rect.y1);
-    break;
-  case ST_FILL:
-    free_node (s->u.fill.x0);
-    free_node (s->u.fill.y0);
-    free_node (s->u.fill.x1);
-    free_node (s->u.fill.y1);
-    break;
-  case ST_HPLOT:
-    for (size_t i = 0; i < s->u.hplot.n; i++) {
-      free_node (s->u.hplot.xs[i]);
-      free_node (s->u.hplot.ys[i]);
-    }
-    free (s->u.hplot.xs);
-    free (s->u.hplot.ys);
-    break;
-  case ST_SOUND:
-    free_node (s->u.sound.freq);
-    free_node (s->u.sound.dur);
-    break;
-  case ST_SYSTEM:
-    free_node (s->u.system.cmd);
-    free (s->u.system.status);
-    free (s->u.system.out);
-    break;
-  case ST_POKE:
-    free_node (s->u.poke.addr);
-    free_node (s->u.poke.value);
-    break;
-  case ST_ON_GOTO:
-    free_node (s->u.on_goto.expr);
-    free (s->u.on_goto.targets);
-    break;
-  case ST_ON_GOSUB:
-    free_node (s->u.on_gosub.expr);
-    free (s->u.on_gosub.targets);
-    break;
-  case ST_VTAB:
-  case ST_HTAB:
-  case ST_SCREEN:
-  case ST_COLOR:
-  case ST_WHILE:
-  case ST_HCOLOR:
-  case ST_RANDOMIZE:
-  case ST_MODE: free_node (s->u.expr); break;
-  default: break;
-  }
-}
-
-static void func_def_destroy (FuncDef *fd) {
-  free (fd->name);
-  if (fd->params != NULL) {
-    for (size_t i = 0; i < fd->n; i++) free (fd->params[i]);
-    free (fd->params);
-  }
-  free (fd->is_str);
-  free_node (fd->body);
-  free_stmt_vec (&fd->body_stmts);
-  for (size_t i = 0; i < fd->src_len; i++) free (fd->src_lines[i]);
-  free (fd->src_lines);
-  fd->name = NULL;
-  fd->params = NULL;
-  fd->is_str = NULL;
-  fd->body = NULL;
-  fd->body_stmts = (StmtVec) {0};
-  fd->src_lines = NULL;
-  fd->n = fd->src_len = fd->src_cap = 0;
-}
-
-static void free_line (Line *l) {
-  free_stmt_vec (&l->stmts);
-  free (l->src);
-}
-
 static void stmt_vec_push (StmtVec *v, Stmt s) {
   if (v->len == v->cap) {
     v->cap = v->cap ? 2 * v->cap : 16;
@@ -987,10 +799,7 @@ static void stmt_vec_push (StmtVec *v, Stmt s) {
   v->data[v->len++] = s;
 }
 
-static void line_vec_clear (LineVec *v) {
-  for (size_t i = 0; i < v->len; i++) free_line (&v->data[i]);
-  v->len = 0;
-}
+static void line_vec_clear (LineVec *v) { v->len = 0; }
 
 static void line_vec_destroy (LineVec *v) {
   line_vec_clear (v);
@@ -1009,7 +818,6 @@ static void insert_or_replace_line (LineVec *prog, Line l) {
   size_t i = 0;
   while (i < prog->len && prog->data[i].line < l.line) i++;
   if (i < prog->len && prog->data[i].line == l.line) {
-    free_line (&prog->data[i]);
     prog->data[i] = l;
   } else {
     memmove (&prog->data[i + 1], &prog->data[i], (prog->len - i) * sizeof (Line));
@@ -1021,7 +829,6 @@ static void insert_or_replace_line (LineVec *prog, Line l) {
 static void delete_line (LineVec *prog, int line_no) {
   for (size_t i = 0; i < prog->len; i++) {
     if (prog->data[i].line == line_no) {
-      free_line (&prog->data[i]);
       memmove (&prog->data[i], &prog->data[i + 1], (prog->len - i - 1) * sizeof (Line));
       prog->len--;
       return;
@@ -1165,17 +972,10 @@ typedef struct {
   int line_no;
 } Parser;
 
-static void free_token (Token *t) {
-  if (t->str != NULL) {
-    free (t->str);
-    t->str = NULL;
-  }
-}
-
 static void cleanup_parser (Parser *p) {
-  free_token (&p->tok);
+  p->tok.str = NULL;
   if (p->has_peek) {
-    free_token (&p->peek);
+    p->peek.str = NULL;
     p->has_peek = 0;
   }
 }
@@ -1320,12 +1120,12 @@ static Token read_token (Parser *p) {
       }
     if (strncmp (buf, "FN", 2) == 0 && buf[2] != '\0') {
       t.type = TOK_FN;
-      t.str = strdup (buf);
+      t.str = arena_strdup (&ast_arena, buf);
       p->cur = cur;
       return t;
     }
     t.type = TOK_IDENTIFIER;
-    t.str = strdup (buf);
+    t.str = arena_strdup (&ast_arena, buf);
     p->cur = cur;
     return t;
   }
@@ -1822,6 +1622,22 @@ static int parse_stmt (Parser *p, Stmt *out) {
         if (t.type != TOK_COMMA) break;
         next_token (p);
       }
+      char **names = arena_alloc (&ast_arena, out->u.dim.n * sizeof (char *));
+      memcpy (names, out->u.dim.names, out->u.dim.n * sizeof (char *));
+      Node **sizes1 = arena_alloc (&ast_arena, out->u.dim.n * sizeof (Node *));
+      memcpy (sizes1, out->u.dim.sizes1, out->u.dim.n * sizeof (Node *));
+      Node **sizes2 = arena_alloc (&ast_arena, out->u.dim.n * sizeof (Node *));
+      memcpy (sizes2, out->u.dim.sizes2, out->u.dim.n * sizeof (Node *));
+      int *is_str_arr = arena_alloc (&ast_arena, out->u.dim.n * sizeof (int));
+      memcpy (is_str_arr, out->u.dim.is_str, out->u.dim.n * sizeof (int));
+      free (out->u.dim.names);
+      free (out->u.dim.sizes1);
+      free (out->u.dim.sizes2);
+      free (out->u.dim.is_str);
+      out->u.dim.names = names;
+      out->u.dim.sizes1 = sizes1;
+      out->u.dim.sizes2 = sizes2;
+      out->u.dim.is_str = is_str_arr;
     }
     return 1;
   case TOK_CLEAR: out->kind = ST_CLEAR; return 1;
@@ -1979,8 +1795,18 @@ static int parse_stmt (Parser *p, Stmt *out) {
       }
       if (next_token (p).type != TOK_RPAREN) return 0;
     }
-    FuncDef fd = {fname, params, is_str, n, NULL, (StmtVec) {0}, f_is_str, is_proc, 1,
-                  NULL,  NULL,   NULL,   0, 0};
+    char **params_final = NULL;
+    int *is_str_final = NULL;
+    if (n != 0) {
+      params_final = arena_alloc (&ast_arena, n * sizeof (char *));
+      memcpy (params_final, params, n * sizeof (char *));
+      is_str_final = arena_alloc (&ast_arena, n * sizeof (int));
+      memcpy (is_str_final, is_str, n * sizeof (int));
+    }
+    free (params);
+    free (is_str);
+    FuncDef fd = {fname, params_final, is_str_final, n, NULL, (StmtVec) {0}, f_is_str, is_proc, 1,
+                  NULL,  NULL,         NULL,         0, 0};
     func_vec_push (&func_defs, fd);
     out->kind = ST_EXTERN;
     return 1;
@@ -2022,8 +1848,18 @@ static int parse_stmt (Parser *p, Stmt *out) {
     if (next_token (p).type != TOK_EQ) return 0;
     Node *body;
     PARSE_EXPR_OR_ERROR (body);
-    FuncDef fd
-      = {fname, params, is_str, n, body, (StmtVec) {0}, f_is_str, 0, 0, NULL, NULL, NULL, 0, 0};
+    char **params_final = NULL;
+    int *is_str_final = NULL;
+    if (n != 0) {
+      params_final = arena_alloc (&ast_arena, n * sizeof (char *));
+      memcpy (params_final, params, n * sizeof (char *));
+      is_str_final = arena_alloc (&ast_arena, n * sizeof (int));
+      memcpy (is_str_final, is_str, n * sizeof (int));
+    }
+    free (params);
+    free (is_str);
+    FuncDef fd = {fname, params_final, is_str_final, n, body, (StmtVec) {0}, f_is_str, 0, 0,
+                  NULL,  NULL,         NULL,         0, 0};
     func_vec_push (&func_defs, fd);
     out->kind = ST_DEF;
     return 1;
@@ -2066,6 +1902,10 @@ static int parse_stmt (Parser *p, Stmt *out) {
         if (peek_token (p).type != TOK_COMMA) break;
         next_token (p);
       }
+      Node **vars = arena_alloc (&ast_arena, out->u.read.n * sizeof (Node *));
+      memcpy (vars, out->u.read.vars, out->u.read.n * sizeof (Node *));
+      free (out->u.read.vars);
+      out->u.read.vars = vars;
     }
     return 1;
   case TOK_SCREEN:
@@ -2151,6 +1991,14 @@ static int parse_stmt (Parser *p, Stmt *out) {
           break;
         }
       }
+      Node **xs = arena_alloc (&ast_arena, out->u.hplot.n * sizeof (Node *));
+      memcpy (xs, out->u.hplot.xs, out->u.hplot.n * sizeof (Node *));
+      Node **ys = arena_alloc (&ast_arena, out->u.hplot.n * sizeof (Node *));
+      memcpy (ys, out->u.hplot.ys, out->u.hplot.n * sizeof (Node *));
+      free (out->u.hplot.xs);
+      free (out->u.hplot.ys);
+      out->u.hplot.xs = xs;
+      out->u.hplot.ys = ys;
     }
     return 1;
   case TOK_MOVE:
@@ -2307,6 +2155,10 @@ static int parse_stmt (Parser *p, Stmt *out) {
         if (sep.type != TOK_COMMA) break;
         next_token (p);
       }
+      int *tarr = arena_alloc (&ast_arena, (*n_targets) * sizeof (int));
+      memcpy (tarr, *targets, (*n_targets) * sizeof (int));
+      free (*targets);
+      *targets = tarr;
     }
     return 1;
   case TOK_RESUME:
@@ -2526,6 +2378,17 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
           }
           break;
         }
+        if (bs.kind == ST_PRINT) {
+          Node **items = arena_alloc (&ast_arena, bs.u.print.n * sizeof (Node *));
+          memcpy (items, bs.u.print.items, bs.u.print.n * sizeof (Node *));
+          free (bs.u.print.items);
+          bs.u.print.items = items;
+        } else {
+          Node **items = arena_alloc (&ast_arena, bs.u.printhash.n * sizeof (Node *));
+          memcpy (items, bs.u.printhash.items, bs.u.printhash.n * sizeof (Node *));
+          free (bs.u.printhash.items);
+          bs.u.printhash.items = items;
+        }
       }
     }
     stmt_vec_push (vec, bs);
@@ -2546,7 +2409,7 @@ static int parse_line (Parser *p, char *line, Line *out) {
   p->cur = line;
   p->tok.type = TOK_EOF;
   p->line_start = line;
-  out->src = strdup (line);
+  out->src = arena_strdup (&ast_arena, line);
   if (out->src == NULL) {
     safe_fprintf (stderr, "out of memory\n");
     return parse_error (p);
@@ -2656,7 +2519,7 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
       if (tmp == NULL) return;
       src_lines = tmp;
     }
-    src_lines[src_len++] = strdup (line);
+    src_lines[src_len++] = arena_strdup (&ast_arena, line);
   }
   if (peek_token (p).type == TOK_LPAREN) {
     next_token (p);
@@ -2707,7 +2570,7 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
           if (tmp == NULL) return;
           src_lines = tmp;
         }
-        src_lines[src_len++] = strdup (buf);
+        src_lines[src_len++] = arena_strdup (&ast_arena, buf);
         break;
       }
     }
@@ -2726,12 +2589,29 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
       /* error already reported by parse_line */
     }
   }
-  FuncDef fd = {name,   params, is_str, n,    NULL,      body,    f_is_str,
-                is_sub, 0,      NULL,   NULL, src_lines, src_len, src_cap};
+  char **params_final = NULL;
+  int *is_str_final = NULL;
+  if (n != 0) {
+    params_final = arena_alloc (&ast_arena, n * sizeof (char *));
+    memcpy (params_final, params, n * sizeof (char *));
+    is_str_final = arena_alloc (&ast_arena, n * sizeof (int));
+    memcpy (is_str_final, is_str, n * sizeof (int));
+  }
+  char **src_lines_final = NULL;
+  if (src_len != 0) {
+    src_lines_final = arena_alloc (&ast_arena, src_len * sizeof (char *));
+    memcpy (src_lines_final, src_lines, src_len * sizeof (char *));
+  }
+  free (params);
+  free (is_str);
+  free (src_lines);
+  FuncDef fd = {name, params_final, is_str_final,    n,       NULL,   body, f_is_str, is_sub, 0,
+                NULL, NULL,         src_lines_final, src_len, src_len};
   func_vec_push (&func_defs, fd);
 }
 
 static int load_program (LineVec *prog, const char *path) {
+  arena_release (&ast_arena);
   FILE *f = fopen (path, "r");
   if (!f) {
     perror (path);
@@ -2771,7 +2651,6 @@ static int load_program (LineVec *prog, const char *path) {
       cleanup_parser (p);
     } else {
       /* error already reported by parse_line */
-      free_line (&l);
       ok = 0;
       cleanup_parser (p);
       break;
@@ -5366,10 +5245,7 @@ static ReplToken repl_next_token (Parser *p, Token *out) {
   case TOK_PROFILE: tok = REPL_TOK_PROFILE; break;
   default: break;
   }
-  if (out != NULL)
-    *out = t;
-  else if (t.str != NULL)
-    free (t.str);
+  if (out != NULL) *out = t;
   return tok;
 }
 
@@ -5413,10 +5289,8 @@ static void repl (void) {
           profile_p = 1;
         } else {
           safe_fprintf (stderr, "unknown RUN option: %s\n", opt_tok.str ? opt_tok.str : "");
-          if (opt_tok.str != NULL) free (opt_tok.str);
           break;
         }
-        if (opt_tok.str != NULL) free (opt_tok.str);
       }
       if (profile_p) basic_profile_reset ();
       gen_program (&prog, 0, 0, 0, 0, 0, 0, profile_p, line_tracking, NULL, "(repl)");
@@ -5503,6 +5377,7 @@ static void repl (void) {
       func_vec_clear (&func_defs);
       data_vals_clear ();
       line_vec_destroy (&prog);
+      arena_release (&ast_arena);
       continue;
     case REPL_TOK_QUIT:
     case REPL_TOK_EXIT: exit_repl = 1; break;
@@ -5510,16 +5385,11 @@ static void repl (void) {
     }
     if (exit_repl) break;
   }
-  /*
-     Cleanup is intentionally omitted here.  Previous program execution may
-     modify internal data structures in a way that confuses the destructor
-     logic, leading to a double free.  The process is about to exit anyway, so
-     letting the operating system reclaim memory avoids the crash observed in
-     the REPL LOAD test.
-   */
+  arena_release (&ast_arena);
 }
 
 int main (int argc, char **argv) {
+  arena_init (&ast_arena);
   if (kitty_graphics_available ()) show_kitty_banner ();
   int jit = 0, asm_p = 0, obj_p = 0, bin_p = 0, reduce_libs = 0;
   const char *fname = NULL, *out_name = NULL;
@@ -5546,10 +5416,15 @@ int main (int argc, char **argv) {
   }
   if (!fname) {
     repl ();
+    arena_release (&ast_arena);
     return 0;
   }
   LineVec prog = {0};
-  if (!load_program (&prog, fname)) return 1;
+  if (!load_program (&prog, fname)) {
+    arena_release (&ast_arena);
+    return 1;
+  }
   gen_program (&prog, jit, asm_p, obj_p, bin_p, 0, reduce_libs, 0, line_tracking, out_name, fname);
+  arena_release (&ast_arena);
   return 0;
 }
