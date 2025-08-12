@@ -1412,8 +1412,10 @@ static Token read_token (Parser *p) {
 
 static Token next_token (Parser *p) {
   if (p->has_peek) {
-    if (p->peek.str != NULL) free (p->peek.str);
+    p->tok = p->peek;
+    p->cur = p->peek_cur;
     p->has_peek = 0;
+    return p->tok;
   }
   p->tok = read_token (p);
   return p->tok;
@@ -1433,12 +1435,14 @@ static Token peek_token (Parser *p) {
 static char *parse_id (Parser *p) {
   Token t = next_token (p);
   if (t.type != TOK_IDENTIFIER) return NULL;
+  p->tok.str = NULL;
   return t.str;
 }
 
 static char *parse_fn_name (Parser *p) {
   Token t = next_token (p);
   if (t.type != TOK_FN) return NULL;
+  p->tok.str = NULL;
   return t.str;
 }
 
@@ -1455,6 +1459,7 @@ static basic_num_t parse_number (Parser *p) {
 static char *parse_string (Parser *p) {
   Token t = next_token (p);
   if (t.type != TOK_STRING) return NULL;
+  p->tok.str = NULL;
   return t.str;
 }
 
@@ -1530,19 +1535,20 @@ static Node *parse_literal (Parser *p) {
   Node *n;
   switch (t.type) {
   case TOK_NUMBER:
-    next_token (p);
+    t = next_token (p);
     n = new_node (N_NUM);
     n->num = t.num;
     return n;
   case TOK_STRING:
-    next_token (p);
+    t = next_token (p);
     n = new_node (N_STR);
     n->is_str = 1;
     n->str = t.str;
+    p->tok.str = NULL;
     return n;
   case TOK_TRUE:
   case TOK_FALSE:
-    next_token (p);
+    t = next_token (p);
     n = new_node (N_NUM);
     n->num = (t.type == TOK_TRUE);
     return n;
@@ -1934,6 +1940,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
       fname = parse_id (p);
     } else if (t.type == TOK_IDENTIFIER) {
       fname = t.str;
+      p->tok.str = NULL;
     } else {
       return 0;
     }
@@ -2741,21 +2748,18 @@ static int load_program (LineVec *prog, const char *path) {
     Token t = peek_token (p);
     if (t.type == TOK_EOF) {
       t = next_token (p);
-      free_token (&t);
       cleanup_parser (p);
       continue;
     }
     if (t.type == TOK_FUNCTION || t.type == TOK_SUB) {
       t = next_token (p);
       int is_sub = t.type == TOK_SUB;
-      free_token (&t);
       cleanup_parser (p);
       parse_func (p, f, line, is_sub);
       cleanup_parser (p);
       continue;
     }
     t = next_token (p);
-    free_token (&t);
     cleanup_parser (p);
     Line l;
     if (parse_line (p, line, &l)) {
