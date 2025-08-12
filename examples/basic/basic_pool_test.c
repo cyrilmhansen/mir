@@ -21,6 +21,13 @@ int main (void) {
   strcpy (s2, "bye");
   if (strcmp (s2, "bye") != 0) return 1;
 
+  basic_pool_init (0);
+  int *arr3 = basic_calloc (4, sizeof (int));
+  for (int i = 0; i < 4; ++i)
+    if (arr3[i] != 0) return 1;
+  if (basic_clear_array_pool (arr2, 4, sizeof (int))) return 1;
+  if (!basic_clear_array_pool (arr3, 4, sizeof (int))) return 1;
+
   basic_pool_destroy ();
   printf ("basic_pool_test OK\n");
   return 0;
