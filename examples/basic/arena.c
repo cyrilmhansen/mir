@@ -42,6 +42,14 @@ char *arena_strdup (arena_t *a, const char *s) {
   return res;
 }
 
+char *arena_strndup (arena_t *a, const char *s, size_t len) {
+  char *res = arena_alloc (a, len + 1);
+  if (res == NULL) return NULL;
+  memcpy (res, s, len);
+  res[len] = 0;
+  return res;
+}
+
 void arena_release (arena_t *a) {
   arena_chunk_t *c = a->head;
   while (c != NULL) {
