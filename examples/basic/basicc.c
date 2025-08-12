@@ -157,6 +157,15 @@ static void show_kitty_banner (void) {
   printf ("\x1b]1337;File=inline=1;width=70;height=7;preserveAspectRatio=0:%s\x07\n", png);
   fflush (stdout);
 }
+
+static void *pool_realloc (void *ptr, size_t old_size, size_t new_size) {
+  void *res = basic_pool_alloc (new_size);
+  if (res != NULL && ptr != NULL) {
+    memcpy (res, ptr, old_size < new_size ? old_size : new_size);
+    basic_pool_free (ptr);
+  }
+  return res;
+}
 extern basic_num_t basic_int (basic_num_t);
 extern basic_num_t basic_timer (void);
 extern basic_num_t basic_time (void);
@@ -767,16 +776,17 @@ static FuncVec func_defs;
 
 static void func_vec_push (FuncVec *v, FuncDef f) {
   if (v->len == v->cap) {
-    v->cap = v->cap ? 2 * v->cap : 4;
-    FuncDef *tmp = realloc (v->data, v->cap * sizeof (FuncDef));
+    size_t new_cap = v->cap ? 2 * v->cap : 4;
+    FuncDef *tmp = pool_realloc (v->data, v->cap * sizeof (FuncDef), new_cap * sizeof (FuncDef));
     if (tmp == NULL) return;
     v->data = tmp;
+    v->cap = new_cap;
   }
   v->data[v->len++] = f;
 }
 
 static void func_vec_clear (FuncVec *v) {
-  free (v->data);
+  basic_pool_free (v->data);
   v->data = NULL;
   v->len = v->cap = 0;
 }
@@ -807,10 +817,11 @@ typedef struct {
 
 static void stmt_vec_push (StmtVec *v, Stmt s) {
   if (v->len == v->cap) {
-    v->cap = v->cap ? 2 * v->cap : 16;
-    Stmt *tmp = realloc (v->data, v->cap * sizeof (Stmt));
+    size_t new_cap = v->cap ? 2 * v->cap : 16;
+    Stmt *tmp = pool_realloc (v->data, v->cap * sizeof (Stmt), new_cap * sizeof (Stmt));
     if (tmp == NULL) return;
     v->data = tmp;
+    v->cap = new_cap;
   }
   v->data[v->len++] = s;
 }
@@ -819,17 +830,18 @@ static void line_vec_clear (LineVec *v) { v->len = 0; }
 
 static void line_vec_destroy (LineVec *v) {
   line_vec_clear (v);
-  free (v->data);
+  basic_pool_free (v->data);
   v->data = NULL;
   v->cap = 0;
 }
 
 static void insert_or_replace_line (LineVec *prog, Line l) {
   if (prog->len == prog->cap) {
-    prog->cap = prog->cap ? 2 * prog->cap : 16;
-    Line *tmp = realloc (prog->data, prog->cap * sizeof (Line));
+    size_t new_cap = prog->cap ? 2 * prog->cap : 16;
+    Line *tmp = pool_realloc (prog->data, prog->cap * sizeof (Line), new_cap * sizeof (Line));
     if (tmp == NULL) return;
     prog->data = tmp;
+    prog->cap = new_cap;
   }
   size_t i = 0;
   while (i < prog->len && prog->data[i].line < l.line) i++;
@@ -1282,9 +1294,11 @@ static char *parse_string (Parser *p) {
 static char *parse_rest (Parser *p) {
   char *cur = p->cur;
   while (*cur && isspace ((unsigned char) *cur)) cur++;
-  char *s = strdup (cur);
+  size_t len = strlen (cur);
+  char *s = basic_alloc_string (len);
   if (s == NULL) return NULL;
-  p->cur = cur + strlen (cur);
+  memcpy (s, cur, len + 1);
+  p->cur = cur + len;
   return s;
 }
 
@@ -1615,19 +1629,24 @@ static int parse_stmt (Parser *p, Stmt *out) {
           if (t.type == TOK_RPAREN) next_token (p);
         }
         if (out->u.dim.n == cap) {
-          cap = cap ? 2 * cap : 4;
-          char **tmp_names = realloc (out->u.dim.names, cap * sizeof (char *));
+          size_t new_cap = cap ? 2 * cap : 4;
+          char **tmp_names
+            = pool_realloc (out->u.dim.names, cap * sizeof (char *), new_cap * sizeof (char *));
           if (tmp_names == NULL) return 0;
           out->u.dim.names = tmp_names;
-          Node **tmp_sizes1 = realloc (out->u.dim.sizes1, cap * sizeof (Node *));
+          Node **tmp_sizes1
+            = pool_realloc (out->u.dim.sizes1, cap * sizeof (Node *), new_cap * sizeof (Node *));
           if (tmp_sizes1 == NULL) return 0;
           out->u.dim.sizes1 = tmp_sizes1;
-          Node **tmp_sizes2 = realloc (out->u.dim.sizes2, cap * sizeof (Node *));
+          Node **tmp_sizes2
+            = pool_realloc (out->u.dim.sizes2, cap * sizeof (Node *), new_cap * sizeof (Node *));
           if (tmp_sizes2 == NULL) return 0;
           out->u.dim.sizes2 = tmp_sizes2;
-          int *tmp_is_str = realloc (out->u.dim.is_str, cap * sizeof (int));
+          int *tmp_is_str
+            = pool_realloc (out->u.dim.is_str, cap * sizeof (int), new_cap * sizeof (int));
           if (tmp_is_str == NULL) return 0;
           out->u.dim.is_str = tmp_is_str;
+          cap = new_cap;
         }
         out->u.dim.names[out->u.dim.n] = name;
         out->u.dim.sizes1[out->u.dim.n] = size1;
@@ -1646,10 +1665,10 @@ static int parse_stmt (Parser *p, Stmt *out) {
       memcpy (sizes2, out->u.dim.sizes2, out->u.dim.n * sizeof (Node *));
       int *is_str_arr = arena_alloc (&ast_arena, out->u.dim.n * sizeof (int));
       memcpy (is_str_arr, out->u.dim.is_str, out->u.dim.n * sizeof (int));
-      free (out->u.dim.names);
-      free (out->u.dim.sizes1);
-      free (out->u.dim.sizes2);
-      free (out->u.dim.is_str);
+      basic_pool_free (out->u.dim.names);
+      basic_pool_free (out->u.dim.sizes1);
+      basic_pool_free (out->u.dim.sizes2);
+      basic_pool_free (out->u.dim.is_str);
       out->u.dim.names = names;
       out->u.dim.sizes1 = sizes1;
       out->u.dim.sizes2 = sizes2;
@@ -1795,16 +1814,18 @@ static int parse_stmt (Parser *p, Stmt *out) {
           char *param = parse_id (p);
           int ps = param[strlen (param) - 1] == '$';
           if (n == cap) {
-            cap = cap ? 2 * cap : 4;
-            char **tmp_params = realloc (params, cap * sizeof (char *));
-            int *tmp_is_str = realloc (is_str, cap * sizeof (int));
+            size_t new_cap = cap ? 2 * cap : 4;
+            char **tmp_params
+              = pool_realloc (params, cap * sizeof (char *), new_cap * sizeof (char *));
+            int *tmp_is_str = pool_realloc (is_str, cap * sizeof (int), new_cap * sizeof (int));
             if (tmp_params == NULL || tmp_is_str == NULL) {
-              free (tmp_params);
-              free (tmp_is_str);
+              basic_pool_free (tmp_params);
+              basic_pool_free (tmp_is_str);
               return 0;
             }
             params = tmp_params;
             is_str = tmp_is_str;
+            cap = new_cap;
           }
           params[n] = param;
           is_str[n] = ps;
@@ -1824,8 +1845,8 @@ static int parse_stmt (Parser *p, Stmt *out) {
       is_str_final = arena_alloc (&ast_arena, n * sizeof (int));
       memcpy (is_str_final, is_str, n * sizeof (int));
     }
-    free (params);
-    free (is_str);
+    basic_pool_free (params);
+    basic_pool_free (is_str);
     FuncDef fd = {fname, params_final, is_str_final, n, NULL, (StmtVec) {0}, f_is_str, is_proc, 1,
                   NULL,  NULL,         NULL,         0, 0};
     func_vec_push (&func_defs, fd);
@@ -1846,16 +1867,18 @@ static int parse_stmt (Parser *p, Stmt *out) {
         char *param = parse_id (p);
         int ps = param[strlen (param) - 1] == '$';
         if (n == cap) {
-          cap = cap ? 2 * cap : 4;
-          char **tmp_params = realloc (params, cap * sizeof (char *));
-          int *tmp_is_str = realloc (is_str, cap * sizeof (int));
+          size_t new_cap = cap ? 2 * cap : 4;
+          char **tmp_params
+            = pool_realloc (params, cap * sizeof (char *), new_cap * sizeof (char *));
+          int *tmp_is_str = pool_realloc (is_str, cap * sizeof (int), new_cap * sizeof (int));
           if (tmp_params == NULL || tmp_is_str == NULL) {
-            free (tmp_params);
-            free (tmp_is_str);
+            basic_pool_free (tmp_params);
+            basic_pool_free (tmp_is_str);
             return 0;
           }
           params = tmp_params;
           is_str = tmp_is_str;
+          cap = new_cap;
         }
         params[n] = param;
         is_str[n] = ps;
@@ -1877,8 +1900,8 @@ static int parse_stmt (Parser *p, Stmt *out) {
       is_str_final = arena_alloc (&ast_arena, n * sizeof (int));
       memcpy (is_str_final, is_str, n * sizeof (int));
     }
-    free (params);
-    free (is_str);
+    basic_pool_free (params);
+    basic_pool_free (is_str);
     FuncDef fd = {fname, params_final, is_str_final, n, body, (StmtVec) {0}, f_is_str, 0, 0,
                   NULL,  NULL,         NULL,         0, 0};
     func_vec_push (&func_defs, fd);
@@ -1914,10 +1937,12 @@ static int parse_stmt (Parser *p, Stmt *out) {
         Node *v = parse_factor (p);
         if (v == NULL) return parse_error (p);
         if (out->u.read.n == cap) {
-          cap = cap ? cap * 2 : 4;
-          Node **tmp = realloc (out->u.read.vars, cap * sizeof (Node *));
+          size_t new_cap = cap ? cap * 2 : 4;
+          Node **tmp
+            = pool_realloc (out->u.read.vars, cap * sizeof (Node *), new_cap * sizeof (Node *));
           if (tmp == NULL) return 0;
           out->u.read.vars = tmp;
+          cap = new_cap;
         }
         out->u.read.vars[out->u.read.n++] = v;
         if (peek_token (p).type != TOK_COMMA) break;
@@ -1925,7 +1950,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
       }
       Node **vars = arena_alloc (&ast_arena, out->u.read.n * sizeof (Node *));
       memcpy (vars, out->u.read.vars, out->u.read.n * sizeof (Node *));
-      free (out->u.read.vars);
+      basic_pool_free (out->u.read.vars);
       out->u.read.vars = vars;
     }
     return 1;
@@ -1995,13 +2020,16 @@ static int parse_stmt (Parser *p, Stmt *out) {
         if (next_token (p).type != TOK_COMMA) return 0;
         PARSE_EXPR_OR_ERROR (y);
         if (out->u.hplot.n == cap) {
-          cap = cap ? cap * 2 : 4;
-          Node **tmp_xs = realloc (out->u.hplot.xs, cap * sizeof (Node *));
+          size_t new_cap = cap ? cap * 2 : 4;
+          Node **tmp_xs
+            = pool_realloc (out->u.hplot.xs, cap * sizeof (Node *), new_cap * sizeof (Node *));
           if (tmp_xs == NULL) return 0;
           out->u.hplot.xs = tmp_xs;
-          Node **tmp_ys = realloc (out->u.hplot.ys, cap * sizeof (Node *));
+          Node **tmp_ys
+            = pool_realloc (out->u.hplot.ys, cap * sizeof (Node *), new_cap * sizeof (Node *));
           if (tmp_ys == NULL) return 0;
           out->u.hplot.ys = tmp_ys;
+          cap = new_cap;
         }
         out->u.hplot.xs[out->u.hplot.n] = x;
         out->u.hplot.ys[out->u.hplot.n] = y;
@@ -2016,8 +2044,8 @@ static int parse_stmt (Parser *p, Stmt *out) {
       memcpy (xs, out->u.hplot.xs, out->u.hplot.n * sizeof (Node *));
       Node **ys = arena_alloc (&ast_arena, out->u.hplot.n * sizeof (Node *));
       memcpy (ys, out->u.hplot.ys, out->u.hplot.n * sizeof (Node *));
-      free (out->u.hplot.xs);
-      free (out->u.hplot.ys);
+      basic_pool_free (out->u.hplot.xs);
+      basic_pool_free (out->u.hplot.ys);
       out->u.hplot.xs = xs;
       out->u.hplot.ys = ys;
     }
@@ -2166,10 +2194,11 @@ static int parse_stmt (Parser *p, Stmt *out) {
         }
         int tline = (int) tt2.num;
         if (*n_targets == cap) {
-          cap = cap ? cap * 2 : 4;
-          int *tmp = realloc (*targets, cap * sizeof (int));
+          size_t new_cap = cap ? cap * 2 : 4;
+          int *tmp = pool_realloc (*targets, cap * sizeof (int), new_cap * sizeof (int));
           if (tmp == NULL) return 0;
           *targets = tmp;
+          cap = new_cap;
         }
         (*targets)[(*n_targets)++] = tline;
         Token sep = peek_token (p);
@@ -2178,7 +2207,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
       }
       int *tarr = arena_alloc (&ast_arena, (*n_targets) * sizeof (int));
       memcpy (tarr, *targets, (*n_targets) * sizeof (int));
-      free (*targets);
+      basic_pool_free (*targets);
       *targets = tarr;
     }
     return 1;
@@ -2369,18 +2398,22 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
           PARSE_EXPR_OR_ERROR (e);
           if (bs.kind == ST_PRINT) {
             if (bs.u.print.n == cap) {
-              cap = cap ? cap * 2 : 4;
-              Node **tmp = realloc (bs.u.print.items, cap * sizeof (Node *));
+              size_t new_cap = cap ? cap * 2 : 4;
+              Node **tmp
+                = pool_realloc (bs.u.print.items, cap * sizeof (Node *), new_cap * sizeof (Node *));
               if (tmp == NULL) return 0;
               bs.u.print.items = tmp;
+              cap = new_cap;
             }
             bs.u.print.items[bs.u.print.n++] = e;
           } else {
             if (bs.u.printhash.n == cap) {
-              cap = cap ? cap * 2 : 4;
-              Node **tmp = realloc (bs.u.printhash.items, cap * sizeof (Node *));
+              size_t new_cap = cap ? cap * 2 : 4;
+              Node **tmp = pool_realloc (bs.u.printhash.items, cap * sizeof (Node *),
+                                         new_cap * sizeof (Node *));
               if (tmp == NULL) return 0;
               bs.u.printhash.items = tmp;
+              cap = new_cap;
             }
             bs.u.printhash.items[bs.u.printhash.n++] = e;
           }
@@ -2402,12 +2435,12 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
         if (bs.kind == ST_PRINT) {
           Node **items = arena_alloc (&ast_arena, bs.u.print.n * sizeof (Node *));
           memcpy (items, bs.u.print.items, bs.u.print.n * sizeof (Node *));
-          free (bs.u.print.items);
+          basic_pool_free (bs.u.print.items);
           bs.u.print.items = items;
         } else {
           Node **items = arena_alloc (&ast_arena, bs.u.printhash.n * sizeof (Node *));
           memcpy (items, bs.u.printhash.items, bs.u.printhash.n * sizeof (Node *));
-          free (bs.u.printhash.items);
+          basic_pool_free (bs.u.printhash.items);
           bs.u.printhash.items = items;
         }
       }
@@ -2474,18 +2507,22 @@ static int parse_line (Parser *p, char *line, Line *out) {
         PARSE_EXPR_OR_ERROR (e);
         if (s.kind == ST_PRINT) {
           if (s.u.print.n == cap) {
-            cap = cap ? cap * 2 : 4;
-            Node **tmp = realloc (s.u.print.items, cap * sizeof (Node *));
+            size_t new_cap = cap ? cap * 2 : 4;
+            Node **tmp
+              = pool_realloc (s.u.print.items, cap * sizeof (Node *), new_cap * sizeof (Node *));
             if (tmp == NULL) return 0;
             s.u.print.items = tmp;
+            cap = new_cap;
           }
           s.u.print.items[s.u.print.n++] = e;
         } else {
           if (s.u.printhash.n == cap) {
-            cap = cap ? cap * 2 : 4;
-            Node **tmp = realloc (s.u.printhash.items, cap * sizeof (Node *));
+            size_t new_cap = cap ? cap * 2 : 4;
+            Node **tmp = pool_realloc (s.u.printhash.items, cap * sizeof (Node *),
+                                       new_cap * sizeof (Node *));
             if (tmp == NULL) return 0;
             s.u.printhash.items = tmp;
+            cap = new_cap;
           }
           s.u.printhash.items[s.u.printhash.n++] = e;
         }
@@ -2535,10 +2572,11 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
   /* store header line */
   {
     if (src_len == src_cap) {
-      src_cap = src_cap ? 2 * src_cap : 4;
-      char **tmp = realloc (src_lines, src_cap * sizeof (char *));
+      size_t new_cap = src_cap ? 2 * src_cap : 4;
+      char **tmp = pool_realloc (src_lines, src_cap * sizeof (char *), new_cap * sizeof (char *));
       if (tmp == NULL) return;
       src_lines = tmp;
+      src_cap = new_cap;
     }
     src_lines[src_len++] = arena_strdup (&ast_arena, line);
   }
@@ -2553,16 +2591,18 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
         }
         int ps = param[strlen (param) - 1] == '$';
         if (n == cap) {
-          cap = cap ? 2 * cap : 4;
-          char **tmp_params = realloc (params, cap * sizeof (char *));
-          int *tmp_is_str = realloc (is_str, cap * sizeof (int));
+          size_t new_cap = cap ? 2 * cap : 4;
+          char **tmp_params
+            = pool_realloc (params, cap * sizeof (char *), new_cap * sizeof (char *));
+          int *tmp_is_str = pool_realloc (is_str, cap * sizeof (int), new_cap * sizeof (int));
           if (tmp_params == NULL || tmp_is_str == NULL) {
-            free (tmp_params);
-            free (tmp_is_str);
+            basic_pool_free (tmp_params);
+            basic_pool_free (tmp_is_str);
             return;
           }
           params = tmp_params;
           is_str = tmp_is_str;
+          cap = new_cap;
         }
         params[n] = param;
         is_str[n] = ps;
@@ -2586,10 +2626,12 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
       Token t2 = next_token (&end_p);
       if ((is_sub && t2.type == TOK_SUB) || (!is_sub && t2.type == TOK_FUNCTION)) {
         if (src_len == src_cap) {
-          src_cap = src_cap ? 2 * src_cap : 4;
-          char **tmp = realloc (src_lines, src_cap * sizeof (char *));
+          size_t new_cap = src_cap ? 2 * src_cap : 4;
+          char **tmp
+            = pool_realloc (src_lines, src_cap * sizeof (char *), new_cap * sizeof (char *));
           if (tmp == NULL) return;
           src_lines = tmp;
+          src_cap = new_cap;
         }
         src_lines[src_len++] = arena_strdup (&ast_arena, buf);
         break;
@@ -2599,10 +2641,11 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
     Parser lp_parser;
     if (parse_line (&lp_parser, buf, &l)) {
       if (src_len == src_cap) {
-        src_cap = src_cap ? 2 * src_cap : 4;
-        char **tmp = realloc (src_lines, src_cap * sizeof (char *));
+        size_t new_cap = src_cap ? 2 * src_cap : 4;
+        char **tmp = pool_realloc (src_lines, src_cap * sizeof (char *), new_cap * sizeof (char *));
         if (tmp == NULL) return;
         src_lines = tmp;
+        src_cap = new_cap;
       }
       src_lines[src_len++] = l.src;
       for (size_t i = 0; i < l.stmts.len; i++) stmt_vec_push (&body, l.stmts.data[i]);
@@ -2623,9 +2666,9 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
     src_lines_final = arena_alloc (&ast_arena, src_len * sizeof (char *));
     memcpy (src_lines_final, src_lines, src_len * sizeof (char *));
   }
-  free (params);
-  free (is_str);
-  free (src_lines);
+  basic_pool_free (params);
+  basic_pool_free (is_str);
+  basic_pool_free (src_lines);
   FuncDef fd = {name, params_final, is_str_final,    n,       NULL,   body, f_is_str, is_sub, 0,
                 NULL, NULL,         src_lines_final, src_len, src_len};
   func_vec_push (&func_defs, fd);
@@ -2701,10 +2744,11 @@ static MIR_reg_t get_var (VarVec *vars, MIR_context_t ctx, MIR_item_t func, cons
   for (size_t i = 0; i < vars->len; i++)
     if (!vars->data[i].is_array && strcmp (vars->data[i].name, name) == 0) return vars->data[i].reg;
   if (vars->len == vars->cap) {
-    vars->cap = vars->cap ? 2 * vars->cap : 16;
-    Var *tmp = realloc (vars->data, vars->cap * sizeof (Var));
+    size_t new_cap = vars->cap ? 2 * vars->cap : 16;
+    Var *tmp = pool_realloc (vars->data, vars->cap * sizeof (Var), new_cap * sizeof (Var));
     if (tmp == NULL) return 0;
     vars->data = tmp;
+    vars->cap = new_cap;
   }
   vars->data[vars->len].name = arena_strdup (&ast_arena, name);
   vars->data[vars->len].is_str = is_str;
@@ -2731,10 +2775,11 @@ static MIR_reg_t get_array (VarVec *vars, MIR_context_t ctx, MIR_item_t func, co
       return vars->data[i].reg;
     }
   if (vars->len == vars->cap) {
-    vars->cap = vars->cap ? 2 * vars->cap : 16;
-    Var *tmp = realloc (vars->data, vars->cap * sizeof (Var));
+    size_t new_cap = vars->cap ? 2 * vars->cap : 16;
+    Var *tmp = pool_realloc (vars->data, vars->cap * sizeof (Var), new_cap * sizeof (Var));
     if (tmp == NULL) return 0;
     vars->data = tmp;
+    vars->cap = new_cap;
   }
   vars->data[vars->len].name = arena_strdup (&ast_arena, name);
   vars->data[vars->len].is_str = is_str;
@@ -3614,9 +3659,11 @@ static char *change_suffix (const char *name, const char *suf) {
   const char *dot = strrchr (slash ? slash + 1 : name, '.');
   size_t len = dot ? (size_t) (dot - name) : strlen (name);
   size_t slen = strlen (suf);
-  char *res = malloc (len + slen + 1);
-  memcpy (res, name, len);
-  memcpy (res + len, suf, slen + 1);
+  char *res = basic_alloc_string (len + slen);
+  if (res != NULL) {
+    memcpy (res, name, len);
+    memcpy (res + len, suf, slen + 1);
+  }
   return res;
 }
 
@@ -4001,10 +4048,12 @@ static void gen_stmt (Stmt *s) {
     MIR_label_t start_label = MIR_new_label (g_ctx);
     MIR_label_t end_label = MIR_new_label (g_ctx);
     if (g_loop_len == g_loop_cap) {
-      g_loop_cap = g_loop_cap ? 2 * g_loop_cap : 16;
-      LoopInfo *tmp = realloc (g_loop_stack, g_loop_cap * sizeof (LoopInfo));
+      size_t new_cap = g_loop_cap ? 2 * g_loop_cap : 16;
+      LoopInfo *tmp
+        = pool_realloc (g_loop_stack, g_loop_cap * sizeof (LoopInfo), new_cap * sizeof (LoopInfo));
       if (tmp == NULL) return;
       g_loop_stack = tmp;
+      g_loop_cap = new_cap;
     }
     g_loop_stack[g_loop_len++] = (LoopInfo) {var, end, step, start_label, end_label, 0};
     MIR_append_insn (g_ctx, g_func, start_label);
@@ -4042,10 +4091,12 @@ static void gen_stmt (Stmt *s) {
     MIR_label_t start_label = MIR_new_label (g_ctx);
     MIR_label_t end_label = MIR_new_label (g_ctx);
     if (g_loop_len == g_loop_cap) {
-      g_loop_cap = g_loop_cap ? 2 * g_loop_cap : 16;
-      LoopInfo *tmp = realloc (g_loop_stack, g_loop_cap * sizeof (LoopInfo));
+      size_t new_cap = g_loop_cap ? 2 * g_loop_cap : 16;
+      LoopInfo *tmp
+        = pool_realloc (g_loop_stack, g_loop_cap * sizeof (LoopInfo), new_cap * sizeof (LoopInfo));
       if (tmp == NULL) return;
       g_loop_stack = tmp;
+      g_loop_cap = new_cap;
     }
     g_loop_stack[g_loop_len++] = (LoopInfo) {0, 0, 0, start_label, end_label, 1};
     MIR_append_insn (g_ctx, g_func, start_label);
@@ -4705,16 +4756,13 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   }
   if (src_name != NULL) {
     const char *slash = strrchr (src_name, '/');
-    free (current_dir);
+    basic_pool_free (current_dir);
     if (slash != NULL) {
       size_t len = (size_t) (slash - src_name + 1);
-      current_dir = malloc (len + 1);
-      if (current_dir != NULL) {
-        memcpy (current_dir, src_name, len);
-        current_dir[len] = '\0';
-      }
+      current_dir = basic_alloc_string (len);
+      if (current_dir != NULL) memcpy (current_dir, src_name, len);
     } else {
-      current_dir = strdup ("");
+      current_dir = basic_alloc_string (0);
     }
   }
   MIR_context_t ctx = MIR_init ();
@@ -4964,7 +5012,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     MIR_type_t rtype = fd->is_str_ret ? MIR_T_P : MIR_T_D;
     MIR_var_t *vars = NULL;
     if (fd->n != 0) {
-      vars = malloc (sizeof (MIR_var_t) * fd->n);
+      vars = basic_pool_alloc (sizeof (MIR_var_t) * fd->n);
       for (size_t j = 0; j < fd->n; j++) {
         vars[j].type = fd->is_str[j] ? MIR_T_P : MIR_T_D;
         vars[j].name = fd->params[j];
@@ -4979,7 +5027,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
         fd->proto = MIR_new_proto_arr (ctx, proto_name, 1, &rtype, fd->n, vars);
       }
       fd->item = MIR_new_import (ctx, fd->name);
-      free (vars);
+      basic_pool_free (vars);
       continue;
     }
     if (fd->is_proc) {
@@ -4998,15 +5046,19 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     VarVec fvars = {0};
     for (size_t j = 0; j < fd->n; j++) {
       if (fvars.len == fvars.cap) {
-        fvars.cap = fvars.cap ? 2 * fvars.cap : fd->n;
-        Var *tmp = realloc (fvars.data, fvars.cap * sizeof (Var));
+        size_t new_cap = fvars.cap ? 2 * fvars.cap : fd->n;
+        Var *tmp = pool_realloc (fvars.data, fvars.cap * sizeof (Var), new_cap * sizeof (Var));
         if (tmp == NULL) {
-          free (fvars.data);
+          basic_pool_free (fvars.data);
           return;
         }
         fvars.data = tmp;
+        fvars.cap = new_cap;
       }
-      fvars.data[fvars.len].name = strdup (fd->params[j]);
+      size_t pname_len = strlen (fd->params[j]);
+      fvars.data[fvars.len].name = basic_alloc_string (pname_len);
+      if (fvars.data[fvars.len].name != NULL)
+        memcpy (fvars.data[fvars.len].name, fd->params[j], pname_len + 1);
       fvars.data[fvars.len].is_str = fd->is_str[j];
       fvars.data[fvars.len].is_array = 0;
       fvars.data[fvars.len].size = 0;
@@ -5056,7 +5108,9 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       g_loop_len = saved_loop_len;
     }
     MIR_finish_func (ctx);
-    free (vars);
+    for (size_t j = 0; j < fvars.len; j++) basic_pool_free (fvars.data[j].name);
+    basic_pool_free (fvars.data);
+    basic_pool_free (vars);
   }
   MIR_type_t res_t = MIR_T_I64;
   MIR_item_t func = MIR_new_func (ctx, "main", 1, &res_t, 0);
@@ -5085,6 +5139,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   g_ret_sp = ret_sp;
   g_ret_addr = ret_addr;
 
+  basic_pool_free (g_loop_stack);
   g_loop_stack = NULL;
   g_loop_len = 0;
   g_loop_cap = 0;
@@ -5096,7 +5151,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
 
   /* create labels for lines */
   size_t n = prog->len;
-  MIR_label_t *labels = malloc (sizeof (MIR_label_t) * n);
+  MIR_label_t *labels = basic_pool_alloc (sizeof (MIR_label_t) * n);
   for (size_t i = 0; i < n; i++) labels[i] = MIR_new_label (ctx);
   g_labels = labels;
 
@@ -5138,6 +5193,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   /* ensure function returns 0 if no END */
   MIR_append_insn (ctx, func, MIR_new_ret_insn (ctx, 1, MIR_new_int_op (ctx, 0)));
   MIR_finish_func (ctx);
+  basic_pool_free (labels);
+  g_labels = NULL;
   MIR_finish_module (ctx);
   if (asm_p || obj_p) {
     const char *base = out_name ? out_name : src_name;
@@ -5150,7 +5207,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       } else {
         perror (name);
       }
-      free (name);
+      basic_pool_free (name);
     }
     if (obj_p) {
       char *name = change_suffix (base, ".bmir");
@@ -5161,14 +5218,21 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       } else {
         perror (name);
       }
-      free (name);
+      basic_pool_free (name);
     }
     MIR_finish (ctx);
     data_vals_clear ();
     return;
   }
   if (bin_p) {
-    char *exe_name = out_name ? strdup (out_name) : change_suffix (src_name, "");
+    char *exe_name;
+    if (out_name) {
+      size_t len = strlen (out_name);
+      exe_name = basic_alloc_string (len);
+      if (exe_name != NULL) memcpy (exe_name, out_name, len + 1);
+    } else {
+      exe_name = change_suffix (src_name, "");
+    }
     char *ctab_name = change_suffix (exe_name, ".ctab");
     ctab_file = fopen (ctab_name, "w");
     if (ctab_file != NULL) {
@@ -5184,7 +5248,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
         = reduce_libs ? " -ffunction-sections -fdata-sections -Wl,--gc-sections" : "";
       size_t size = strlen (cc) + strlen (src_dir) * 5 + strlen (ctab_name) + strlen (exe_name)
                     + strlen (extra_cflags) + 200;
-      char *cmd = malloc (size);
+      char *cmd = basic_pool_alloc (size);
       safe_snprintf (cmd, size,
                      "%s -I\"%s\" -DCTAB_INCLUDE_STRING=\\\"%s\\\" \"%s/mir-bin-driver.c\" "
                      "\"%s/examples/basic/basic_runtime.c\" \"%s/mir.c\" \"%s/mir-gen.c\" "
@@ -5194,12 +5258,12 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                      cc, src_dir, ctab_name, src_dir, src_dir, src_dir, src_dir, extra_cflags,
                      exe_name);
       if (system (cmd) != 0) perror (cmd);
-      free (cmd);
+      basic_pool_free (cmd);
     } else {
       perror (ctab_name);
     }
-    free (ctab_name);
-    free (exe_name);
+    basic_pool_free (ctab_name);
+    basic_pool_free (exe_name);
     MIR_finish (ctx);
     data_vals_clear ();
     return;
@@ -5370,7 +5434,7 @@ static void repl (void) {
           else
             perror (fname);
         }
-        free (fname);
+        basic_pool_free (fname);
       } break;
       case REPL_TOK_BMIR: {
         char *fname = parse_rest (p);
@@ -5383,9 +5447,9 @@ static void repl (void) {
             printf ("%s\n", name);
           else
             perror (name);
-          free (name);
+          basic_pool_free (name);
         }
-        free (fname);
+        basic_pool_free (fname);
       } break;
       case REPL_TOK_CODE: {
         char *fname = parse_rest (p);
@@ -5398,7 +5462,7 @@ static void repl (void) {
           else
             perror (fname);
         }
-        free (fname);
+        basic_pool_free (fname);
       } break;
       default: safe_fprintf (stderr, "unknown COMPILE target\n"); break;
       }
@@ -5415,7 +5479,7 @@ static void repl (void) {
         else
           perror (fname);
       }
-      free (fname);
+      basic_pool_free (fname);
       continue;
     }
     case REPL_TOK_LOAD: {
@@ -5428,7 +5492,7 @@ static void repl (void) {
         line_vec_destroy (&prog);
         load_program (&prog, fname);
       }
-      free (fname);
+      basic_pool_free (fname);
       continue;
     }
     case REPL_TOK_LIST: list_program (&prog); continue;
