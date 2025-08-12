@@ -245,7 +245,9 @@ basic_num_t basic_pos (void) { return (basic_num_t) basic_pos_val; }
 char *basic_input_str (void) {
   char buf[256];
   if (fgets (buf, sizeof (buf), stdin) == NULL) {
-    return basic_alloc_string (0);
+    char *res = basic_alloc_string (0);
+    if (res == NULL) return NULL;
+    return res;
   }
   size_t len = strlen (buf);
   if (len > 0 && buf[len - 1] == '\n') {
@@ -350,11 +352,15 @@ basic_num_t basic_input_hash (basic_num_t n) {
 char *basic_input_hash_str (basic_num_t n) {
   int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) {
-    return basic_alloc_string (0);
+    char *res = basic_alloc_string (0);
+    if (res == NULL) return NULL;
+    return res;
   }
   char buf[256];
   if (fgets (buf, sizeof (buf), basic_files[idx]) == NULL) {
-    return basic_alloc_string (0);
+    char *res = basic_alloc_string (0);
+    if (res == NULL) return NULL;
+    return res;
   }
   size_t len = strlen (buf);
   if (len > 0 && buf[len - 1] == '\n') {
@@ -424,7 +430,9 @@ void *basic_dim_alloc (void *base, basic_num_t len, basic_num_t is_str) {
   (void) base;
   size_t n = (size_t) len;
   size_t elem_size = is_str != 0.0 ? sizeof (char *) : sizeof (basic_num_t);
-  return basic_alloc_array (n, elem_size, 1);
+  void *res = basic_alloc_array (n, elem_size, 1);
+  if (res == NULL) return NULL;
+  return res;
 }
 
 void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str) {
@@ -568,7 +576,11 @@ char *basic_mid (const char *s, basic_num_t start_d, basic_num_t len_d) {
   size_t start = (size_t) start_d;
   if (start < 1) start = 1;
   start--;
-  if (start >= len) return basic_alloc_string (0);
+  if (start >= len) {
+    char *res = basic_alloc_string (0);
+    if (res == NULL) return NULL;
+    return res;
+  }
   size_t cnt = len_d < 0 ? len - start : (size_t) len_d;
   if (start + cnt > len) cnt = len - start;
   char *res = basic_alloc_string (cnt);
