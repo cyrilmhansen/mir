@@ -43,6 +43,19 @@
 #define BASIC_SRC_DIR "."
 #endif
 
+static void safe_fprintf (FILE *stream, const char *fmt, ...) {
+  va_list ap;
+  va_start (ap, fmt);
+#if defined(_MSC_VER) || defined(__STDC_LIB_EXT1__)
+  vfprintf_s (stream, fmt, ap);
+#else
+  char buf[512];
+  vsnprintf (buf, sizeof (buf), fmt, ap);
+  fputs (buf, stream);
+#endif
+  va_end (ap);
+}
+
 /* Runtime helpers defined in basic_runtime.c */
 extern void basic_print (basic_num_t);
 extern void basic_print_str (const char *);
@@ -1143,10 +1156,10 @@ typedef struct {
 static void report_parse_error_details (int line_no, const char *line, const char *pos) {
   const char *near = pos != NULL ? pos : line;
   if (line_no > 0)
-    fprintf (stderr, "parse error at line %d near '%s'\n", line_no, near ? near : "");
+    safe_fprintf (stderr, "parse error at line %d near '%s'\n", line_no, near ? near : "");
   else
-    fprintf (stderr, "parse error near '%s'\n", near ? near : "");
-  if (line != NULL) fprintf (stderr, "%s\n", line);
+    safe_fprintf (stderr, "parse error near '%s'\n", near ? near : "");
+  if (line != NULL) safe_fprintf (stderr, "%s\n", line);
 }
 
 static int parse_error (Parser *p) {
@@ -1717,7 +1730,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
     if (next_token (p).type != TOK_BASE) return 0;
     tok = next_token (p);
     if (tok.type != TOK_NUMBER) {
-      fputs ("expected integer\n", stderr);
+      safe_fprintf (stderr, "expected integer\n");
       return 0;
     }
     int base = (int) tok.num;
@@ -1854,7 +1867,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
     out->kind = ST_GOTO;
     tok = next_token (p);
     if (tok.type != TOK_NUMBER) {
-      fputs ("expected integer\n", stderr);
+      safe_fprintf (stderr, "expected integer\n");
       return 0;
     }
     out->u.target = (int) tok.num;
@@ -1863,7 +1876,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
     out->kind = ST_GOSUB;
     tok = next_token (p);
     if (tok.type != TOK_NUMBER) {
-      fputs ("expected integer\n", stderr);
+      safe_fprintf (stderr, "expected integer\n");
       return 0;
     }
     out->u.target = (int) tok.num;
@@ -2210,7 +2223,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
       out->kind = ST_ON_ERROR;
       tok = next_token (p);
       if (tok.type != TOK_NUMBER) {
-        fputs ("expected integer\n", stderr);
+        safe_fprintf (stderr, "expected integer\n");
         return 0;
       }
       out->u.target = (int) tok.num;
@@ -2243,7 +2256,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
       while (1) {
         Token tt2 = next_token (p);
         if (tt2.type != TOK_NUMBER) {
-          fputs ("expected integer\n", stderr);
+          safe_fprintf (stderr, "expected integer\n");
           return 0;
         }
         int tline = (int) tt2.num;
@@ -2499,14 +2512,14 @@ static int parse_line (Parser *p, char *line, Line *out) {
   p->line_start = line;
   out->src = strdup (line);
   if (out->src == NULL) {
-    fprintf (stderr, "out of memory\n");
+    safe_fprintf (stderr, "out of memory\n");
     return parse_error (p);
   }
   Token t = peek_token (p);
   int line_no = 0;
   if (t.type == TOK_NUMBER) {
     if ((basic_num_t) (int) t.num != t.num) {
-      fputs ("expected integer\n", stderr);
+      safe_fprintf (stderr, "expected integer\n");
       return parse_error (p);
     }
     line_no = (int) parse_number (p);
@@ -3785,11 +3798,11 @@ static void gen_stmt (Stmt *s) {
   switch (s->kind) {
   case ST_DEF:
     /* no code generation needed */
-    fprintf (stderr, "DEF not implemented\n");
+    safe_fprintf (stderr, "DEF not implemented\n");
     break;
   case ST_EXTERN:
     /* no code generation needed */
-    fprintf (stderr, "EXTERN not implemented\n");
+    safe_fprintf (stderr, "EXTERN not implemented\n");
     break;
   case ST_PRINT: gen_print (s); break;
   case ST_PRINT_HASH: gen_print_hash (s); break;
@@ -4504,7 +4517,7 @@ static void gen_stmt (Stmt *s) {
                                                                           s->u.resume.line))));
     } else {
       if (!g_line_tracking) {
-        fputs ("RESUME without line requires line tracking\n", stderr);
+        safe_fprintf (stderr, "RESUME without line requires line tracking\n");
         exit (1);
       }
       char buf[32];
@@ -4659,7 +4672,7 @@ static void gen_stmt (Stmt *s) {
   case ST_REM:
     /* comment */
     break;
-  default: fprintf (stderr, "Unsupported statement: %s\n", stmt_kind_name (s->kind)); break;
+  default: safe_fprintf (stderr, "Unsupported statement: %s\n", stmt_kind_name (s->kind)); break;
   }
 }
 
@@ -5264,7 +5277,7 @@ static void repl (void) {
         if (opt == REPL_TOK_PROFILE && peek_token (p).type == TOK_EOF) {
           profile_p = 1;
         } else {
-          fprintf (stderr, "unknown RUN option: %s\n", opt_tok.str ? opt_tok.str : "");
+          safe_fprintf (stderr, "unknown RUN option: %s\n", opt_tok.str ? opt_tok.str : "");
           if (opt_tok.str != NULL) free (opt_tok.str);
           break;
         }
@@ -5281,7 +5294,7 @@ static void repl (void) {
       case REPL_TOK_NATIVE: {
         char *fname = parse_rest (p);
         if (fname == NULL || fname[0] == '\0') {
-          fputs ("missing output file\n", stderr);
+          safe_fprintf (stderr, "missing output file\n");
         } else {
           gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, fname, "(repl)");
           if (access (fname, F_OK) == 0)
@@ -5294,7 +5307,7 @@ static void repl (void) {
       case REPL_TOK_BMIR: {
         char *fname = parse_rest (p);
         if (fname == NULL || fname[0] == '\0') {
-          fputs ("missing output file\n", stderr);
+          safe_fprintf (stderr, "missing output file\n");
         } else {
           gen_program (&prog, 0, 0, 1, 0, 0, 0, 0, line_tracking, fname, "(repl)");
           char *name = change_suffix (fname, ".bmir");
@@ -5309,7 +5322,7 @@ static void repl (void) {
       case REPL_TOK_CODE: {
         char *fname = parse_rest (p);
         if (fname == NULL || fname[0] == '\0') {
-          fputs ("missing output file\n", stderr);
+          safe_fprintf (stderr, "missing output file\n");
         } else {
           gen_program (&prog, 0, 0, 0, 0, 1, 0, 0, line_tracking, fname, "(repl)");
           if (access (fname, F_OK) == 0)
@@ -5319,14 +5332,14 @@ static void repl (void) {
         }
         free (fname);
       } break;
-      default: fputs ("unknown COMPILE target\n", stderr); break;
+      default: safe_fprintf (stderr, "unknown COMPILE target\n"); break;
       }
       continue;
     }
     case REPL_TOK_SAVE: {
       char *fname = parse_rest (p);
       if (fname == NULL || fname[0] == '\0') {
-        fputs ("missing output file\n", stderr);
+        safe_fprintf (stderr, "missing output file\n");
       } else {
         gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, fname, "(repl)");
         if (access (fname, F_OK) == 0)
@@ -5340,7 +5353,7 @@ static void repl (void) {
     case REPL_TOK_LOAD: {
       char *fname = parse_rest (p);
       if (fname == NULL || fname[0] == '\0') {
-        fputs ("missing input file\n", stderr);
+        safe_fprintf (stderr, "missing input file\n");
       } else {
         func_vec_clear (&func_defs);
         data_vals_clear ();
