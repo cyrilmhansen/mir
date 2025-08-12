@@ -3,6 +3,7 @@
 #include "basic_num.h"
 #include "mir.h"
 #include "mir-gen.h"
+#include <stddef.h>
 
 basic_num_t basic_mir_ctx (void);
 basic_num_t basic_mir_mod (basic_num_t ctx, const char *name);
@@ -18,6 +19,7 @@ basic_num_t basic_mir_run (basic_num_t func, basic_num_t a1, basic_num_t a2, bas
                            basic_num_t a4);
 basic_num_t basic_mir_dump (basic_num_t func);
 
+void *basic_dim_alloc (void *base, size_t n, int is_str);
 void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str);
 
 #endif /* BASIC_RUNTIME_H */

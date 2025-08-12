@@ -81,6 +81,7 @@ extern basic_num_t basic_read (void);
 extern char *basic_read_str (void);
 extern void basic_restore (void);
 extern void basic_clear_array (void *, basic_num_t, basic_num_t);
+extern void *basic_dim_alloc (void *, size_t, int);
 extern char *basic_strdup (const char *);
 extern void basic_free (char *);
 
@@ -233,6 +234,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_read_str")) return basic_read_str;
   if (!strcmp (name, "basic_restore")) return basic_restore;
   if (!strcmp (name, "basic_clear_array")) return basic_clear_array;
+  if (!strcmp (name, "basic_dim_alloc")) return basic_dim_alloc;
 
   if (!strcmp (name, "basic_home")) return basic_home;
   if (!strcmp (name, "basic_vtab")) return basic_vtab;
@@ -354,8 +356,8 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   normal_proto, normal_import, hgr2_proto, hgr2_import, hcolor_proto, hcolor_import, hplot_proto,
   hplot_import, hplotto_proto, hplotto_import, hplottocur_proto, hplottocur_import, move_proto,
   move_import, draw_proto, draw_import, line_proto, line_import, circle_proto, circle_import,
-  rect_proto, rect_import, mode_proto, mode_import, fill_proto, fill_import, basic_calloc_proto,
-  basic_calloc_import, memset_proto, memset_import, clear_array_proto, clear_array_import,
+  rect_proto, rect_import, mode_proto, mode_import, fill_proto, fill_import, calloc_proto,
+  calloc_import, dim_alloc_proto, dim_alloc_import, memset_proto, memset_import,  clear_array_proto, clear_array_import,
   strcmp_proto, strcmp_import, open_proto, open_import, close_proto, close_import, printh_proto,
   printh_import, prinths_proto, prinths_import, input_hash_proto, input_hash_import,
   input_hash_str_proto, input_hash_str_import, get_hash_proto, get_hash_import, put_hash_proto,
@@ -4665,13 +4667,13 @@ static void gen_stmt (Stmt *s) {
                                        MIR_new_reg_op (g_ctx, total),
                                        MIR_new_reg_op (g_ctx, size2)));
       }
-      size_t elem_size = s->u.dim.is_str[k] ? sizeof (char *) : sizeof (basic_num_t);
       MIR_append_insn (g_ctx, g_func,
-                       MIR_new_call_insn (g_ctx, 5, MIR_new_ref_op (g_ctx, basic_calloc_proto),
-                                          MIR_new_ref_op (g_ctx, basic_calloc_import),
+                       MIR_new_call_insn (g_ctx, 6, MIR_new_ref_op (g_ctx, dim_alloc_proto),
+                                          MIR_new_ref_op (g_ctx, dim_alloc_import),
+                                          MIR_new_reg_op (g_ctx, base),
                                           MIR_new_reg_op (g_ctx, base),
                                           MIR_new_reg_op (g_ctx, total),
-                                          MIR_new_int_op (g_ctx, elem_size)));
+                                          MIR_new_int_op (g_ctx, s->u.dim.is_str[k])));
     }
     break;
   }
@@ -4902,9 +4904,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   mir_dump_proto = MIR_new_proto (ctx, "basic_mir_dump_p", 1, &d, 1, MIR_T_D, "func");
   mir_dump_import = MIR_new_import (ctx, "basic_mir_dump");
 
-  basic_calloc_proto
-    = MIR_new_proto (ctx, "basic_calloc_p", 1, &p, 2, MIR_T_I64, "n", MIR_T_I64, "sz");
-  basic_calloc_import = MIR_new_import (ctx, "basic_calloc");
+  calloc_proto = MIR_new_proto (ctx, "calloc_p", 1, &p, 2, MIR_T_I64, "n", MIR_T_I64, "sz");
+  calloc_import = MIR_new_import (ctx, "calloc");
+  dim_alloc_proto = MIR_new_proto (ctx, "basic_dim_alloc_p", 1, &p, 3, MIR_T_P, "base", MIR_T_I64,
+                                   "n", MIR_T_I64, "is_str");
+  dim_alloc_import = MIR_new_import (ctx, "basic_dim_alloc");
   memset_proto
     = MIR_new_proto (ctx, "memset_p", 1, &p, 3, MIR_T_P, "s", MIR_T_I64, "c", MIR_T_I64, "n");
   memset_import = MIR_new_import (ctx, "memset");
