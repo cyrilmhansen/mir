@@ -22,6 +22,10 @@ run_tests() {
                 (cd "$ROOT" && make "basic/$(basename "$BASICC")")
         fi
 
+        echo "Running REPL smoke test"
+        printf '10 PRINT 1\nRUN\nQUIT\n' | "$BASICC" > /dev/null
+        echo "REPL smoke test OK"
+
         run_test() {
                 local name="$1"
                 local in_file="$ROOT/examples/basic/$name.in"

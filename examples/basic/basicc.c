@@ -5449,7 +5449,6 @@ static void repl (void) {
 
 int main (int argc, char **argv) {
   arena_init (&ast_arena);
-  basic_pool_init (0);
   if (kitty_graphics_available ()) show_kitty_banner ();
   int jit = 0, asm_p = 0, obj_p = 0, bin_p = 0, reduce_libs = 0;
   const char *fname = NULL, *out_name = NULL;
