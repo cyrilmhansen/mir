@@ -435,7 +435,7 @@ static void data_vec_push (DataVec *v, BasicData d) {
 }
 
 static void data_vals_clear (void) {
-  for (size_t i = 0; i < data_vals.len; i++) free (data_vals.data[i].str);
+  for (size_t i = 0; i < data_vals.len; i++) basic_free (data_vals.data[i].str);
   free (data_vals.data);
   data_vals.data = NULL;
   data_vals.len = data_vals.cap = 0;
