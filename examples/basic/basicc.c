@@ -38,10 +38,21 @@
 #include <unistd.h>
 #include <dlfcn.h>
 #include <math.h>
+#include <errno.h>
+#include <spawn.h>
+#include <sys/wait.h>
+
+extern char **environ;
 
 #ifndef BASIC_SRC_DIR
 #define BASIC_SRC_DIR "."
 #endif
+
+static int validate_param (const char *p) {
+  for (; *p != '\0'; p++)
+    if (!isprint ((unsigned char) *p) || strchr (";&|`$<>", *p) != NULL) return 0;
+  return 1;
+}
 
 /* Runtime helpers defined in basic_runtime.c */
 extern void basic_print (basic_num_t);
@@ -5124,19 +5135,76 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       const char *cc = getenv ("CC");
       if (cc == NULL) cc = "cc";
       const char *src_dir = BASIC_SRC_DIR;
-      const char *extra_cflags
-        = reduce_libs ? " -ffunction-sections -fdata-sections -Wl,--gc-sections" : "";
-      size_t size = strlen (cc) + strlen (src_dir) * 5 + strlen (ctab_name) + strlen (exe_name)
-                    + strlen (extra_cflags) + 200;
-      char *cmd = malloc (size);
-      snprintf (cmd, size,
-                "%s -I\"%s\" -DCTAB_INCLUDE_STRING=\\\"%s\\\" \"%s/mir-bin-driver.c\" "
-                "\"%s/examples/basic/basic_runtime.c\" \"%s/mir.c\" \"%s/mir-gen.c\" -rdynamic -lm "
-                "-ldl%s -o "
-                "\"%s\"",
-                cc, src_dir, ctab_name, src_dir, src_dir, src_dir, src_dir, extra_cflags, exe_name);
-      if (system (cmd) != 0) perror (cmd);
-      free (cmd);
+      if (!validate_param (cc) || !validate_param (src_dir) || !validate_param (ctab_name)
+          || !validate_param (exe_name)) {
+        fprintf (stderr, "invalid parameter for external command\n");
+        free (ctab_name);
+        free (exe_name);
+        MIR_finish (ctx);
+        data_vals_clear ();
+        exit (EXIT_FAILURE);
+      }
+      char include_opt[strlen (src_dir) + 3];
+      snprintf (include_opt, sizeof (include_opt), "-I%s", src_dir);
+      size_t def_size = strlen (ctab_name) + strlen ("-DCTAB_INCLUDE_STRING=\"\"") + 1;
+      char *define_opt = malloc (def_size);
+      snprintf (define_opt, def_size, "-DCTAB_INCLUDE_STRING=\"%s\"", ctab_name);
+      size_t driver_size = strlen (src_dir) + strlen ("/mir-bin-driver.c") + 1;
+      char *driver_path = malloc (driver_size);
+      snprintf (driver_path, driver_size, "%s/mir-bin-driver.c", src_dir);
+      size_t runtime_size = strlen (src_dir) + strlen ("/examples/basic/basic_runtime.c") + 1;
+      char *runtime_path = malloc (runtime_size);
+      snprintf (runtime_path, runtime_size, "%s/examples/basic/basic_runtime.c", src_dir);
+      size_t mir_size = strlen (src_dir) + strlen ("/mir.c") + 1;
+      char *mir_path = malloc (mir_size);
+      snprintf (mir_path, mir_size, "%s/mir.c", src_dir);
+      size_t mir_gen_size = strlen (src_dir) + strlen ("/mir-gen.c") + 1;
+      char *mir_gen_path = malloc (mir_gen_size);
+      snprintf (mir_gen_path, mir_gen_size, "%s/mir-gen.c", src_dir);
+      char *argv[20];
+      size_t argc = 0;
+      argv[argc++] = (char *) cc;
+      argv[argc++] = include_opt;
+      argv[argc++] = define_opt;
+      argv[argc++] = driver_path;
+      argv[argc++] = runtime_path;
+      argv[argc++] = mir_path;
+      argv[argc++] = mir_gen_path;
+      argv[argc++] = "-rdynamic";
+      argv[argc++] = "-lm";
+      argv[argc++] = "-ldl";
+      if (reduce_libs) {
+        argv[argc++] = "-ffunction-sections";
+        argv[argc++] = "-fdata-sections";
+        argv[argc++] = "-Wl,--gc-sections";
+      }
+      argv[argc++] = "-o";
+      argv[argc++] = exe_name;
+      argv[argc] = NULL;
+      pid_t pid;
+      int rc = posix_spawn (&pid, cc, NULL, NULL, argv, environ);
+      int status = 0;
+      if (rc == 0) {
+        if (waitpid (pid, &status, 0) == -1 || !WIFEXITED (status) || WEXITSTATUS (status) != 0) {
+          fprintf (stderr, "command failed: %s\n", cc);
+          rc = -1;
+        }
+      } else {
+        errno = rc;
+        perror (cc);
+      }
+      free (define_opt);
+      free (driver_path);
+      free (runtime_path);
+      free (mir_path);
+      free (mir_gen_path);
+      if (rc != 0) {
+        free (ctab_name);
+        free (exe_name);
+        MIR_finish (ctx);
+        data_vals_clear ();
+        exit (EXIT_FAILURE);
+      }
     } else {
       perror (ctab_name);
     }
