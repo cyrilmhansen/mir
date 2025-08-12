@@ -1,0 +1,2 @@
+DEF FNA(X)=X+1
+PRINT FNA(41)
