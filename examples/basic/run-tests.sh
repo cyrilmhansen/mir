@@ -95,10 +95,17 @@ PY
         echo "hcolor_test OK"
 
         echo "Building basic_pool_test"
-        cc -Wall -Wextra -I"$ROOT/examples/basic" \
-                "$ROOT/examples/basic/basic_pool.c" \
-                "$ROOT/examples/basic/basic_pool_test.c" \
-                -o "$ROOT/basic/basic_pool_test"
+        if [[ "$BASICC" == *-ld ]]; then
+                cc -Wall -Wextra -DBASIC_USE_LONG_DOUBLE -I"$ROOT/examples/basic" \
+                        "$ROOT/examples/basic/basic_pool.c" \
+                        "$ROOT/examples/basic/basic_pool_test.c" \
+                        -o "$ROOT/basic/basic_pool_test"
+        else
+                cc -Wall -Wextra -I"$ROOT/examples/basic" \
+                        "$ROOT/examples/basic/basic_pool.c" \
+                        "$ROOT/examples/basic/basic_pool_test.c" \
+                        -o "$ROOT/basic/basic_pool_test"
+        fi
         echo "Running basic_pool_test"
         "$ROOT/basic/basic_pool_test" > "$ROOT/basic/basic_pool_test.out" 2> "$ROOT/basic/basic_pool_test.err"
         if [ -s "$ROOT/basic/basic_pool_test.err" ]; then
