@@ -447,6 +447,12 @@ $(BUILD_DIR)/basic/hcolor_test$(EXE): \
 	mkdir -p $(BUILD_DIR)/basic
 	$(COMPILE_AND_LINK) -I$(SRC_DIR)/examples/basic $^ -lm $(EXEO)$@
 
+$(BUILD_DIR)/basic/basic_pool_test$(EXE): \
+        $(SRC_DIR)/examples/basic/basic_pool_test.c \
+        $(SRC_DIR)/examples/basic/basic_pool.c
+	mkdir -p $(BUILD_DIR)/basic
+	$(COMPILE_AND_LINK) -I$(SRC_DIR)/examples/basic $^ $(EXEO)$@
+
 $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB): \
         $(SRC_DIR)/examples/basic/basic_runtime.c \
         $(SRC_DIR)/examples/basic/ryu/d2s.c $(SRC_DIR)/examples/basic/ryu/f2s.c \
@@ -462,7 +468,7 @@ $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD): \
         $(SRC_DIR)/examples/basic/kitty/lodepng.c \
         $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic ; $(CC) $(CPPFLAGS) -I$(SRC_DIR)/examples/basic $(CFLAGS) $(LDFLAGS) -DBASIC_USE_LONG_DOUBLE $(BASIC_RUNTIME_FLAGS) $^ -lm $(EXEO)$@
 
-basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/hcolor_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/mir-bin-run$(EXE)
+basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/hcolor_test$(EXE) $(BUILD_DIR)/basic/basic_pool_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/mir-bin-run$(EXE)
 	$(SRC_DIR)/examples/basic/run-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
 	$(SRC_DIR)/examples/basic/run-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
 
