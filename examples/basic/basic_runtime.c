@@ -897,6 +897,7 @@ char *basic_system_out (void) {
 
 void basic_stop (void) {
   fflush (stdout);
+  basic_pool_destroy ();
   exit (0);
 }
 
