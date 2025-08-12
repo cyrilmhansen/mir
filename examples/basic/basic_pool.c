@@ -18,7 +18,7 @@ static size_t align_up (size_t n) {
 }
 
 void basic_pool_init (size_t size) {
-  pool = NULL;
+  if (pool != NULL) basic_pool_destroy ();
   if (size != 0) {
     pool = malloc (sizeof (PoolBlock));
     if (pool != NULL) {
@@ -32,6 +32,8 @@ void basic_pool_init (size_t size) {
         pool->next = NULL;
       }
     }
+  } else {
+    pool = NULL;
   }
 }
 
