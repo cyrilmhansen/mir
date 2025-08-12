@@ -1168,9 +1168,7 @@ static Token read_token (Parser *p) {
     const char *start = cur;
     while (*cur && *cur != '"') cur++;
     size_t len = cur - start;
-    char *s = malloc (len + 1);
-    memcpy (s, start, len);
-    s[len] = 0;
+    char *s = arena_strndup (&ast_arena, start, len);
     if (*cur == '"') cur++;
     t.type = TOK_STRING;
     t.str = s;
