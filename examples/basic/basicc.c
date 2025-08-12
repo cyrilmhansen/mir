@@ -2690,7 +2690,7 @@ static MIR_reg_t get_var (VarVec *vars, MIR_context_t ctx, MIR_item_t func, cons
     if (tmp == NULL) return 0;
     vars->data = tmp;
   }
-  vars->data[vars->len].name = strdup (name);
+  vars->data[vars->len].name = arena_strdup (&ast_arena, name);
   vars->data[vars->len].is_str = is_str;
   vars->data[vars->len].is_array = 0;
   vars->data[vars->len].size = 0;
@@ -2720,7 +2720,7 @@ static MIR_reg_t get_array (VarVec *vars, MIR_context_t ctx, MIR_item_t func, co
     if (tmp == NULL) return 0;
     vars->data = tmp;
   }
-  vars->data[vars->len].name = strdup (name);
+  vars->data[vars->len].name = arena_strdup (&ast_arena, name);
   vars->data[vars->len].is_str = is_str;
   vars->data[vars->len].is_array = 1;
   vars->data[vars->len].size = size1 * (size2 ? size2 : 1);
