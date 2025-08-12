@@ -129,3 +129,9 @@ void basic_pool_free (void *p) {
   b->next = free_list;
   free_list = b;
 }
+
+int basic_clear_array_pool (void *base, size_t count, size_t elem_size) {
+  if (base == NULL) return 0;
+  memset (base, 0, count * elem_size);
+  return 1;
+}

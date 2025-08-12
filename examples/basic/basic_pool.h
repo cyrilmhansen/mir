@@ -11,6 +11,7 @@ void *basic_pool_alloc (size_t size);
 void basic_pool_reset (void);
 void basic_pool_destroy (void);
 void basic_pool_free (void *p);
+int basic_clear_array_pool (void *base, size_t count, size_t elem_size);
 
 char *basic_alloc_string (size_t len);
 void *basic_alloc_array (size_t count, size_t elem_size, int clear);
