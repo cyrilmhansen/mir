@@ -916,6 +916,17 @@ static Handle *handle_tab = NULL;
 static size_t handle_len = 0;
 
 void basic_runtime_fini (void) {
+  if (func_profiles != NULL) {
+    for (size_t i = 0; i < func_profiles_len; i++) free ((char *) func_profiles[i].name);
+  }
+  free (line_profiles);
+  free (func_profiles);
+  free (func_stack);
+  line_profiles = NULL;
+  func_profiles = NULL;
+  func_stack = NULL;
+  line_profiles_len = func_profiles_len = func_stack_len = 0;
+  last_profile_line = -1;
   for (size_t i = 0; i < handle_len; ++i) {
     if (handle_tab[i].kind == H_FUNC) {
       free (handle_tab[i].ptr);
