@@ -94,6 +94,33 @@ PY
         diff "$ROOT/examples/basic/hcolor_test.out" "$ROOT/basic/hcolor_test.out"
         echo "hcolor_test OK"
 
+        echo "Building basic_pool_test"
+        cc -Wall -Wextra -I"$ROOT/examples/basic" \
+                "$ROOT/examples/basic/basic_pool.c" \
+                "$ROOT/examples/basic/basic_pool_test.c" \
+                -o "$ROOT/basic/basic_pool_test"
+        echo "Running basic_pool_test"
+        "$ROOT/basic/basic_pool_test" > "$ROOT/basic/basic_pool_test.out" 2> "$ROOT/basic/basic_pool_test.err"
+        if [ -s "$ROOT/basic/basic_pool_test.err" ]; then
+                echo "Unexpected stderr for basic_pool_test"
+                cat "$ROOT/basic/basic_pool_test.err"
+                exit 1
+        fi
+        rm -f "$ROOT/basic/basic_pool_test.err"
+        diff "$ROOT/examples/basic/basic_pool_test.out" "$ROOT/basic/basic_pool_test.out"
+        echo "basic_pool_test OK"
+
+        echo "Running basic_pool_test"
+        "$ROOT/basic/basic_pool_test" > "$ROOT/basic/basic_pool_test.out" 2> "$ROOT/basic/basic_pool_test.err"
+        if [ -s "$ROOT/basic/basic_pool_test.err" ]; then
+                echo "Unexpected stderr for basic_pool_test"
+                cat "$ROOT/basic/basic_pool_test.err"
+                exit 1
+        fi
+        rm -f "$ROOT/basic/basic_pool_test.err"
+        diff "$ROOT/examples/basic/basic_pool_test.out" "$ROOT/basic/basic_pool_test.out"
+        echo "basic_pool_test OK"
+
         echo "Building extlib"
         if [[ "$BASICC" == *-ld ]]; then
                 cc -shared -fPIC -Wall -Wextra -DBASIC_USE_LONG_DOUBLE -I"$ROOT/examples/basic" \
