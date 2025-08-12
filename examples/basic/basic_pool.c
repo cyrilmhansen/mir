@@ -123,6 +123,24 @@ void *basic_calloc (size_t count, size_t elem_size) {
   return basic_alloc_array (count, elem_size, 1);
 }
 
+int basic_clear_array_pool (void *base, size_t count, size_t elem_size) {
+  if (base == NULL) return 0;
+  size_t n = count * elem_size;
+  if (n == 0) return 1;
+  for (PoolBlock *b = pool; b != NULL; b = b->next) {
+    char *start = b->data;
+    size_t size = b->size;
+    char *end = start + size;
+    char *ptr = (char *) base;
+    if (ptr >= start && ptr < end) {
+      if ((size_t) (end - ptr) < n) return 0;
+      memset (base, 0, n);
+      return 1;
+    }
+  }
+  return 0;
+}
+
 void basic_pool_free (void *p) {
   if (p == NULL) return;
   FreeBlock *b = (FreeBlock *) ((char *) p - sizeof (FreeBlock));

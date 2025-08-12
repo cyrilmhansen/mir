@@ -15,5 +15,6 @@ void basic_pool_free (void *p);
 char *basic_alloc_string (size_t len);
 void *basic_alloc_array (size_t count, size_t elem_size, int clear);
 void *basic_calloc (size_t count, size_t elem_size);
+int basic_clear_array_pool (void *base, size_t count, size_t elem_size);
 
 #endif /* BASIC_POOL_H */

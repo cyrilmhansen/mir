@@ -23,11 +23,12 @@ int main (void) {
     if (arr2[i] != 0) return 1;
 
 #if defined(BASIC_USE_LONG_DOUBLE)
-  long double *ldarr = basic_calloc (4, sizeof (long double));
+  long double *ldarr = basic_alloc_array (4, sizeof (long double), 0);
+  for (int i = 0; i < 4; ++i) ldarr[i] = 1.0L;
+  if (!basic_clear_array_pool (ldarr, 4, sizeof (long double))) return 1;
   for (int i = 0; i < 4; ++i)
     if (ldarr[i] != 0.0L) return 1;
   if ((uintptr_t) ldarr % _Alignof (long double) != 0) return 1;
-  if (!basic_clear_array_pool (ldarr, 4, sizeof (long double))) return 1;
 #endif
 
   basic_pool_destroy ();
