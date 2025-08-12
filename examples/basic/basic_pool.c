@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 
 typedef struct PoolBlock {
   char *data;
@@ -13,7 +14,7 @@ typedef struct PoolBlock {
 static PoolBlock *pool = NULL;
 
 static size_t align_up (size_t n) {
-  size_t align = sizeof (void *);
+  size_t align = _Alignof (max_align_t);
   return (n + align - 1) & ~(align - 1);
 }
 
