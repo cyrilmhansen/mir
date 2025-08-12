@@ -917,9 +917,7 @@ static size_t handle_len = 0;
 
 void basic_runtime_fini (void) {
   for (size_t i = 0; i < handle_len; ++i) {
-    if (handle_tab[i].kind == H_FUNC) {
-      free (handle_tab[i].ptr);
-    } else if (handle_tab[i].kind == H_CTX) {
+    if (handle_tab[i].kind == H_CTX) {
       MIR_finish (handle_tab[i].ctx);
     }
   }
@@ -971,17 +969,16 @@ basic_num_t basic_mir_func (basic_num_t mod_h, const char *name, basic_num_t nar
   MIR_context_t ctx = h->ctx;
   size_t nargs = (size_t) nargs_d;
   MIR_type_t res = MIR_T_D;
-  MIR_var_t *vars = nargs ? malloc (nargs * sizeof (MIR_var_t)) : NULL;
+  MIR_var_t *vars = nargs ? basic_pool_alloc (nargs * sizeof (MIR_var_t)) : NULL;
   for (size_t i = 0; i < nargs; i++) {
-    size_t len = snprintf (NULL, 0, "a%zu", i) + 1;
-    char *arg_name = malloc (len);
-    snprintf (arg_name, len, "a%zu", i);
+    size_t len = snprintf (NULL, 0, "a%zu", i);
+    char *arg_name = basic_alloc_string (len);
+    snprintf (arg_name, len + 1, "a%zu", i);
     vars[i].type = MIR_T_D;
     vars[i].name = arg_name;
   }
   MIR_item_t func = MIR_new_func_arr (ctx, name, 1, &res, nargs, vars);
-  free (vars); /* arg names are kept by MIR */
-  FuncHandle *fh = malloc (sizeof (FuncHandle));
+  FuncHandle *fh = basic_pool_alloc (sizeof (FuncHandle));
   fh->item = func;
   fh->next_arg = 0;
   fh->nargs = nargs;
@@ -995,9 +992,9 @@ basic_num_t basic_mir_reg (basic_num_t func_h) {
   MIR_context_t ctx = h->ctx;
   MIR_reg_t r;
   if (fh->next_arg < fh->nargs) {
-    size_t len = snprintf (NULL, 0, "a%zu", fh->next_arg) + 1;
-    char *name = malloc (len);
-    snprintf (name, len, "a%zu", fh->next_arg++);
+    size_t len = snprintf (NULL, 0, "a%zu", fh->next_arg);
+    char *name = basic_alloc_string (len);
+    snprintf (name, len + 1, "a%zu", fh->next_arg++);
     r = MIR_reg (ctx, name, fh->item->u.func);
   } else {
     r = MIR_new_func_reg (ctx, fh->item->u.func, MIR_T_D, NULL);
