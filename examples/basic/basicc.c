@@ -2745,6 +2745,7 @@ static int load_program (LineVec *prog, const char *path) {
       insert_or_replace_line (prog, l);
     } else {
       /* error already reported by parse_line */
+      free_line (&l);
       ok = 0;
       break;
     }
