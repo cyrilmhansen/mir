@@ -1165,6 +1165,21 @@ typedef struct {
   int line_no;
 } Parser;
 
+static void free_token (Token *t) {
+  if (t->str != NULL) {
+    free (t->str);
+    t->str = NULL;
+  }
+}
+
+static void cleanup_parser (Parser *p) {
+  free_token (&p->tok);
+  if (p->has_peek) {
+    free_token (&p->peek);
+    p->has_peek = 0;
+  }
+}
+
 /* character-level parser state is stored directly in p->cur */
 
 static void report_parse_error_details (int line_no, const char *line, const char *pos) {
@@ -2725,17 +2740,23 @@ static int load_program (LineVec *prog, const char *path) {
     p->cur = line;
     Token t = peek_token (p);
     if (t.type == TOK_EOF) {
-      next_token (p);
+      t = next_token (p);
+      free_token (&t);
+      cleanup_parser (p);
       continue;
     }
     if (t.type == TOK_FUNCTION || t.type == TOK_SUB) {
       t = next_token (p);
-      if (t.str != NULL) free (t.str);
-      parse_func (p, f, line, t.type == TOK_SUB);
+      int is_sub = t.type == TOK_SUB;
+      free_token (&t);
+      cleanup_parser (p);
+      parse_func (p, f, line, is_sub);
+      cleanup_parser (p);
       continue;
     }
     t = next_token (p);
-    if (t.str != NULL) free (t.str);
+    free_token (&t);
+    cleanup_parser (p);
     Line l;
     if (parse_line (p, line, &l)) {
       if (l.line == 0) {
@@ -2743,10 +2764,12 @@ static int load_program (LineVec *prog, const char *path) {
         auto_line += 10;
       }
       insert_or_replace_line (prog, l);
+      cleanup_parser (p);
     } else {
       /* error already reported by parse_line */
       free_line (&l);
       ok = 0;
+      cleanup_parser (p);
       break;
     }
   }
