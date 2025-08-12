@@ -4043,6 +4043,14 @@ static void gen_stmt (Stmt *s) {
                                         MIR_new_reg_op (g_ctx, m)));
     break;
   }
+  case ST_COLOR: {
+    MIR_reg_t c = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, color_proto),
+                                        MIR_new_ref_op (g_ctx, color_import),
+                                        MIR_new_reg_op (g_ctx, c)));
+    break;
+  }
   case ST_FOR: {
     MIR_reg_t var = get_var (&g_vars, g_ctx, g_func, s->u.forto.var);
     MIR_reg_t start = gen_expr (g_ctx, g_func, &g_vars, s->u.forto.start);
