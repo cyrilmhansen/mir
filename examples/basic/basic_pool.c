@@ -11,7 +11,13 @@ typedef struct PoolBlock {
   struct PoolBlock *next;
 } PoolBlock;
 
+typedef struct FreeBlock {
+  size_t size;
+  struct FreeBlock *next;
+} FreeBlock;
+
 static PoolBlock *pool = NULL;
+static FreeBlock *free_list = NULL;
 
 static size_t align_up (size_t n) {
   size_t align = _Alignof (max_align_t);
@@ -20,6 +26,7 @@ static size_t align_up (size_t n) {
 
 void basic_pool_init (size_t size) {
   if (pool != NULL) basic_pool_destroy ();
+  free_list = NULL;
   if (size != 0) {
     pool = malloc (sizeof (PoolBlock));
     if (pool != NULL) {
@@ -47,12 +54,21 @@ static PoolBlock *curr_block (void) {
 
 void *basic_pool_alloc (size_t size) {
   size = align_up (size);
+  /* First, try to reuse a freed block. */
+  for (FreeBlock **pb = &free_list; *pb != NULL; pb = &(*pb)->next) {
+    if ((*pb)->size >= size) {
+      FreeBlock *res = *pb;
+      *pb = res->next;
+      return (char *) res + sizeof (FreeBlock);
+    }
+  }
   if (pool == NULL) basic_pool_init (1024);
   PoolBlock *b = curr_block ();
   if (b == NULL) return NULL;
-  if (b->pos + size > b->size) {
+  size_t total = sizeof (FreeBlock) + size;
+  if (b->pos + total > b->size) {
     size_t newsize = b->size ? b->size * 2 : 1024;
-    while (newsize < size) newsize *= 2;
+    while (newsize < total) newsize *= 2;
     PoolBlock *nb = malloc (sizeof (PoolBlock));
     if (nb == NULL) return NULL;
     nb->data = malloc (newsize);
@@ -66,13 +82,16 @@ void *basic_pool_alloc (size_t size) {
     b->next = nb;
     b = nb;
   }
-  void *res = b->data + b->pos;
-  b->pos += size;
-  return res;
+  FreeBlock *res = (FreeBlock *) (b->data + b->pos);
+  res->size = size;
+  res->next = NULL;
+  b->pos += total;
+  return (char *) res + sizeof (FreeBlock);
 }
 
 void basic_pool_reset (void) {
   for (PoolBlock *b = pool; b != NULL; b = b->next) b->pos = 0;
+  free_list = NULL;
 }
 
 void basic_pool_destroy (void) {
@@ -84,6 +103,7 @@ void basic_pool_destroy (void) {
     b = next;
   }
   pool = NULL;
+  free_list = NULL;
 }
 
 char *basic_alloc_string (size_t len) {
@@ -103,17 +123,9 @@ void *basic_calloc (size_t count, size_t elem_size) {
   return basic_alloc_array (count, elem_size, 1);
 }
 
-int basic_clear_array_pool (void *base, size_t count, size_t elem_size) {
-  if (base == NULL) return 1;
-  size_t n = align_up (count * elem_size);
-  for (PoolBlock *b = pool; b != NULL; b = b->next) {
-    char *start = b->data;
-    char *end = b->data + b->pos;
-    char *p = (char *) base;
-    if (p >= start && p + n == end) {
-      b->pos -= n;
-      return 1;
-    }
-  }
-  return 0;
+void basic_pool_free (void *p) {
+  if (p == NULL) return;
+  FreeBlock *b = (FreeBlock *) ((char *) p - sizeof (FreeBlock));
+  b->next = free_list;
+  free_list = b;
 }
