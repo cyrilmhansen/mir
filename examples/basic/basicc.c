@@ -4043,6 +4043,12 @@ static void gen_stmt (Stmt *s) {
                                         MIR_new_reg_op (g_ctx, m)));
     break;
   }
+  case ST_VTAB: {
+    MIR_reg_t n = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, vtab_proto),
+                                        MIR_new_ref_op (g_ctx, vtab_import),
+                                        MIR_new_reg_op (g_ctx, n)));
   case ST_HGR2: {
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, hgr2_proto),
