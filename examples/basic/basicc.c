@@ -194,6 +194,10 @@ static int array_base = 0;
 static int line_tracking = 1;
 arena_t ast_arena;
 
+static void basic_chain (const char *path);
+
+static int contains_chain = 0;
+
 /* Use safe_snprintf for any new string generation to detect truncation. */
 static int safe_snprintf (char *buf, size_t size, const char *fmt, ...) {
   va_list ap;
@@ -298,6 +302,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_peek")) return basic_peek;
   if (!strcmp (name, "basic_poke")) return basic_poke;
   if (!strcmp (name, "basic_stop")) return basic_stop;
+  if (!strcmp (name, "basic_chain")) return basic_chain;
 
   if (!strcmp (name, "basic_set_error_handler")) return basic_set_error_handler;
   if (!strcmp (name, "basic_get_error_handler")) return basic_get_error_handler;
@@ -368,7 +373,7 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   profile_func_enter_proto, profile_func_enter_import, profile_func_exit_proto,
   profile_func_exit_import, beep_proto, beep_import, sound_proto, sound_import, system_proto,
   system_import, system_out_proto, system_out_import, pool_reset_proto, pool_reset_import,
-  free_proto, free_import;
+  free_proto, free_import, chain_proto, chain_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL } NodeKind;
@@ -505,6 +510,7 @@ typedef enum {
   ST_ON_GOSUB,
   ST_ON_ERROR,
   ST_RESUME,
+  ST_CHAIN,
   ST_EXTERN,
   ST_CALL,
 } StmtKind;
@@ -574,6 +580,7 @@ static const char *stmt_kind_name (StmtKind kind) {
     [ST_ON_GOSUB] = "ST_ON_GOSUB",
     [ST_ON_ERROR] = "ST_ON_ERROR",
     [ST_RESUME] = "ST_RESUME",
+    [ST_CHAIN] = "ST_CHAIN",
     [ST_EXTERN] = "ST_EXTERN",
     [ST_CALL] = "ST_CALL",
   };
@@ -725,6 +732,9 @@ struct Stmt {
       int line;
       int has_line;
     } resume;
+    struct {
+      Node *path;
+    } chain;
     struct {
       char *name;
       Node *arg1, *arg2, *arg3, *arg4, *arg5;
@@ -943,6 +953,7 @@ typedef enum {
   TOK_BMIR,
   TOK_CODE,
   TOK_PROFILE,
+  TOK_CHAIN,
   /* Punctuation */
   TOK_COMMA,
   TOK_COLON,
@@ -1117,6 +1128,7 @@ static Token read_token (Parser *p) {
                     {"CODE", TOK_CODE},
                     {"PROFILE", TOK_PROFILE},
                     {"PROFILING", TOK_PROFILE},
+                    {"CHAIN", TOK_CHAIN},
                     {NULL, TOK_EOF}};
     for (int j = 0; keywords[j].kw != NULL; j++)
       if (strcmp (buf, keywords[j].kw) == 0) {
@@ -1650,6 +1662,11 @@ static int parse_stmt (Parser *p, Stmt *out) {
   case TOK_KEYOFF: out->kind = ST_KEYOFF; return 1;
   case TOK_HOME: out->kind = ST_HOME; return 1;
   case TOK_BEEP: out->kind = ST_BEEP; return 1;
+  case TOK_CHAIN:
+    out->kind = ST_CHAIN;
+    contains_chain = 1;
+    PARSE_EXPR_OR_ERROR (out->u.chain.path);
+    return 1;
   case TOK_TEXT: out->kind = ST_TEXT; return 1;
   case TOK_INVERSE: out->kind = ST_INVERSE; return 1;
   case TOK_NORMAL: out->kind = ST_NORMAL; return 1;
@@ -2756,6 +2773,8 @@ static MIR_reg_t g_ret_stack, g_ret_sp, g_ret_addr;
 static LoopInfo *g_loop_stack;
 static size_t g_loop_len, g_loop_cap;
 static int g_line_tracking = 1;
+static int interp_mode = 0;
+static char *current_dir = NULL;
 static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Node *n) {
   if (n == NULL) {
     report_parse_error_details (g_cur_line ? g_cur_line->line : 0,
@@ -4468,6 +4487,18 @@ static void gen_stmt (Stmt *s) {
                                         MIR_new_reg_op (g_ctx, out)));
     break;
   }
+  case ST_CHAIN: {
+    if (!interp_mode) {
+      safe_fprintf (stderr, "CHAIN only supported in interpreter mode\n");
+      exit (1);
+    }
+    MIR_reg_t path = gen_expr (g_ctx, g_func, &g_vars, s->u.chain.path);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, chain_proto),
+                                        MIR_new_ref_op (g_ctx, chain_import),
+                                        MIR_new_reg_op (g_ctx, path)));
+    break;
+  }
   case ST_RANDOMIZE: {
     MIR_op_t seed_op, has_seed_op;
     if (s->u.expr != NULL) {
@@ -4667,6 +4698,25 @@ static void gen_stmt (Stmt *s) {
 static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p, int code_p,
                          int reduce_libs, int profile_p, int track_lines, const char *out_name,
                          const char *src_name) {
+  interp_mode = !jit && !asm_p && !obj_p && !bin_p && !code_p;
+  if (!interp_mode && contains_chain) {
+    safe_fprintf (stderr, "CHAIN only supported in interpreter mode\n");
+    exit (1);
+  }
+  if (src_name != NULL) {
+    const char *slash = strrchr (src_name, '/');
+    free (current_dir);
+    if (slash != NULL) {
+      size_t len = (size_t) (slash - src_name + 1);
+      current_dir = malloc (len + 1);
+      if (current_dir != NULL) {
+        memcpy (current_dir, src_name, len);
+        current_dir[len] = '\0';
+      }
+    } else {
+      current_dir = strdup ("");
+    }
+  }
   MIR_context_t ctx = MIR_init ();
   MIR_module_t module = MIR_new_module (ctx, "BASIC");
   print_proto = MIR_new_proto (ctx, "basic_print_p", 0, NULL, 1, MIR_T_D, "x");
@@ -4762,6 +4812,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   system_import = MIR_new_import (ctx, "basic_system");
   system_out_proto = MIR_new_proto (ctx, "basic_system_out_p", 1, &p, 0);
   system_out_import = MIR_new_import (ctx, "basic_system_out");
+  chain_proto = MIR_new_proto (ctx, "basic_chain_p", 0, NULL, 1, MIR_T_P, "path");
+  chain_import = MIR_new_import (ctx, "basic_chain");
   pool_reset_proto = MIR_new_proto (ctx, "basic_pool_reset_p", 0, NULL, 0);
   pool_reset_import = MIR_new_import (ctx, "basic_pool_reset");
   randomize_proto
@@ -5198,6 +5250,24 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   }
   MIR_finish (ctx);
   data_vals_clear ();
+}
+
+static void basic_chain (const char *path) {
+  func_vec_clear (&func_defs);
+  data_vals_clear ();
+  if (g_prog != NULL) line_vec_destroy (g_prog);
+  arena_release (&ast_arena);
+  basic_pool_reset ();
+  char buf[1024];
+  const char *full = path;
+  if (current_dir != NULL && path[0] != '/' && strchr (path, '/') == NULL) {
+    safe_snprintf (buf, sizeof (buf), "%s%s", current_dir, path);
+    full = buf;
+  }
+  LineVec prog = {0};
+  if (!load_program (&prog, full)) exit (1);
+  gen_program (&prog, 0, 0, 0, 0, 0, 0, 0, line_tracking, NULL, path);
+  exit (0);
 }
 
 typedef enum {
