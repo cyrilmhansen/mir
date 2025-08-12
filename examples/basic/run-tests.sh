@@ -28,19 +28,31 @@ run_tests() {
                 local src="$ROOT/examples/basic/$name.bas"
                 local exp="$ROOT/examples/basic/$name.out"
                 local out="$ROOT/basic/$name.out"
+                local err="$ROOT/basic/$name.err"
                 if [ -f "$in_file" ]; then
-                        "$BASICC" "$src" < "$in_file" > "$out"
+                        "$BASICC" "$src" < "$in_file" > "$out" 2> "$err"
                 elif [ "$name" = "mandelbrot" ]; then
-                        timeout 0.6 "$BASICC" "$src" | head -n 200 > "$out" || true
+                        timeout 0.6 "$BASICC" "$src" 2> "$err" | head -n 200 > "$out" || true
                 else
-                        "$BASICC" "$src" > "$out"
+                        "$BASICC" "$src" > "$out" 2> "$err"
                 fi
+                if [ -s "$err" ]; then
+                        echo "Unexpected stderr for $name"
+                        cat "$err"
+                        exit 1
+                fi
+                rm -f "$err"
                 # Strip terminal alternate screen sequences to keep diffs stable
                 perl -0 -i -pe 's/\x1b\[\?1049[hl]//g' "$out"
                 if [ "$name" = "circle" ] || [ "$name" = "box" ]; then
                         grep -ao "$(echo "$name" | tr a-z A-Z)" "$out" > "$out.filtered" || true
                         mv "$out.filtered" "$out"
                 fi
+                if grep -q "Unsupported statement" "$err"; then
+                        echo "Unsupported statement in $name" >&2
+                        exit 1
+                fi
+                rm -f "$err"
                 if [ "$name" = "datediff" ]; then
                         local y m d doy total
                         y=$(sed -n '1p' "$in_file")
@@ -68,7 +80,13 @@ PY
         }
 
         echo "Running hcolor_test"
-        "$ROOT/basic/hcolor_test" > "$ROOT/basic/hcolor_test.out"
+        "$ROOT/basic/hcolor_test" > "$ROOT/basic/hcolor_test.out" 2> "$ROOT/basic/hcolor_test.err"
+        if [ -s "$ROOT/basic/hcolor_test.err" ]; then
+                echo "Unexpected stderr for hcolor_test"
+                cat "$ROOT/basic/hcolor_test.err"
+                exit 1
+        fi
+        rm -f "$ROOT/basic/hcolor_test.err"
         diff "$ROOT/examples/basic/hcolor_test.out" "$ROOT/basic/hcolor_test.out"
         echo "hcolor_test OK"
 
@@ -82,11 +100,18 @@ PY
         fi
         echo "Running extern"
         LD_PRELOAD="$ROOT/basic/libextlib.so" "$BASICC" "$ROOT/examples/basic/extern.bas" \
-                > "$ROOT/basic/extern.out"
+                > "$ROOT/basic/extern.out" 2> "$ROOT/basic/extern.err"
+        if [ -s "$ROOT/basic/extern.err" ]; then
+                echo "Unexpected stderr for extern"
+                cat "$ROOT/basic/extern.err"
+                exit 1
+        fi
+        rm -f "$ROOT/basic/extern.err"
         diff "$ROOT/examples/basic/extern.out" "$ROOT/basic/extern.out"
         echo "extern OK"
 
-for t in hello relop adder string strfuncs instr gosub on funcproc graphics screen hplot_bounds readhplot restore data_read data_multi clear hgr2reset circle box sudoku array_oob_read array_oob_write dim_expr pi baseconv mir_demo datediff date random rnd_noarg hexoct; do
+
+for t in hello relop adder string strfuncs instr gosub on funcproc graphics normal screen hplot_bounds readhplot restore data_read data_multi clear hgr2reset circle box sudoku array_oob_read array_oob_write dim_expr pi baseconv mir_demo datediff date random rnd_noarg hexoct def_fn; do
                 echo "Running $t"
                 run_test "$t"
                 echo "$t OK"
