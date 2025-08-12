@@ -3836,7 +3836,6 @@ static void gen_stmt (Stmt *s) {
   switch (s->kind) {
   case ST_DEF:
     /* no code generation needed */
-    safe_fprintf (stderr, "DEF not implemented\n");
     break;
   case ST_EXTERN:
     /* no code generation needed */
@@ -5203,6 +5202,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     MIR_load_module (ctx, module);
     MIR_gen_init (ctx);
     MIR_link (ctx, MIR_set_gen_interface, resolve);
+    for (size_t i = 0; i < func_defs.len; i++) {
+      FuncDef *fd = &func_defs.data[i];
+      if (fd->is_extern) continue;
+      if (fd->body != NULL || fd->body_stmts.len != 0) MIR_gen (ctx, fd->item);
+    }
     MIR_gen (ctx, func);
     uint8_t *start = func->addr;
     uint8_t *end = _MIR_get_new_code_addr (ctx, 0);
@@ -5223,6 +5227,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   if (jit) {
     MIR_gen_init (ctx);
     MIR_link (ctx, MIR_set_gen_interface, resolve);
+    for (size_t i = 0; i < func_defs.len; i++) {
+      FuncDef *fd = &func_defs.data[i];
+      if (fd->is_extern) continue;
+      if (fd->body != NULL || fd->body_stmts.len != 0) MIR_gen (ctx, fd->item);
+    }
     typedef int (*main_t) (void);
     main_t m = MIR_gen (ctx, func);
     m ();
