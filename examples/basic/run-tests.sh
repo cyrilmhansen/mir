@@ -33,34 +33,26 @@ run_tests() {
                         "$BASICC" "$src" > "$out" 2> "$err"
                 else
                         if [ -f "$in_file" ]; then
-                                "$BASICC" "$src" < "$in_file" > "$out"
+                                "$BASICC" "$src" < "$in_file" > "$out" 2> "$err"
                         elif [ "$name" = "mandelbrot" ]; then
-                                timeout 0.6 "$BASICC" "$src" | head -n 200 > "$out" || true
+                                timeout 0.6 "$BASICC" "$src" 2> "$err" | head -n 200 > "$out" || true
                         else
-                                "$BASICC" "$src" > "$out"
+                                "$BASICC" "$src" > "$out" 2> "$err"
+                        fi
                 fi
-                if [ -s "$err" ]; then
-                        echo "Unexpected stderr for $name"
-                        cat "$err"
-                        exit 1
-                fi
-                rm -f "$err"
                 # Strip terminal alternate screen sequences to keep diffs stable
                 perl -0 -i -pe 's/\x1b\[\?1049[hl]//g' "$out"
                 if [ "$name" = "circle" ] || [ "$name" = "box" ]; then
                         grep -ao "$(echo "$name" | tr a-z A-Z)" "$out" > "$out.filtered" || true
                         mv "$out.filtered" "$out"
                 fi
-                if [ "$name" = "vtab" ]; then
-                        if [ -s "$err" ]; then
-                                echo "$name produced stderr"
-                                cat "$err"
-                                exit 1
-                        fi
-                        rm -f "$err"
-                fi
                 if grep -q "Unsupported statement" "$err"; then
                         echo "Unsupported statement in $name" >&2
+                        exit 1
+                fi
+                if [ -s "$err" ]; then
+                        echo "Unexpected stderr for $name"
+                        cat "$err"
                         exit 1
                 fi
                 rm -f "$err"
