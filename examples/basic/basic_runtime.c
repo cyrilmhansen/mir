@@ -423,6 +423,10 @@ char *basic_read_str (void) {
 void basic_restore (void) { basic_data_pos = 0; }
 
 void *basic_dim_alloc (void *base, basic_num_t len, basic_num_t is_str) {
+  /* Arrays are allocated from a simple pool allocator that does not support
+     resizing in place.  When re-dimensioning, callers should first release
+     any existing storage via basic_clear_array; the old base pointer is
+     ignored here and a new block is always allocated. */
   (void) base;
   size_t n = (size_t) len;
   size_t elem_size = is_str != 0.0 ? sizeof (char *) : sizeof (basic_num_t);
