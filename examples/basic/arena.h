@@ -17,6 +17,7 @@ typedef struct {
 void arena_init (arena_t *a);
 void *arena_alloc (arena_t *a, size_t size);
 char *arena_strdup (arena_t *a, const char *s);
+void arena_reset (arena_t *a);
 void arena_release (arena_t *a);
 
 #endif /* ARENA_H */

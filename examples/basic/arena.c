@@ -42,6 +42,10 @@ char *arena_strdup (arena_t *a, const char *s) {
   return res;
 }
 
+void arena_reset (arena_t *a) {
+  for (arena_chunk_t *c = a->head; c != NULL; c = c->next) c->used = 0;
+}
+
 void arena_release (arena_t *a) {
   arena_chunk_t *c = a->head;
   while (c != NULL) {
