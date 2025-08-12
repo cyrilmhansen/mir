@@ -4006,6 +4006,14 @@ static void gen_stmt (Stmt *s) {
                                         MIR_new_reg_op (g_ctx, fn)));
     break;
   }
+  case ST_HTAB: {
+    MIR_reg_t n = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, htab_proto),
+                                        MIR_new_ref_op (g_ctx, htab_import),
+                                        MIR_new_reg_op (g_ctx, n)));
+    break;
+  }
   case ST_SCREEN: {
     MIR_reg_t m = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
     MIR_append_insn (g_ctx, g_func,
