@@ -28,12 +28,13 @@ run_tests() {
                 local src="$ROOT/examples/basic/$name.bas"
                 local exp="$ROOT/examples/basic/$name.out"
                 local out="$ROOT/basic/$name.out"
+                local err="$ROOT/basic/$name.err"
                 if [ -f "$in_file" ]; then
-                        "$BASICC" "$src" < "$in_file" > "$out"
+                        "$BASICC" "$src" < "$in_file" > "$out" 2> "$err"
                 elif [ "$name" = "mandelbrot" ]; then
-                        timeout 0.6 "$BASICC" "$src" | head -n 200 > "$out" || true
+                        timeout 0.6 "$BASICC" "$src" 2> "$err" | head -n 200 > "$out" || true
                 else
-                        "$BASICC" "$src" > "$out"
+                        "$BASICC" "$src" > "$out" 2> "$err"
                 fi
                 # Strip terminal alternate screen sequences to keep diffs stable
                 perl -0 -i -pe 's/\x1b\[\?1049[hl]//g' "$out"
@@ -41,6 +42,11 @@ run_tests() {
                         grep -ao "$(echo "$name" | tr a-z A-Z)" "$out" > "$out.filtered" || true
                         mv "$out.filtered" "$out"
                 fi
+                if grep -q "Unsupported statement" "$err"; then
+                        echo "Unsupported statement in $name" >&2
+                        exit 1
+                fi
+                rm -f "$err"
                 if [ "$name" = "datediff" ]; then
                         local y m d doy total
                         y=$(sed -n '1p' "$in_file")
