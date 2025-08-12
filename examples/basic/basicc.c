@@ -4020,16 +4020,22 @@ static void gen_stmt (Stmt *s) {
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, text_proto),
                                         MIR_new_ref_op (g_ctx, text_import)));
+    break;
+  }
   case ST_HCOLOR: {
     MIR_reg_t c = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, hcolor_proto),
                                         MIR_new_ref_op (g_ctx, hcolor_import),
                                         MIR_new_reg_op (g_ctx, c)));
+    break;
+  }
   case ST_HOME: {
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, home_proto),
                                         MIR_new_ref_op (g_ctx, home_import)));
+    break;
+  }
   case ST_HTAB: {
     MIR_reg_t n = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
     MIR_append_insn (g_ctx, g_func,
@@ -4046,22 +4052,47 @@ static void gen_stmt (Stmt *s) {
                                         MIR_new_reg_op (g_ctx, m)));
     break;
   }
-  case ST_VTAB: {
-    MIR_reg_t n = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+  case ST_CLS: {
     MIR_append_insn (g_ctx, g_func,
-                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, vtab_proto),
-                                        MIR_new_ref_op (g_ctx, vtab_import),
-                                        MIR_new_reg_op (g_ctx, n)));
-  case ST_HGR2: {
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, hgr2_proto),
-                                        MIR_new_ref_op (g_ctx, hgr2_import)));
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, cls_proto),
+                                        MIR_new_ref_op (g_ctx, cls_import)));
+    break;
+  }
   case ST_COLOR: {
     MIR_reg_t c = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, color_proto),
                                         MIR_new_ref_op (g_ctx, color_import),
                                         MIR_new_reg_op (g_ctx, c)));
+    break;
+  }
+  case ST_KEYOFF: {
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, keyoff_proto),
+                                        MIR_new_ref_op (g_ctx, keyoff_import)));
+    break;
+  }
+  case ST_LOCATE: {
+    MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.locate.row);
+    MIR_reg_t c = gen_expr (g_ctx, g_func, &g_vars, s->u.locate.col);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, locate_proto),
+                                        MIR_new_ref_op (g_ctx, locate_import),
+                                        MIR_new_reg_op (g_ctx, r), MIR_new_reg_op (g_ctx, c)));
+    break;
+  }
+  case ST_VTAB: {
+    MIR_reg_t n = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, vtab_proto),
+                                        MIR_new_ref_op (g_ctx, vtab_import),
+                                        MIR_new_reg_op (g_ctx, n)));
+    break;
+  }
+  case ST_HGR2: {
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, hgr2_proto),
+                                        MIR_new_ref_op (g_ctx, hgr2_import)));
     break;
   }
   case ST_FOR: {
@@ -4363,12 +4394,6 @@ static void gen_stmt (Stmt *s) {
       MIR_append_insn (g_ctx, g_func, next);
     }
     MIR_append_insn (g_ctx, g_func, after);
-    break;
-  }
-  case ST_INVERSE: {
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, inverse_proto),
-                                        MIR_new_ref_op (g_ctx, inverse_import)));
     break;
   }
   case ST_HPLOT: {
