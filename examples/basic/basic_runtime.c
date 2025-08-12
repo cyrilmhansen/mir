@@ -55,6 +55,10 @@ static uint32_t current_hcolor = 0xFFFFFF;
 static int palette_initialized = 0;
 int basic_line_tracking_enabled = 1;
 static char *system_output = NULL;
+#define BASIC_POOL_SIZE (1024 * 1024)
+static void __attribute__ ((constructor)) init_basic_pool (void) {
+  basic_pool_init (BASIC_POOL_SIZE);
+}
 #ifndef _WIN32
 static struct termios saved_termios;
 static int termios_saved = 0;
@@ -415,10 +419,11 @@ char *basic_read_str (void) {
 
 void basic_restore (void) { basic_data_pos = 0; }
 
-void *basic_dim_alloc (void *base, size_t n, int is_str) {
+void *basic_dim_alloc (void *base, basic_num_t len, basic_num_t is_str) {
   (void) base;
-  size_t elem_size = is_str ? sizeof (char *) : sizeof (basic_num_t);
-  return calloc (n, elem_size);
+  size_t n = (size_t) len;
+  size_t elem_size = is_str != 0.0 ? sizeof (char *) : sizeof (basic_num_t);
+  return basic_alloc_array (n, elem_size, 1);
 }
 
 void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str) {
@@ -428,12 +433,7 @@ void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str) {
   size_t elem_size = str_p ? sizeof (char *) : sizeof (basic_num_t);
   if (basic_clear_array_pool (base, n, elem_size)) return;
   if (str_p) {
-    char **arr = (char **) base;
-    for (size_t i = 0; i < n; i++) {
-      free (arr[i]);
-      arr[i] = NULL;
-    }
-    memset (arr, 0, n * sizeof (char *));
+    memset (base, 0, n * sizeof (char *));
   } else {
     memset (base, 0, n * sizeof (basic_num_t));
   }

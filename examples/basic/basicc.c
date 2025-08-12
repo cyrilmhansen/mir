@@ -81,7 +81,7 @@ extern basic_num_t basic_read (void);
 extern char *basic_read_str (void);
 extern void basic_restore (void);
 extern void basic_clear_array (void *, basic_num_t, basic_num_t);
-extern void *basic_dim_alloc (void *, size_t, int);
+extern void *basic_dim_alloc (void *, basic_num_t, basic_num_t);
 extern char *basic_strdup (const char *);
 extern void basic_free (char *);
 
@@ -357,12 +357,12 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   hplot_import, hplotto_proto, hplotto_import, hplottocur_proto, hplottocur_import, move_proto,
   move_import, draw_proto, draw_import, line_proto, line_import, circle_proto, circle_import,
   rect_proto, rect_import, mode_proto, mode_import, fill_proto, fill_import, calloc_proto,
-  calloc_import, dim_alloc_proto, dim_alloc_import, memset_proto, memset_import,  clear_array_proto, clear_array_import,
-  strcmp_proto, strcmp_import, open_proto, open_import, close_proto, close_import, printh_proto,
-  printh_import, prinths_proto, prinths_import, input_hash_proto, input_hash_import,
-  input_hash_str_proto, input_hash_str_import, get_hash_proto, get_hash_import, put_hash_proto,
-  put_hash_import, randomize_proto, randomize_import, stop_proto, stop_import, on_error_proto,
-  on_error_import, set_line_proto, set_line_import, get_line_proto, get_line_import,
+  calloc_import, dim_alloc_proto, dim_alloc_import, memset_proto, memset_import, clear_array_proto,
+  clear_array_import, strcmp_proto, strcmp_import, open_proto, open_import, close_proto,
+  close_import, printh_proto, printh_import, prinths_proto, prinths_import, input_hash_proto,
+  input_hash_import, input_hash_str_proto, input_hash_str_import, get_hash_proto, get_hash_import,
+  put_hash_proto, put_hash_import, randomize_proto, randomize_import, stop_proto, stop_import,
+  on_error_proto, on_error_import, set_line_proto, set_line_import, get_line_proto, get_line_import,
   line_track_proto, line_track_import, profile_line_proto, profile_line_import,
   profile_func_enter_proto, profile_func_enter_import, profile_func_exit_proto,
   profile_func_exit_import, beep_proto, beep_import, sound_proto, sound_import, system_proto,
@@ -3658,7 +3658,7 @@ static void gen_print_hash (Stmt *s) {
 }
 
 static void input_str_var (MIR_reg_t v) {
-  call1 (free_proto, free_import, MIR_new_reg_op (g_ctx, v));
+  /* Strings are arena-allocated; no need to free previous value. */
   call1 (input_str_proto, input_str_import, MIR_new_reg_op (g_ctx, v));
 }
 
@@ -3672,7 +3672,6 @@ static void gen_input (Stmt *s) {
 }
 
 static void input_hash_str (MIR_reg_t v, MIR_reg_t fn) {
-  call1 (free_proto, free_import, MIR_new_reg_op (g_ctx, v));
   call2 (input_hash_str_proto, input_hash_str_import, MIR_new_reg_op (g_ctx, v),
          MIR_new_reg_op (g_ctx, fn));
 }
@@ -3690,14 +3689,12 @@ static void gen_input_hash (Stmt *s) {
 
 static void gen_get (Stmt *s) {
   MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.get.var);
-  call1 (free_proto, free_import, MIR_new_reg_op (g_ctx, v));
   call1 (get_proto, get_import, MIR_new_reg_op (g_ctx, v));
 }
 
 static void gen_get_hash (Stmt *s) {
   MIR_reg_t fn = gen_expr (g_ctx, g_func, &g_vars, s->u.gethash.num);
   MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.gethash.var);
-  call1 (free_proto, free_import, MIR_new_reg_op (g_ctx, v));
   call2 (get_hash_proto, get_hash_import, MIR_new_reg_op (g_ctx, v), MIR_new_reg_op (g_ctx, fn));
 }
 
@@ -3809,15 +3806,7 @@ static void gen_stmt (Stmt *s) {
                                        MIR_new_reg_op (g_ctx, base), MIR_new_reg_op (g_ctx, off)));
         MIR_insn_code_t store_code = v->is_str ? MIR_MOV : MIR_DMOV;
         if (v->is_str) {
-          safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-          MIR_reg_t old = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-          MIR_append_insn (g_ctx, g_func,
-                           MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, old),
-                                         MIR_new_mem_op (g_ctx, MIR_T_P, 0, addr, 0, 1)));
-          MIR_append_insn (g_ctx, g_func,
-                           MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
-                                              MIR_new_ref_op (g_ctx, free_import),
-                                              MIR_new_reg_op (g_ctx, old)));
+          /* Strings are arena-allocated; no need to free previous value. */
         }
         MIR_append_insn (g_ctx, g_func,
                          MIR_new_insn (g_ctx, store_code,
@@ -3826,11 +3815,9 @@ static void gen_stmt (Stmt *s) {
                                        MIR_new_reg_op (g_ctx, res)));
       } else {
         MIR_reg_t dst = get_var (&g_vars, g_ctx, g_func, v->var);
-        if (v->is_str)
-          MIR_append_insn (g_ctx, g_func,
-                           MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
-                                              MIR_new_ref_op (g_ctx, free_import),
-                                              MIR_new_reg_op (g_ctx, dst)));
+        if (v->is_str) {
+          /* Strings are arena-allocated; no need to free previous value. */
+        }
         MIR_append_insn (g_ctx, g_func,
                          MIR_new_insn (g_ctx, v->is_str ? MIR_MOV : MIR_DMOV,
                                        MIR_new_reg_op (g_ctx, dst), MIR_new_reg_op (g_ctx, res)));
@@ -3858,10 +3845,6 @@ static void gen_stmt (Stmt *s) {
                          MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, v->reg),
                                        MIR_new_int_op (g_ctx, 0)));
       } else if (v->is_str) {
-        MIR_append_insn (g_ctx, g_func,
-                         MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
-                                            MIR_new_ref_op (g_ctx, free_import),
-                                            MIR_new_reg_op (g_ctx, v->reg)));
         MIR_append_insn (g_ctx, g_func,
                          MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, v->reg),
                                        MIR_new_int_op (g_ctx, 0)));
@@ -4128,15 +4111,7 @@ static void gen_stmt (Stmt *s) {
                                      MIR_new_reg_op (g_ctx, base), MIR_new_reg_op (g_ctx, off)));
       MIR_insn_code_t mov = s->u.let.is_str ? MIR_MOV : MIR_DMOV;
       if (s->u.let.is_str) {
-        safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-        MIR_reg_t old = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-        MIR_append_insn (g_ctx, g_func,
-                         MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, old),
-                                       MIR_new_mem_op (g_ctx, MIR_T_P, 0, addr, 0, 1)));
-        MIR_append_insn (g_ctx, g_func,
-                         MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
-                                            MIR_new_ref_op (g_ctx, free_import),
-                                            MIR_new_reg_op (g_ctx, old)));
+        /* Strings are arena-allocated; no need to free previous value. */
       }
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_insn (g_ctx, mov,
@@ -4152,11 +4127,9 @@ static void gen_stmt (Stmt *s) {
     } else {
       MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.let.var->var);
       MIR_insn_code_t mov = s->u.let.is_str ? MIR_MOV : MIR_DMOV;
-      if (s->u.let.is_str)
-        MIR_append_insn (g_ctx, g_func,
-                         MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
-                                            MIR_new_ref_op (g_ctx, free_import),
-                                            MIR_new_reg_op (g_ctx, v)));
+      if (s->u.let.is_str) {
+        /* Strings are arena-allocated; no need to free previous value. */
+      }
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_insn (g_ctx, mov, MIR_new_reg_op (g_ctx, v),
                                      MIR_new_reg_op (g_ctx, r)));
@@ -4484,10 +4457,7 @@ static void gen_stmt (Stmt *s) {
                                         MIR_new_ref_op (g_ctx, system_import),
                                         MIR_new_reg_op (g_ctx, status),
                                         MIR_new_reg_op (g_ctx, cmd)));
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, free_proto),
-                                        MIR_new_ref_op (g_ctx, free_import),
-                                        MIR_new_reg_op (g_ctx, out)));
+    /* Strings are arena-allocated; no need to free previous value. */
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, system_out_proto),
                                         MIR_new_ref_op (g_ctx, system_out_import),
@@ -4667,13 +4637,19 @@ static void gen_stmt (Stmt *s) {
                                        MIR_new_reg_op (g_ctx, total),
                                        MIR_new_reg_op (g_ctx, size2)));
       }
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t totald = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_D, buf);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_I2D, MIR_new_reg_op (g_ctx, totald),
+                                     MIR_new_reg_op (g_ctx, total)));
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_call_insn (g_ctx, 6, MIR_new_ref_op (g_ctx, dim_alloc_proto),
                                           MIR_new_ref_op (g_ctx, dim_alloc_import),
                                           MIR_new_reg_op (g_ctx, base),
                                           MIR_new_reg_op (g_ctx, base),
-                                          MIR_new_reg_op (g_ctx, total),
-                                          MIR_new_int_op (g_ctx, s->u.dim.is_str[k])));
+                                          MIR_new_reg_op (g_ctx, totald),
+                                          MIR_new_double_op (g_ctx,
+                                                             (basic_num_t) s->u.dim.is_str[k])));
     }
     break;
   }
@@ -4906,8 +4882,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
 
   calloc_proto = MIR_new_proto (ctx, "calloc_p", 1, &p, 2, MIR_T_I64, "n", MIR_T_I64, "sz");
   calloc_import = MIR_new_import (ctx, "calloc");
-  dim_alloc_proto = MIR_new_proto (ctx, "basic_dim_alloc_p", 1, &p, 3, MIR_T_P, "base", MIR_T_I64,
-                                   "n", MIR_T_I64, "is_str");
+  dim_alloc_proto = MIR_new_proto (ctx, "basic_dim_alloc_p", 1, &p, 3, MIR_T_P, "base", MIR_T_D,
+                                   "len", MIR_T_D, "is_str");
   dim_alloc_import = MIR_new_import (ctx, "basic_dim_alloc");
   memset_proto
     = MIR_new_proto (ctx, "memset_p", 1, &p, 3, MIR_T_P, "s", MIR_T_I64, "c", MIR_T_I64, "n");
@@ -5090,19 +5066,17 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       g_vars.data[i].size = 11;
       size_t elem_size = g_vars.data[i].is_str ? sizeof (char *) : sizeof (basic_num_t);
       MIR_insn_t call
-        = MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, basic_calloc_proto),
-                             MIR_new_ref_op (ctx, basic_calloc_import),
+        = MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, calloc_proto),
+                             MIR_new_ref_op (ctx, calloc_import),
                              MIR_new_reg_op (ctx, g_vars.data[i].reg), MIR_new_int_op (ctx, 11),
                              MIR_new_int_op (ctx, elem_size));
       MIR_insert_insn_after (ctx, func, g_var_init_anchor, call);
       g_var_init_anchor = call;
     }
   for (size_t i = 0; i < g_vars.len; i++)
-    if (g_vars.data[i].is_str && !g_vars.data[i].is_array)
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, free_proto),
-                                          MIR_new_ref_op (ctx, free_import),
-                                          MIR_new_reg_op (ctx, g_vars.data[i].reg)));
+    if (g_vars.data[i].is_str && !g_vars.data[i].is_array) {
+      /* Strings are arena-allocated; no need to free previous value. */
+    }
   /* ensure function returns 0 if no END */
   MIR_append_insn (ctx, func, MIR_new_ret_insn (ctx, 1, MIR_new_int_op (ctx, 0)));
   MIR_finish_func (ctx);
