@@ -36,6 +36,12 @@ run_tests() {
                 else
                         "$BASICC" "$src" > "$out" 2> "$err"
                 fi
+                if [ -s "$err" ]; then
+                        echo "Unexpected stderr for $name"
+                        cat "$err"
+                        exit 1
+                fi
+                rm -f "$err"
                 # Strip terminal alternate screen sequences to keep diffs stable
                 perl -0 -i -pe 's/\x1b\[\?1049[hl]//g' "$out"
                 if [ "$name" = "circle" ] || [ "$name" = "box" ]; then
@@ -74,7 +80,13 @@ PY
         }
 
         echo "Running hcolor_test"
-        "$ROOT/basic/hcolor_test" > "$ROOT/basic/hcolor_test.out"
+        "$ROOT/basic/hcolor_test" > "$ROOT/basic/hcolor_test.out" 2> "$ROOT/basic/hcolor_test.err"
+        if [ -s "$ROOT/basic/hcolor_test.err" ]; then
+                echo "Unexpected stderr for hcolor_test"
+                cat "$ROOT/basic/hcolor_test.err"
+                exit 1
+        fi
+        rm -f "$ROOT/basic/hcolor_test.err"
         diff "$ROOT/examples/basic/hcolor_test.out" "$ROOT/basic/hcolor_test.out"
         echo "hcolor_test OK"
 
@@ -88,11 +100,17 @@ PY
         fi
         echo "Running extern"
         LD_PRELOAD="$ROOT/basic/libextlib.so" "$BASICC" "$ROOT/examples/basic/extern.bas" \
-                > "$ROOT/basic/extern.out"
+                > "$ROOT/basic/extern.out" 2> "$ROOT/basic/extern.err"
+        if [ -s "$ROOT/basic/extern.err" ]; then
+                echo "Unexpected stderr for extern"
+                cat "$ROOT/basic/extern.err"
+                exit 1
+        fi
+        rm -f "$ROOT/basic/extern.err"
         diff "$ROOT/examples/basic/extern.out" "$ROOT/basic/extern.out"
         echo "extern OK"
 
-for t in hello relop adder string strfuncs instr gosub on funcproc graphics screen hplot_bounds readhplot restore data_read data_multi clear hgr2reset circle box sudoku array_oob_read array_oob_write dim_expr pi baseconv mir_demo datediff date random rnd_noarg hexoct; do
+for t in hello relop adder string strfuncs instr gosub on funcproc graphics screen hplot_bounds readhplot restore data_read data_multi clear hgr2reset circle box sudoku array_oob_read array_oob_write dim_expr pi baseconv mir_demo datediff date random rnd_noarg hexoct def_fn; do
                 echo "Running $t"
                 run_test "$t"
                 echo "$t OK"
