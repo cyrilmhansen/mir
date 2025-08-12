@@ -7,6 +7,10 @@ speed up compiled programs but removes support for `RESUME` without an explicit
 line number and causes the `basic_get_line` helper to report an error if
 invoked.
 
+String formatting within `basicc` uses a `safe_snprintf` wrapper that aborts
+on truncation. Use this helper for any new text generation to avoid silent
+buffer overflows.
+
 The REPL understands a `RUN PROFILING` command which executes the current
 program with profiling enabled. After the program finishes, it prints line
 statistics followed by function statistics, each sorted in ascending order. The
