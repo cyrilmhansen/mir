@@ -3,13 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct {
+typedef struct PoolBlock {
   char *data;
   size_t size;
   size_t pos;
-} BasicPool;
+  struct PoolBlock *next;
+} PoolBlock;
 
-static BasicPool pool;
+static PoolBlock *pool = NULL;
 
 static size_t align_up (size_t n) {
   size_t align = sizeof (void *);
@@ -17,32 +18,69 @@ static size_t align_up (size_t n) {
 }
 
 void basic_pool_init (size_t size) {
-  pool.data = size ? malloc (size) : NULL;
-  pool.size = pool.data ? size : 0;
-  pool.pos = 0;
+  pool = NULL;
+  if (size != 0) {
+    pool = malloc (sizeof (PoolBlock));
+    if (pool != NULL) {
+      pool->data = malloc (size);
+      if (pool->data == NULL) {
+        free (pool);
+        pool = NULL;
+      } else {
+        pool->size = size;
+        pool->pos = 0;
+        pool->next = NULL;
+      }
+    }
+  }
+}
+
+static PoolBlock *curr_block (void) {
+  PoolBlock *b = pool;
+  if (b == NULL) return NULL;
+  while (b->next != NULL) b = b->next;
+  return b;
 }
 
 void *basic_pool_alloc (size_t size) {
   size = align_up (size);
-  if (pool.pos + size > pool.size) {
-    size_t newsize = pool.size ? pool.size : 1024;
-    while (pool.pos + size > newsize) newsize *= 2;
-    char *newdata = realloc (pool.data, newsize);
-    if (newdata == NULL) return NULL;
-    pool.data = newdata;
-    pool.size = newsize;
+  if (pool == NULL) basic_pool_init (1024);
+  PoolBlock *b = curr_block ();
+  if (b == NULL) return NULL;
+  if (b->pos + size > b->size) {
+    size_t newsize = b->size ? b->size * 2 : 1024;
+    while (newsize < size) newsize *= 2;
+    PoolBlock *nb = malloc (sizeof (PoolBlock));
+    if (nb == NULL) return NULL;
+    nb->data = malloc (newsize);
+    if (nb->data == NULL) {
+      free (nb);
+      return NULL;
+    }
+    nb->size = newsize;
+    nb->pos = 0;
+    nb->next = NULL;
+    b->next = nb;
+    b = nb;
   }
-  void *res = pool.data + pool.pos;
-  pool.pos += size;
+  void *res = b->data + b->pos;
+  b->pos += size;
   return res;
 }
 
-void basic_pool_reset (void) { pool.pos = 0; }
+void basic_pool_reset (void) {
+  for (PoolBlock *b = pool; b != NULL; b = b->next) b->pos = 0;
+}
 
 void basic_pool_destroy (void) {
-  free (pool.data);
-  pool.data = NULL;
-  pool.size = pool.pos = 0;
+  PoolBlock *b = pool;
+  while (b != NULL) {
+    PoolBlock *next = b->next;
+    free (b->data);
+    free (b);
+    b = next;
+  }
+  pool = NULL;
 }
 
 char *basic_alloc_string (size_t len) {
@@ -65,10 +103,14 @@ void *basic_calloc (size_t count, size_t elem_size) {
 int basic_clear_array_pool (void *base, size_t count, size_t elem_size) {
   if (base == NULL) return 1;
   size_t n = align_up (count * elem_size);
-  char *p = (char *) base;
-  if (pool.data != NULL && p + n == pool.data + pool.pos) {
-    pool.pos -= n;
-    return 1;
+  for (PoolBlock *b = pool; b != NULL; b = b->next) {
+    char *start = b->data;
+    char *end = b->data + b->pos;
+    char *p = (char *) base;
+    if (p >= start && p + n == end) {
+      b->pos -= n;
+      return 1;
+    }
   }
   return 0;
 }
