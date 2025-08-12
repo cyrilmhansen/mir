@@ -419,6 +419,8 @@ void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str) {
   size_t n = (size_t) len;
   int str_p = is_str != 0.0;
   if (base == NULL || n == 0) return;
+  size_t elem_size = str_p ? sizeof (char *) : sizeof (basic_num_t);
+  if (basic_clear_array_pool (base, n, elem_size)) return;
   if (str_p) {
     char **arr = (char **) base;
     for (size_t i = 0; i < n; i++) {
