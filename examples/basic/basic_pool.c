@@ -57,3 +57,18 @@ void *basic_alloc_array (size_t count, size_t elem_size, int clear) {
   if (p != NULL && clear) memset (p, 0, n);
   return p;
 }
+
+void *basic_calloc (size_t count, size_t elem_size) {
+  return basic_alloc_array (count, elem_size, 1);
+}
+
+int basic_clear_array_pool (void *base, size_t count, size_t elem_size) {
+  if (base == NULL) return 1;
+  size_t n = align_up (count * elem_size);
+  char *p = (char *) base;
+  if (pool.data != NULL && p + n == pool.data + pool.pos) {
+    pool.pos -= n;
+    return 1;
+  }
+  return 0;
+}
