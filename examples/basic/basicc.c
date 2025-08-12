@@ -4005,6 +4005,10 @@ static void gen_stmt (Stmt *s) {
                                         MIR_new_reg_op (g_ctx, fn)));
     break;
   }
+  case ST_HOME: {
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, home_proto),
+                                        MIR_new_ref_op (g_ctx, home_import)));
   case ST_HTAB: {
     MIR_reg_t n = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
     MIR_append_insn (g_ctx, g_func,

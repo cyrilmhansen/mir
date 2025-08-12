@@ -48,6 +48,11 @@ run_tests() {
                         grep -ao "$(echo "$name" | tr a-z A-Z)" "$out" > "$out.filtered" || true
                         mv "$out.filtered" "$out"
                 fi
+                if grep -q "Unsupported statement" "$err"; then
+                        echo "Unsupported statement in $name" >&2
+                        exit 1
+                fi
+                rm -f "$err"
                 if [ "$name" = "datediff" ]; then
                         local y m d doy total
                         y=$(sed -n '1p' "$in_file")
