@@ -206,11 +206,7 @@ basic_num_t basic_get_line (void) {
 }
 
 /* Release a string allocated by BASIC runtime helpers. */
-void basic_free (char *s) {
-  /* Memory is managed by a pool allocator; individual frees are unnecessary due to pooled
-   * allocation. */
-  (void) s;
-}
+void basic_free (char *s) { basic_pool_free (s); }
 
 /* Duplicate a C string using the BASIC allocator. */
 char *basic_strdup (const char *s) {
@@ -245,7 +241,9 @@ basic_num_t basic_pos (void) { return (basic_num_t) basic_pos_val; }
 char *basic_input_str (void) {
   char buf[256];
   if (fgets (buf, sizeof (buf), stdin) == NULL) {
-    return basic_alloc_string (0);
+    char *res = basic_alloc_string (0);
+    if (res == NULL) return NULL;
+    return res;
   }
   size_t len = strlen (buf);
   if (len > 0 && buf[len - 1] == '\n') {
@@ -350,11 +348,15 @@ basic_num_t basic_input_hash (basic_num_t n) {
 char *basic_input_hash_str (basic_num_t n) {
   int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) {
-    return basic_alloc_string (0);
+    char *res = basic_alloc_string (0);
+    if (res == NULL) return NULL;
+    return res;
   }
   char buf[256];
   if (fgets (buf, sizeof (buf), basic_files[idx]) == NULL) {
-    return basic_alloc_string (0);
+    char *res = basic_alloc_string (0);
+    if (res == NULL) return NULL;
+    return res;
   }
   size_t len = strlen (buf);
   if (len > 0 && buf[len - 1] == '\n') {
@@ -424,20 +426,20 @@ void *basic_dim_alloc (void *base, basic_num_t len, basic_num_t is_str) {
   (void) base;
   size_t n = (size_t) len;
   size_t elem_size = is_str != 0.0 ? sizeof (char *) : sizeof (basic_num_t);
-  return basic_alloc_array (n, elem_size, 1);
+  void *res = basic_alloc_array (n, elem_size, 1);
+  if (res == NULL) return NULL;
+  return res;
 }
 
 void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str) {
   size_t n = (size_t) len;
   int str_p = is_str != 0.0;
   if (base == NULL || n == 0) return;
-  size_t elem_size = str_p ? sizeof (char *) : sizeof (basic_num_t);
-  if (basic_clear_array_pool (base, n, elem_size)) return;
   if (str_p) {
-    memset (base, 0, n * sizeof (char *));
-  } else {
-    memset (base, 0, n * sizeof (basic_num_t));
+    char **sp = (char **) base;
+    for (size_t i = 0; i < n; i++) basic_pool_free (sp[i]);
   }
+  basic_pool_free (base);
 }
 
 void basic_home (void) { printf ("\x1b[2J\x1b[H"); }
@@ -568,7 +570,11 @@ char *basic_mid (const char *s, basic_num_t start_d, basic_num_t len_d) {
   size_t start = (size_t) start_d;
   if (start < 1) start = 1;
   start--;
-  if (start >= len) return basic_alloc_string (0);
+  if (start >= len) {
+    char *res = basic_alloc_string (0);
+    if (res == NULL) return NULL;
+    return res;
+  }
   size_t cnt = len_d < 0 ? len - start : (size_t) len_d;
   if (start + cnt > len) cnt = len - start;
   char *res = basic_alloc_string (cnt);
@@ -916,10 +922,19 @@ static Handle *handle_tab = NULL;
 static size_t handle_len = 0;
 
 void basic_runtime_fini (void) {
+  if (func_profiles != NULL) {
+    for (size_t i = 0; i < func_profiles_len; i++) free ((char *) func_profiles[i].name);
+  }
+  free (line_profiles);
+  free (func_profiles);
+  free (func_stack);
+  line_profiles = NULL;
+  func_profiles = NULL;
+  func_stack = NULL;
+  line_profiles_len = func_profiles_len = func_stack_len = 0;
+  last_profile_line = -1;
   for (size_t i = 0; i < handle_len; ++i) {
-    if (handle_tab[i].kind == H_FUNC) {
-      free (handle_tab[i].ptr);
-    } else if (handle_tab[i].kind == H_CTX) {
+    if (handle_tab[i].kind == H_CTX) {
       MIR_finish (handle_tab[i].ctx);
     }
   }
@@ -971,17 +986,16 @@ basic_num_t basic_mir_func (basic_num_t mod_h, const char *name, basic_num_t nar
   MIR_context_t ctx = h->ctx;
   size_t nargs = (size_t) nargs_d;
   MIR_type_t res = MIR_T_D;
-  MIR_var_t *vars = nargs ? malloc (nargs * sizeof (MIR_var_t)) : NULL;
+  MIR_var_t *vars = nargs ? basic_pool_alloc (nargs * sizeof (MIR_var_t)) : NULL;
   for (size_t i = 0; i < nargs; i++) {
-    size_t len = snprintf (NULL, 0, "a%zu", i) + 1;
-    char *arg_name = malloc (len);
-    snprintf (arg_name, len, "a%zu", i);
+    size_t len = snprintf (NULL, 0, "a%zu", i);
+    char *arg_name = basic_alloc_string (len);
+    snprintf (arg_name, len + 1, "a%zu", i);
     vars[i].type = MIR_T_D;
     vars[i].name = arg_name;
   }
   MIR_item_t func = MIR_new_func_arr (ctx, name, 1, &res, nargs, vars);
-  free (vars); /* arg names are kept by MIR */
-  FuncHandle *fh = malloc (sizeof (FuncHandle));
+  FuncHandle *fh = basic_pool_alloc (sizeof (FuncHandle));
   fh->item = func;
   fh->next_arg = 0;
   fh->nargs = nargs;
@@ -995,9 +1009,9 @@ basic_num_t basic_mir_reg (basic_num_t func_h) {
   MIR_context_t ctx = h->ctx;
   MIR_reg_t r;
   if (fh->next_arg < fh->nargs) {
-    size_t len = snprintf (NULL, 0, "a%zu", fh->next_arg) + 1;
-    char *name = malloc (len);
-    snprintf (name, len, "a%zu", fh->next_arg++);
+    size_t len = snprintf (NULL, 0, "a%zu", fh->next_arg);
+    char *name = basic_alloc_string (len);
+    snprintf (name, len + 1, "a%zu", fh->next_arg++);
     r = MIR_reg (ctx, name, fh->item->u.func);
   } else {
     r = MIR_new_func_reg (ctx, fh->item->u.func, MIR_T_D, NULL);

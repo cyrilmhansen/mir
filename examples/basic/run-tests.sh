@@ -22,6 +22,10 @@ run_tests() {
                 (cd "$ROOT" && make "basic/$(basename "$BASICC")")
         fi
 
+        echo "Running REPL smoke test"
+        printf '10 PRINT 1\nRUN\nQUIT\n' | "$BASICC" > /dev/null
+        echo "REPL smoke test OK"
+
         run_test() {
                 local name="$1"
                 local in_file="$ROOT/examples/basic/$name.in"
@@ -95,10 +99,17 @@ PY
         echo "hcolor_test OK"
 
         echo "Building basic_pool_test"
-        cc -Wall -Wextra -I"$ROOT/examples/basic" \
-                "$ROOT/examples/basic/basic_pool.c" \
-                "$ROOT/examples/basic/basic_pool_test.c" \
-                -o "$ROOT/basic/basic_pool_test"
+        if [[ "$BASICC" == *-ld ]]; then
+                cc -Wall -Wextra -DBASIC_USE_LONG_DOUBLE -I"$ROOT/examples/basic" \
+                        "$ROOT/examples/basic/basic_pool.c" \
+                        "$ROOT/examples/basic/basic_pool_test.c" \
+                        -o "$ROOT/basic/basic_pool_test"
+        else
+                cc -Wall -Wextra -I"$ROOT/examples/basic" \
+                        "$ROOT/examples/basic/basic_pool.c" \
+                        "$ROOT/examples/basic/basic_pool_test.c" \
+                        -o "$ROOT/basic/basic_pool_test"
+        fi
         echo "Running basic_pool_test"
         "$ROOT/basic/basic_pool_test" > "$ROOT/basic/basic_pool_test.out" 2> "$ROOT/basic/basic_pool_test.err"
         if [ -s "$ROOT/basic/basic_pool_test.err" ]; then
@@ -120,6 +131,23 @@ PY
         rm -f "$ROOT/basic/basic_pool_test.err"
         diff "$ROOT/examples/basic/basic_pool_test.out" "$ROOT/basic/basic_pool_test.out"
         echo "basic_pool_test OK"
+
+        echo "Building basic_runtime_lowmem_test"
+        cc -Wall -Wextra -I"$ROOT/examples/basic" -I"$ROOT" -ffunction-sections \
+                "$ROOT/examples/basic/basic_pool.c" \
+                "$ROOT/examples/basic/basic_runtime.c" \
+                "$ROOT/examples/basic/basic_runtime_lowmem_test.c" \
+                -Wl,--gc-sections -lm -o "$ROOT/basic/basic_runtime_lowmem_test"
+        echo "Running basic_runtime_lowmem_test"
+        "$ROOT/basic/basic_runtime_lowmem_test" > "$ROOT/basic/basic_runtime_lowmem_test.out" 2> "$ROOT/basic/basic_runtime_lowmem_test.err"
+        if [ -s "$ROOT/basic/basic_runtime_lowmem_test.err" ]; then
+                echo "Unexpected stderr for basic_runtime_lowmem_test"
+                cat "$ROOT/basic/basic_runtime_lowmem_test.err"
+                exit 1
+        fi
+        rm -f "$ROOT/basic/basic_runtime_lowmem_test.err"
+        diff "$ROOT/examples/basic/basic_runtime_lowmem_test.out" "$ROOT/basic/basic_runtime_lowmem_test.out"
+        echo "basic_runtime_lowmem_test OK"
 
         echo "Building extlib"
         if [[ "$BASICC" == *-ld ]]; then
