@@ -1810,6 +1810,10 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else);
 
 static int parse_stmt (Parser *p, Stmt *out) {
   Token tok = next_token (p);
+  if (tok.type == TOK_IDENTIFIER && strncasecmp (tok.str, "REM", 3) == 0) {
+    out->kind = ST_REM;
+    return 1;
+  }
   switch (tok.type) {
   case TOK_REM: out->kind = ST_REM; return 1;
   case TOK_OPTION:
