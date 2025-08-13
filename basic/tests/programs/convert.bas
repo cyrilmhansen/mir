@@ -1,0 +1,8 @@
+5 REM conversion edge cases
+10 INPUT N
+20 PRINT N
+30 DATA 2,2.5
+40 READ A,B
+50 PRINT A
+60 PRINT B
+70 END
