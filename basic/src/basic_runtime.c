@@ -273,11 +273,6 @@ basic_num_t basic_input (void) {
   return x;
 }
 
-asic_num_t basic_input (void) {
-  if (!BASIC_NUM_SCAN (stdin, &x)) return BASIC_ZERO;
-  return x;
-}
-
 void basic_print (basic_num_t x) {
   char buf[128];
   int len = basic_num_to_chars (x, buf, sizeof (buf));
