@@ -411,6 +411,7 @@ else ifeq ($(UNAME_S),Darwin)
 else
   BASIC_RUNTIME_LIB=libbasic_runtime.so
   BASIC_RUNTIME_LIB_LD=libbasic_runtime_ld.so
+  BASIC_RUNTIME_LIB_D128=libbasic_runtime_d128.so
   BASIC_RUNTIME_FLAGS=-shared
 endif
 
@@ -819,3 +820,16 @@ csmith-c2m-gcc:
 	$(SHELL) csmith-c2m-gcc.sh
 csmith-c2m:
 	$(SHELL) csmith-c2m.sh
+
+$(BUILD_DIR)/basic/basicc-d128$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
+        $(SRC_DIR)/basic/src/basicc.c $(SRC_DIR)/basic/src/basic_runtime.c \
+        $(SRC_DIR)/basic/src/basic_pool.c $(SRC_DIR)/basic/src/arena.c \
+        $(SRC_DIR)/basic/src/vendor/ryu/d2s.c $(SRC_DIR)/basic/src/vendor/ryu/f2s.c \
+        $(SRC_DIR)/basic/src/vendor/kitty/kitty.c $(SRC_DIR)/basic/src/vendor/kitty/lodepng.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -DBASIC_USE_DECIMAL128 -DBASIC_SRC_DIR=\"$(SRC_DIR)\" $^ -ldfp -lm $(EXEO)$@
+
+$(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_D128): \
+        $(SRC_DIR)/basic/src/basic_runtime.c $(SRC_DIR)/basic/src/basic_pool.c \
+        $(SRC_DIR)/basic/src/vendor/ryu/d2s.c $(SRC_DIR)/basic/src/vendor/ryu/f2s.c \
+        $(SRC_DIR)/basic/src/vendor/kitty/kitty.c \
+        $(SRC_DIR)/basic/src/vendor/kitty/lodepng.c \
+        $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic ; $(CC) $(CPPFLAGS) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor $(CFLAGS) $(LDFLAGS) -DBASIC_USE_DECIMAL128 $(BASIC_RUNTIME_FLAGS) $^ -ldfp -lm $(EXEO)$@

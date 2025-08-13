@@ -45,6 +45,36 @@
 #define MIR_DBLE MIR_LDBLE
 #define MIR_DBGT MIR_LDBGT
 #define MIR_DBGE MIR_LDBGE
+#elif defined(BASIC_USE_DECIMAL128)
+#define MIR_T_D MIR_T_LD
+#define MIR_new_double_op MIR_new_ldouble_op
+#define MIR_D2I MIR_LD2I
+#define MIR_I2D MIR_I2LD
+#define MIR_DMOV MIR_LDMOV
+#define MIR_DNEG MIR_LDNEG
+#define MIR_DEQ MIR_LDEQ
+#define MIR_DNE MIR_LDNE
+#define MIR_DLT MIR_LDLT
+#define MIR_DLE MIR_LDLE
+#define MIR_DGT MIR_LDGT
+#define MIR_DGE MIR_LDGE
+#define MIR_DADD MIR_LDADD
+#define MIR_DSUB MIR_LDSUB
+#define MIR_DMUL MIR_LDMUL
+#define MIR_DDIV MIR_LDDIV
+#define MIR_DBEQ MIR_LDBEQ
+#define MIR_DBNE MIR_LDBNE
+#define MIR_DBLT MIR_LDBLT
+#define MIR_DBLE MIR_LDBLE
+#define MIR_DBGT MIR_LDBGT
+#define MIR_DBGE MIR_LDBGE
+#endif
+
+#if defined(BASIC_USE_DECIMAL128)
+basic_num_t decimal128_add (basic_num_t a, basic_num_t b) { return a + b; }
+basic_num_t decimal128_sub (basic_num_t a, basic_num_t b) { return a - b; }
+basic_num_t decimal128_mul (basic_num_t a, basic_num_t b) { return a * b; }
+basic_num_t decimal128_div (basic_num_t a, basic_num_t b) { return a / b; }
 #endif
 
 static int seeded = 0;

@@ -28,6 +28,29 @@
 #define MIR_DBLE MIR_LDBLE
 #define MIR_DBGT MIR_LDBGT
 #define MIR_DBGE MIR_LDBGE
+#elif defined(BASIC_USE_DECIMAL128)
+#define MIR_T_D MIR_T_LD
+#define MIR_new_double_op MIR_new_ldouble_op
+#define MIR_D2I MIR_LD2I
+#define MIR_I2D MIR_I2LD
+#define MIR_DMOV MIR_LDMOV
+#define MIR_DNEG MIR_LDNEG
+#define MIR_DEQ MIR_LDEQ
+#define MIR_DNE MIR_LDNE
+#define MIR_DLT MIR_LDLT
+#define MIR_DLE MIR_LDLE
+#define MIR_DGT MIR_LDGT
+#define MIR_DGE MIR_LDGE
+#define MIR_DADD MIR_LDADD
+#define MIR_DSUB MIR_LDSUB
+#define MIR_DMUL MIR_LDMUL
+#define MIR_DDIV MIR_LDDIV
+#define MIR_DBEQ MIR_LDBEQ
+#define MIR_DBNE MIR_LDBNE
+#define MIR_DBLT MIR_LDBLT
+#define MIR_DBLE MIR_LDBLE
+#define MIR_DBGT MIR_LDBGT
+#define MIR_DBGE MIR_LDBGE
 #endif
 
 #include <ctype.h>
@@ -191,6 +214,12 @@ extern char *basic_date_str (void);
 extern char *basic_input_chr (basic_num_t);
 extern basic_num_t basic_peek (basic_num_t);
 extern void basic_poke (basic_num_t, basic_num_t);
+#if defined(BASIC_USE_DECIMAL128)
+extern basic_num_t decimal128_add (basic_num_t, basic_num_t);
+extern basic_num_t decimal128_sub (basic_num_t, basic_num_t);
+extern basic_num_t decimal128_mul (basic_num_t, basic_num_t);
+extern basic_num_t decimal128_div (basic_num_t, basic_num_t);
+#endif
 
 extern void basic_open (basic_num_t, const char *);
 extern void basic_close (basic_num_t);
