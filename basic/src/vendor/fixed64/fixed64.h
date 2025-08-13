@@ -13,14 +13,9 @@ typedef struct {
   int64_t hi;  /* integer part */
 } fixed64_t;
 
-static inline fixed64_t fixed64_from_int (int64_t i) {
-  fixed64_t r;
-  r.hi = i;
-  r.lo = 0;
-  return r;
-}
-
-static inline int64_t fixed64_to_int (fixed64_t x) { return x.hi; }
+fixed64_t fixed64_from_int (int64_t i);
+int64_t fixed64_to_int (fixed64_t x);
+int fixed64_cmp (fixed64_t a, fixed64_t b);
 
 static inline fixed64_t fixed64_neg (fixed64_t a) {
   fixed64_t r;
