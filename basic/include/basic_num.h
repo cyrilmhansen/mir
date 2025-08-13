@@ -74,9 +74,9 @@ typedef fixed64_t basic_num_t;
 #define BASIC_STRTOF fixed64_from_string
 #define BASIC_FABS fixed64_abs
 #define BASIC_SQRT fixed64_stub_unary
-#define BASIC_SIN fixed64_stub_unary
-#define BASIC_COS fixed64_stub_unary
-#define BASIC_TAN fixed64_stub_unary
+#define BASIC_SIN fixed64_sin
+#define BASIC_COS fixed64_cos
+#define BASIC_TAN fixed64_tan
 #define BASIC_SINH fixed64_stub_unary
 #define BASIC_COSH fixed64_stub_unary
 #define BASIC_TANH fixed64_stub_unary

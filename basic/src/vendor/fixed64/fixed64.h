@@ -53,6 +53,9 @@ double fixed64_to_double (fixed64_t x);
 fixed64_t fixed64_from_string (const char *s, char **endptr);
 int fixed64_to_string (fixed64_t x, char *buf, size_t size);
 fixed64_t fixed64_abs (fixed64_t x);
+fixed64_t fixed64_sin (fixed64_t angle);
+fixed64_t fixed64_cos (fixed64_t angle);
+fixed64_t fixed64_tan (fixed64_t angle);
 fixed64_t fixed64_stub_unary (fixed64_t a);
 fixed64_t fixed64_stub_binary (fixed64_t a, fixed64_t b);
 

@@ -130,6 +130,109 @@ int fixed64_to_string (fixed64_t x, char *buf, size_t size) {
 
 fixed64_t fixed64_abs (fixed64_t x) { return x.hi < 0 ? fixed64_neg (x) : x; }
 
+/* CORDIC implementation for trigonometric functions. */
+
+static inline int fixed64_cmp (fixed64_t a, fixed64_t b) {
+  if (a.hi > b.hi) return 1;
+  if (a.hi < b.hi) return -1;
+  if (a.lo > b.lo) return 1;
+  if (a.lo < b.lo) return -1;
+  return 0;
+}
+
+static inline fixed64_t fixed64_shr (fixed64_t x, unsigned n) {
+  for (; n; n--) {
+    x.lo = (x.lo >> 1) | ((uint64_t) x.hi << 63);
+    x.hi >>= 1;
+  }
+  return x;
+}
+
+static const fixed64_t cordic_atan_table[32] = {
+  {.hi = 0, .lo = 0xc90fdaa22168c000ULL}, {.hi = 0, .lo = 0x76b19c1586ed3c00ULL},
+  {.hi = 0, .lo = 0x3eb6ebf25901ba00ULL}, {.hi = 0, .lo = 0x1fd5ba9aac2f6e00ULL},
+  {.hi = 0, .lo = 0x0ffaaddb967ef500ULL}, {.hi = 0, .lo = 0x07ff556eea5d8940ULL},
+  {.hi = 0, .lo = 0x03ffeaab776e5360ULL}, {.hi = 0, .lo = 0x01fffd555bbba970ULL},
+  {.hi = 0, .lo = 0x00ffffaaaaddddb8ULL}, {.hi = 0, .lo = 0x007ffff55556eef0ULL},
+  {.hi = 0, .lo = 0x003ffffeaaaab778ULL}, {.hi = 0, .lo = 0x001fffffd55555bcULL},
+  {.hi = 0, .lo = 0x000ffffffaaaaaaeULL}, {.hi = 0, .lo = 0x0007ffffff555556ULL},
+  {.hi = 0, .lo = 0x0003ffffffeaaaabULL}, {.hi = 0, .lo = 0x0001fffffffd5555ULL},
+  {.hi = 0, .lo = 0x0000ffffffffaaabULL}, {.hi = 0, .lo = 0x00007ffffffff555ULL},
+  {.hi = 0, .lo = 0x00003ffffffffeabULL}, {.hi = 0, .lo = 0x00001fffffffffd5ULL},
+  {.hi = 0, .lo = 0x00000ffffffffffbULL}, {.hi = 0, .lo = 0x000007ffffffffffULL},
+  {.hi = 0, .lo = 0x0000040000000000ULL}, {.hi = 0, .lo = 0x0000020000000000ULL},
+  {.hi = 0, .lo = 0x0000010000000000ULL}, {.hi = 0, .lo = 0x0000008000000000ULL},
+  {.hi = 0, .lo = 0x0000004000000000ULL}, {.hi = 0, .lo = 0x0000002000000000ULL},
+  {.hi = 0, .lo = 0x0000001000000000ULL}, {.hi = 0, .lo = 0x0000000800000000ULL},
+  {.hi = 0, .lo = 0x0000000400000000ULL}, {.hi = 0, .lo = 0x0000000200000000ULL},
+};
+
+static const fixed64_t cordic_K = {.hi = 0, .lo = 0x9b74eda8435e6800ULL};
+static const fixed64_t cordic_PI = {.hi = 3, .lo = 0x243f6a8885a30000ULL};
+static const fixed64_t cordic_TWO_PI = {.hi = 6, .lo = 0x487ed5110b460000ULL};
+static const fixed64_t cordic_HALF_PI = {.hi = 1, .lo = 0x921fb54442d18000ULL};
+
+static void cordic_sincos (fixed64_t angle, fixed64_t *s, fixed64_t *c) {
+  while (fixed64_cmp (angle, cordic_PI) > 0) angle = fixed64_sub (angle, cordic_TWO_PI);
+  while (fixed64_cmp (angle, fixed64_neg (cordic_PI)) < 0)
+    angle = fixed64_add (angle, cordic_TWO_PI);
+
+  int sin_sign = 1, cos_sign = 1;
+  if (fixed64_cmp (angle, cordic_HALF_PI) > 0) {
+    angle = fixed64_sub (cordic_PI, angle);
+    cos_sign = -1;
+  } else if (fixed64_cmp (angle, fixed64_neg (cordic_HALF_PI)) < 0) {
+    angle = fixed64_add (cordic_PI, angle);
+    sin_sign = -1;
+    cos_sign = -1;
+  }
+
+  fixed64_t x = cordic_K;
+  fixed64_t y = fixed64_from_int (0);
+  fixed64_t z = angle;
+  for (int i = 0; i < 32; i++) {
+    fixed64_t x_shift = fixed64_shr (x, (unsigned) i);
+    fixed64_t y_shift = fixed64_shr (y, (unsigned) i);
+    if (z.hi < 0) {
+      fixed64_t x_temp = fixed64_add (x, y_shift);
+      fixed64_t y_temp = fixed64_sub (y, x_shift);
+      x = x_temp;
+      y = y_temp;
+      z = fixed64_add (z, cordic_atan_table[i]);
+    } else {
+      fixed64_t x_temp = fixed64_sub (x, y_shift);
+      fixed64_t y_temp = fixed64_add (y, x_shift);
+      x = x_temp;
+      y = y_temp;
+      z = fixed64_sub (z, cordic_atan_table[i]);
+    }
+  }
+
+  if (sin_sign < 0) y = fixed64_neg (y);
+  if (cos_sign < 0) x = fixed64_neg (x);
+
+  *s = y;
+  *c = x;
+}
+
+fixed64_t fixed64_sin (fixed64_t angle) {
+  fixed64_t s, c;
+  cordic_sincos (angle, &s, &c);
+  return s;
+}
+
+fixed64_t fixed64_cos (fixed64_t angle) {
+  fixed64_t s, c;
+  cordic_sincos (angle, &s, &c);
+  return c;
+}
+
+fixed64_t fixed64_tan (fixed64_t angle) {
+  fixed64_t s, c;
+  cordic_sincos (angle, &s, &c);
+  return fixed64_div (s, c);
+}
+
 fixed64_t fixed64_stub_unary (fixed64_t a) {
   (void) a;
   return fixed64_from_int (0);
