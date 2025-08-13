@@ -913,6 +913,7 @@ typedef enum {
   TOK_IF,
   TOK_THEN,
   TOK_ELSE,
+  TOK_ENDIF,
   TOK_INPUT,
   TOK_GET,
   TOK_PUT,
@@ -1090,6 +1091,7 @@ static Token read_token (Parser *p) {
                     {"IF", TOK_IF},
                     {"THEN", TOK_THEN},
                     {"ELSE", TOK_ELSE},
+                    {"ENDIF", TOK_ENDIF},
                     {"INPUT", TOK_INPUT},
                     {"GET", TOK_GET},
                     {"PUT", TOK_PUT},
@@ -2214,7 +2216,9 @@ static int parse_stmt (Parser *p, Stmt *out) {
     if (et.type == TOK_ELSE) {
       next_token (p);
       if (!parse_if_part (p, &s.u.iff.else_stmts, 0)) return 0;
+      et = peek_token (p);
     }
+    if (et.type == TOK_ENDIF) next_token (p);
     *out = s;
     return 1;
   }
@@ -2456,8 +2460,9 @@ static int parse_stmt (Parser *p, Stmt *out) {
 
 static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
   while (1) {
-    Stmt bs;
     Token t = peek_token (p);
+    if (t.type == TOK_EOF || t.type == TOK_ENDIF || (stop_on_else && t.type == TOK_ELSE)) break;
+    Stmt bs;
     if (t.type == TOK_NUMBER) {
       bs.kind = ST_GOTO;
       bs.u.target = (int) parse_number (p);
@@ -2477,7 +2482,8 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
         }
         while (1) {
           t = peek_token (p);
-          if (t.type == TOK_COLON || t.type == TOK_EOF || (stop_on_else && t.type == TOK_ELSE))
+          if (t.type == TOK_COLON || t.type == TOK_EOF || t.type == TOK_ENDIF
+              || (stop_on_else && t.type == TOK_ELSE))
             break;
           Node *e;
           PARSE_EXPR_OR_ERROR (e);
@@ -2506,7 +2512,8 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
           if (t.type == TOK_SEMICOLON || t.type == TOK_COMMA) {
             next_token (p);
             t = peek_token (p);
-            if (t.type == TOK_COLON || t.type == TOK_EOF || (stop_on_else && t.type == TOK_ELSE)) {
+            if (t.type == TOK_COLON || t.type == TOK_EOF || t.type == TOK_ENDIF
+                || (stop_on_else && t.type == TOK_ELSE)) {
               if (bs.kind == ST_PRINT)
                 bs.u.print.no_nl = 1;
               else
@@ -2537,7 +2544,7 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
       next_token (p);
       t = peek_token (p);
     } while (t.type == TOK_COLON);
-    if (t.type == TOK_EOF || (stop_on_else && t.type == TOK_ELSE)) break;
+    if (t.type == TOK_EOF || t.type == TOK_ENDIF || (stop_on_else && t.type == TOK_ELSE)) break;
   }
   return 1;
 }
