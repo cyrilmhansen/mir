@@ -12,6 +12,15 @@ invoked.
 The compiler also understands `--option-base N` to set the default `OPTION BASE`
 for programs that omit it.  Specify `0` or `1` for `N`.
 
+Automated Tests
+---------------
+Run `make basic-test` to build the compiler and execute sample programs along with
+selected cases from the NBS Minimal BASIC suite.  The latter can also be run
+directly via `examples/basic/test/run-mbasic-tests.sh <path-to-basicc>`, which
+invokes each test in both interpreted and JIT-compiled modes and looks for
+`*** TEST PASSED ***` in their output.  Test `P173.BAS` is currently marked as an
+expected failure until TAB error handling is improved.
+
 The interpreter also recognizes a `CHAIN <expr>` statement that clears the
 current program and loads another BASIC source file.  Because it depends on the
 interpreter runtime, programs containing `CHAIN` are rejected by compilation

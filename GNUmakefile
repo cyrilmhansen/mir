@@ -468,6 +468,8 @@ $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD): \
 basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/hcolor_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/mir-bin-run$(EXE)
 	$(SRC_DIR)/examples/basic/run-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
 	$(SRC_DIR)/examples/basic/run-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
+	$(SRC_DIR)/examples/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
+	$(SRC_DIR)/examples/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
 
 # ------------------ MIR interp tests --------------------------
 .PHONY: clean-mir-interp-tests
