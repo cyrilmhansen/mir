@@ -6131,7 +6131,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       char *cmd = basic_pool_alloc (size);
       safe_snprintf (cmd, size,
                      "%s -I\"%s\" -DCTAB_INCLUDE_STRING=\\\"%s\\\" \"%s/mir-bin-driver.c\" "
-                     "\"%s/examples/basic/basic_runtime.c\" \"%s/mir.c\" \"%s/mir-gen.c\" "
+                     "\"%s/basic/src/basic_runtime.c\" \"%s/mir.c\" \"%s/mir-gen.c\" "
                      "-rdynamic -lm "
                      "-ldl%s -o "
                      "\"%s\"",
