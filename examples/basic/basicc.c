@@ -4278,18 +4278,25 @@ static void gen_stmt (Stmt *s) {
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, ri),
                                    MIR_new_reg_op (g_ctx, r)));
-    for (size_t k = 0; k < s->u.on_goto.n_targets; k++) {
-      MIR_label_t next = MIR_new_label (g_ctx);
-      MIR_append_insn (g_ctx, g_func,
-                       MIR_new_insn (g_ctx, MIR_BNE, MIR_new_label_op (g_ctx, next),
-                                     MIR_new_reg_op (g_ctx, ri), MIR_new_int_op (g_ctx, k + 1)));
-      MIR_append_insn (g_ctx, g_func,
-                       MIR_new_insn (g_ctx, MIR_JMP,
-                                     MIR_new_label_op (g_ctx,
-                                                       find_label (g_prog, g_labels,
-                                                                   s->u.on_goto.targets[k]))));
-      MIR_append_insn (g_ctx, g_func, next);
-    }
+    MIR_label_t end = MIR_new_label (g_ctx);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_insn (g_ctx, MIR_BLT, MIR_new_label_op (g_ctx, end),
+                                   MIR_new_reg_op (g_ctx, ri), MIR_new_int_op (g_ctx, 1)));
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_insn (g_ctx, MIR_BGT, MIR_new_label_op (g_ctx, end),
+                                   MIR_new_reg_op (g_ctx, ri),
+                                   MIR_new_int_op (g_ctx, s->u.on_goto.n_targets)));
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, ri),
+                                   MIR_new_reg_op (g_ctx, ri), MIR_new_int_op (g_ctx, 1)));
+    size_t nops = 1 + s->u.on_goto.n_targets;
+    MIR_op_t *ops = basic_pool_alloc (nops * sizeof (MIR_op_t));
+    ops[0] = MIR_new_reg_op (g_ctx, ri);
+    for (size_t k = 0; k < s->u.on_goto.n_targets; k++)
+      ops[k + 1] = MIR_new_label_op (g_ctx, find_label (g_prog, g_labels, s->u.on_goto.targets[k]));
+    MIR_append_insn (g_ctx, g_func, MIR_new_insn_arr (g_ctx, MIR_SWITCH, nops, ops));
+    basic_pool_free (ops);
+    MIR_append_insn (g_ctx, g_func, end);
     break;
   }
   case ST_ON_GOSUB: {
