@@ -471,6 +471,8 @@ static void data_vals_clear (void) {
 typedef enum {
   ST_PRINT,
   ST_LET,
+  ST_INC,
+  ST_DEC,
   ST_GOTO,
   ST_IF,
   ST_INPUT,
@@ -550,6 +552,8 @@ static const char *stmt_kind_name (StmtKind kind) {
   static const char *names[] = {
     [ST_PRINT] = "ST_PRINT",
     [ST_LET] = "ST_LET",
+    [ST_INC] = "ST_INC",
+    [ST_DEC] = "ST_DEC",
     [ST_GOTO] = "ST_GOTO",
     [ST_IF] = "ST_IF",
     [ST_INPUT] = "ST_INPUT",
@@ -630,6 +634,9 @@ struct Stmt {
       Node *expr;
       int is_str;
     } let;
+    struct {
+      Node *var;
+    } inc;
     struct {
       Node *cond;
       StmtVec then_stmts;
@@ -973,6 +980,8 @@ typedef enum {
   TOK_AND,
   TOK_OR,
   TOK_NOT,
+  TOK_INC,
+  TOK_DEC,
   TOK_MOD,
   TOK_BASE,
   TOK_DECIMAL,
@@ -1151,6 +1160,8 @@ static Token read_token (Parser *p) {
                     {"AND", TOK_AND},
                     {"OR", TOK_OR},
                     {"NOT", TOK_NOT},
+                    {"INC", TOK_INC},
+                    {"DEC", TOK_DEC},
                     {"MOD", TOK_MOD},
                     {"BASE", TOK_BASE},
                     {"DECIMAL", TOK_DECIMAL},
@@ -2199,6 +2210,15 @@ static int parse_stmt (Parser *p, Stmt *out) {
     out->u.let.var = v;
     out->u.let.expr = e;
     out->u.let.is_str = v->is_str;
+    return 1;
+  }
+  case TOK_INC:
+  case TOK_DEC: {
+    Node *v = parse_factor (p);
+    if (v == NULL || v->kind != N_VAR || v->index != NULL || v->index2 != NULL || v->is_str)
+      return parse_error (p);
+    out->kind = tok.type == TOK_INC ? ST_INC : ST_DEC;
+    out->u.inc.var = v;
     return 1;
   }
   case TOK_IF: {
@@ -4334,6 +4354,15 @@ static void gen_stmt (Stmt *s) {
                        MIR_new_insn (g_ctx, mov, MIR_new_reg_op (g_ctx, v),
                                      MIR_new_reg_op (g_ctx, r)));
     }
+    break;
+  }
+  case ST_INC:
+  case ST_DEC: {
+    MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.inc.var->var);
+    MIR_insn_code_t ic = s->kind == ST_INC ? MIR_DADD : MIR_DSUB;
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_insn (g_ctx, ic, MIR_new_reg_op (g_ctx, v), MIR_new_reg_op (g_ctx, v),
+                                   MIR_new_double_op (g_ctx, 1.0)));
     break;
   }
   case ST_GOTO: {
