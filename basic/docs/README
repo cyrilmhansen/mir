@@ -184,3 +184,26 @@ For targets lacking floating-point support, the runtime can be built with
 I/O rely on helper functions such as `basic_num_add`, `basic_num_lt`, and
 `basic_num_scan` which wrap the underlying `fixed64` routines.
 
+The `basicc-fix` executable is built with the same compiler source but
+compiled with `-DBASIC_USE_FIXED64`. Build it with `make basic/basicc-fix`
+and invoke it just like the floating-point `basicc` variants.
+
+Numbers are stored as signed 64.64 fixed-point values. The integer portion
+spans approximately ±9.22e18 and the fractional component has a resolution
+of 1/2^64 (about 5.4e-20). Values exceeding this range wrap around and
+sub-unit magnitudes round to zero.
+
+Compared to the double and long-double builds, the fixed-point runtime
+implements only basic arithmetic; transcendental functions such as `LOG`,
+`EXP`, and `SQRT` are stubs and may return zero. Execution is slower because
+all arithmetic is emulated in software.
+
+Sample programs in `basic/samples/fixed_demo.bas` and
+`basic/samples/fixed_edge.bas` demonstrate fixed-point math and
+overflow/underflow behavior. Run them with:
+
+```
+./basic/basicc-fix basic/samples/fixed_demo.bas
+./basic/basicc-fix basic/samples/fixed_edge.bas
+```
+
