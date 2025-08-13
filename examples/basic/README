@@ -9,6 +9,9 @@ speed up compiled programs but removes support for `RESUME` without an explicit
 line number and causes the `basic_get_line` helper to report an error if
 invoked.
 
+The compiler also understands `--option-base N` to set the default `OPTION BASE`
+for programs that omit it.  Specify `0` or `1` for `N`.
+
 The interpreter also recognizes a `CHAIN <expr>` statement that clears the
 current program and loads another BASIC source file.  Because it depends on the
 interpreter runtime, programs containing `CHAIN` are rejected by compilation

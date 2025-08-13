@@ -177,6 +177,28 @@ for t in hello relop delay adder string strfuncs instr gosub on funcproc vtab re
                 echo "$t OK"
         done
 
+        echo "Running base0_cli"
+        "$BASICC" --option-base 0 "$ROOT/examples/basic/base0_cli.bas" > "$ROOT/basic/base0_cli.out" 2> "$ROOT/basic/base0_cli.err"
+        if [ -s "$ROOT/basic/base0_cli.err" ]; then
+                echo "Unexpected stderr for base0_cli"
+                cat "$ROOT/basic/base0_cli.err"
+                exit 1
+        fi
+        rm -f "$ROOT/basic/base0_cli.err"
+        diff "$ROOT/examples/basic/base0_cli.out" "$ROOT/basic/base0_cli.out"
+        echo "base0_cli OK"
+
+        echo "Running base1_cli"
+        "$BASICC" --option-base 1 "$ROOT/examples/basic/base1_cli.bas" > "$ROOT/basic/base1_cli.out" 2> "$ROOT/basic/base1_cli.err"
+        if [ -s "$ROOT/basic/base1_cli.err" ]; then
+                echo "Unexpected stderr for base1_cli"
+                cat "$ROOT/basic/base1_cli.err"
+                exit 1
+        fi
+        rm -f "$ROOT/basic/base1_cli.err"
+        diff "$ROOT/examples/basic/base1_cli.out" "$ROOT/basic/base1_cli.out"
+        echo "base1_cli OK"
+
         echo "Running hello (no line tracking)"
         "$BASICC" --no-line-tracking "$ROOT/examples/basic/hello.bas" > "$ROOT/basic/hello-no-line.out"
         diff "$ROOT/examples/basic/hello.out" "$ROOT/basic/hello-no-line.out"
