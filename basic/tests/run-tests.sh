@@ -312,6 +312,10 @@ if [ $rc -eq 139 ]; then
 echo "bullfight sample segfault"
 exit 1
 fi
+if [ $rc -ne 0 ]; then
+echo "bullfight sample failed with exit code $rc"
+exit 1
+fi
 rm -f "$ROOT/basic/bullfight.err"
 echo "bullfight sample OK"
 

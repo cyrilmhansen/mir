@@ -3086,6 +3086,11 @@ typedef struct {
   Var *data;
   size_t len, cap;
 } VarVec;
+static void var_vec_free (VarVec *v) {
+  free (v->data);
+  v->data = NULL;
+  v->len = v->cap = 0;
+}
 static MIR_insn_t g_var_init_anchor;
 static MIR_item_t g_func;
 static MIR_reg_t get_var (VarVec *vars, MIR_context_t ctx, MIR_item_t func, const char *name) {
@@ -3094,7 +3099,7 @@ static MIR_reg_t get_var (VarVec *vars, MIR_context_t ctx, MIR_item_t func, cons
     if (!vars->data[i].is_array && strcmp (vars->data[i].name, name) == 0) return vars->data[i].reg;
   if (vars->len == vars->cap) {
     size_t new_cap = vars->cap ? 2 * vars->cap : 16;
-    Var *tmp = pool_realloc (vars->data, vars->cap * sizeof (Var), new_cap * sizeof (Var));
+    Var *tmp = realloc (vars->data, new_cap * sizeof (Var));
     if (tmp == NULL) return 0;
     vars->data = tmp;
     vars->cap = new_cap;
@@ -3125,7 +3130,7 @@ static MIR_reg_t get_array (VarVec *vars, MIR_context_t ctx, MIR_item_t func, co
     }
   if (vars->len == vars->cap) {
     size_t new_cap = vars->cap ? 2 * vars->cap : 16;
-    Var *tmp = pool_realloc (vars->data, vars->cap * sizeof (Var), new_cap * sizeof (Var));
+    Var *tmp = realloc (vars->data, new_cap * sizeof (Var));
     if (tmp == NULL) return 0;
     vars->data = tmp;
     vars->cap = new_cap;
@@ -6106,9 +6111,9 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     for (size_t j = 0; j < fd->n; j++) {
       if (fvars.len == fvars.cap) {
         size_t new_cap = fvars.cap ? 2 * fvars.cap : fd->n;
-        Var *tmp = pool_realloc (fvars.data, fvars.cap * sizeof (Var), new_cap * sizeof (Var));
+        Var *tmp = realloc (fvars.data, new_cap * sizeof (Var));
         if (tmp == NULL) {
-          basic_pool_free (fvars.data);
+          free (fvars.data);
           return;
         }
         fvars.data = tmp;
@@ -6168,7 +6173,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     }
     MIR_finish_func (ctx);
     for (size_t j = 0; j < fvars.len; j++) basic_pool_free (fvars.data[j].name);
-    basic_pool_free (fvars.data);
+    free (fvars.data);
     basic_pool_free (vars);
   }
   MIR_type_t res_t = MIR_T_I64;
@@ -6280,6 +6285,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       basic_pool_free (name);
     }
     MIR_finish (ctx);
+    var_vec_free (&g_vars);
     data_vals_clear ();
     return;
   }
@@ -6324,6 +6330,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     basic_pool_free (ctab_name);
     basic_pool_free (exe_name);
     MIR_finish (ctx);
+    var_vec_free (&g_vars);
     data_vals_clear ();
     return;
   }
@@ -6349,6 +6356,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     }
     MIR_gen_finish (ctx);
     MIR_finish (ctx);
+    var_vec_free (&g_vars);
     data_vals_clear ();
     return;
   }
@@ -6372,6 +6380,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     m ();
   }
   MIR_finish (ctx);
+  var_vec_free (&g_vars);
   data_vals_clear ();
 }
 
