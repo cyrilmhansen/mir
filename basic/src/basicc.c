@@ -703,7 +703,8 @@ struct Stmt {
       StmtVec else_stmts;
     } iff;
     struct {
-      Node *var;
+      Node **vars;
+      size_t n;
       Node *prompt;
     } input;
     struct {
@@ -1989,18 +1990,35 @@ static int parse_stmt (Parser *p, Stmt *out) {
     return 1;
   case TOK_INPUT: {
     out->kind = ST_INPUT;
+    out->u.input.vars = NULL;
+    out->u.input.n = 0;
+    out->u.input.prompt = NULL;
+    size_t cap = 0;
     Node *n = parse_factor (p);
     if (n == NULL) return parse_error (p);
     if (peek_token (p).type == TOK_SEMICOLON) {
       next_token (p);
       if (!n->is_str) return parse_error (p);
       out->u.input.prompt = n;
-      out->u.input.var = parse_factor (p);
-      if (out->u.input.var == NULL || out->u.input.var->kind != N_VAR) return parse_error (p);
+      n = parse_factor (p);
+      if (n == NULL || n->kind != N_VAR) return parse_error (p);
     } else {
       if (n->kind != N_VAR) return parse_error (p);
-      out->u.input.var = n;
-      out->u.input.prompt = NULL;
+    }
+    while (1) {
+      if (out->u.input.n == cap) {
+        size_t new_cap = cap ? cap * 2 : 4;
+        Node **tmp
+          = pool_realloc (out->u.input.vars, cap * sizeof (Node *), new_cap * sizeof (Node *));
+        if (tmp == NULL) return 0;
+        out->u.input.vars = tmp;
+        cap = new_cap;
+      }
+      out->u.input.vars[out->u.input.n++] = n;
+      if (peek_token (p).type != TOK_COMMA) break;
+      next_token (p);
+      n = parse_factor (p);
+      if (n == NULL || n->kind != N_VAR) return parse_error (p);
     }
     return 1;
   }
@@ -2211,7 +2229,10 @@ static int parse_stmt (Parser *p, Stmt *out) {
       Token t = peek_token (p);
       if (t.type == TOK_STRING) {
         d.is_str = 1;
-        d.str = parse_string (p);
+        char *s = parse_string (p);
+        if (s == NULL) return 0;
+        d.str = basic_strdup (s);
+        if (d.str == NULL) return 0;
       } else {
         d.num = parse_number (p);
       }
@@ -2862,9 +2883,12 @@ static int parse_line (Parser *p, char *line, Line *out) {
         break;
       }
     }
+    if (s.kind != ST_REM) {
+      t = peek_token (p);
+      if (t.type != TOK_EOF && t.type != TOK_COLON) return parse_error (p);
+    }
     stmt_vec_push (&out->stmts, s);
     if (s.kind == ST_REM) break;
-    t = peek_token (p);
     if (t.type == TOK_COLON) {
       do {
         next_token (p);
@@ -4216,84 +4240,87 @@ static void gen_input (Stmt *s) {
     MIR_reg_t p = gen_expr (g_ctx, g_func, &g_vars, s->u.input.prompt);
     call1 (prints_proto, prints_import, MIR_new_reg_op (g_ctx, p));
   }
-  Node *v = s->u.input.var;
-  if (v->index == NULL) {
-    MIR_reg_t r = get_var (&g_vars, g_ctx, g_func, v->var);
-    (v->is_str ? input_str_var : input_num_var) (r);
-  } else {
-    MIR_reg_t base = get_array (&g_vars, g_ctx, g_func, v->var, 0, 0, v->is_str);
-    MIR_reg_t idxd1 = gen_expr (g_ctx, g_func, &g_vars, v->index);
-    char buf[32];
-    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-    MIR_reg_t idx = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, idx),
-                                   MIR_new_reg_op (g_ctx, idxd1)));
-    if (array_base != 0)
-      MIR_append_insn (g_ctx, g_func,
-                       MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx),
-                                     MIR_new_reg_op (g_ctx, idx),
-                                     MIR_new_int_op (g_ctx, array_base)));
-    if (v->index2 != NULL) {
-      MIR_reg_t idxd2 = gen_expr (g_ctx, g_func, &g_vars, v->index2);
+  for (size_t i = 0; i < s->u.input.n; i++) {
+    Node *v = s->u.input.vars[i];
+    if (v->index == NULL) {
+      MIR_reg_t r = get_var (&g_vars, g_ctx, g_func, v->var);
+      (v->is_str ? input_str_var : input_num_var) (r);
+    } else {
+      MIR_reg_t base = get_array (&g_vars, g_ctx, g_func, v->var, 0, 0, v->is_str);
+      MIR_reg_t idxd1 = gen_expr (g_ctx, g_func, &g_vars, v->index);
+      char buf[32];
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-      MIR_reg_t idx2 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+      MIR_reg_t idx = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
       MIR_append_insn (g_ctx, g_func,
-                       MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, idx2),
-                                     MIR_new_reg_op (g_ctx, idxd2)));
+                       MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, idx),
+                                     MIR_new_reg_op (g_ctx, idxd1)));
       if (array_base != 0)
         MIR_append_insn (g_ctx, g_func,
-                         MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx2),
-                                       MIR_new_reg_op (g_ctx, idx2),
+                         MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx),
+                                       MIR_new_reg_op (g_ctx, idx),
                                        MIR_new_int_op (g_ctx, array_base)));
-      size_t dim2 = get_array_dim2 (&g_vars, v->var);
+      if (v->index2 != NULL) {
+        MIR_reg_t idxd2 = gen_expr (g_ctx, g_func, &g_vars, v->index2);
+        safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+        MIR_reg_t idx2 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, idx2),
+                                       MIR_new_reg_op (g_ctx, idxd2)));
+        if (array_base != 0)
+          MIR_append_insn (g_ctx, g_func,
+                           MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx2),
+                                         MIR_new_reg_op (g_ctx, idx2),
+                                         MIR_new_int_op (g_ctx, array_base)));
+        size_t dim2 = get_array_dim2 (&g_vars, v->var);
+        safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+        MIR_reg_t tmp = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_MUL, MIR_new_reg_op (g_ctx, tmp),
+                                       MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, dim2)));
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, idx),
+                                       MIR_new_reg_op (g_ctx, tmp), MIR_new_reg_op (g_ctx, idx2)));
+      }
+      size_t asize = get_array_size (&g_vars, v->var);
+      MIR_label_t bad = MIR_new_label (g_ctx), ok = MIR_new_label (g_ctx);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_BLT, MIR_new_label_op (g_ctx, bad),
+                                     MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, 0)));
+      if (asize != 0)
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_BGE, MIR_new_label_op (g_ctx, bad),
+                                       MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, asize)));
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-      MIR_reg_t tmp = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+      MIR_reg_t off = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+      size_t elem_size = v->is_str ? sizeof (char *) : sizeof (basic_num_t);
       MIR_append_insn (g_ctx, g_func,
-                       MIR_new_insn (g_ctx, MIR_MUL, MIR_new_reg_op (g_ctx, tmp),
-                                     MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, dim2)));
+                       MIR_new_insn (g_ctx, MIR_MUL, MIR_new_reg_op (g_ctx, off),
+                                     MIR_new_reg_op (g_ctx, idx),
+                                     MIR_new_int_op (g_ctx, elem_size)));
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t addr = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
       MIR_append_insn (g_ctx, g_func,
-                       MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, idx),
-                                     MIR_new_reg_op (g_ctx, tmp), MIR_new_reg_op (g_ctx, idx2)));
+                       MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, addr),
+                                     MIR_new_reg_op (g_ctx, base), MIR_new_reg_op (g_ctx, off)));
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t r = MIR_new_func_reg (g_ctx, g_func->u.func, v->is_str ? MIR_T_I64 : MIR_T_D, buf);
+      if (v->is_str)
+        input_str_var (r);
+      else
+        input_num_var (r);
+      MIR_insn_code_t mov = v->is_str ? MIR_MOV : MIR_DMOV;
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, mov,
+                                     MIR_new_mem_op (g_ctx, v->is_str ? MIR_T_P : MIR_T_D, 0, addr,
+                                                     0, 1),
+                                     MIR_new_reg_op (g_ctx, r)));
+      MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, ok)));
+      MIR_append_insn (g_ctx, g_func, bad);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, stop_proto),
+                                          MIR_new_ref_op (g_ctx, stop_import)));
+      MIR_append_insn (g_ctx, g_func, ok);
     }
-    size_t asize = get_array_size (&g_vars, v->var);
-    MIR_label_t bad = MIR_new_label (g_ctx), ok = MIR_new_label (g_ctx);
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_insn (g_ctx, MIR_BLT, MIR_new_label_op (g_ctx, bad),
-                                   MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, 0)));
-    if (asize != 0)
-      MIR_append_insn (g_ctx, g_func,
-                       MIR_new_insn (g_ctx, MIR_BGE, MIR_new_label_op (g_ctx, bad),
-                                     MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, asize)));
-    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-    MIR_reg_t off = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-    size_t elem_size = v->is_str ? sizeof (char *) : sizeof (basic_num_t);
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_insn (g_ctx, MIR_MUL, MIR_new_reg_op (g_ctx, off),
-                                   MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, elem_size)));
-    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-    MIR_reg_t addr = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, addr),
-                                   MIR_new_reg_op (g_ctx, base), MIR_new_reg_op (g_ctx, off)));
-    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-    MIR_reg_t r = MIR_new_func_reg (g_ctx, g_func->u.func, v->is_str ? MIR_T_I64 : MIR_T_D, buf);
-    if (v->is_str)
-      input_str_var (r);
-    else
-      input_num_var (r);
-    MIR_insn_code_t mov = v->is_str ? MIR_MOV : MIR_DMOV;
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_insn (g_ctx, mov,
-                                   MIR_new_mem_op (g_ctx, v->is_str ? MIR_T_P : MIR_T_D, 0, addr, 0,
-                                                   1),
-                                   MIR_new_reg_op (g_ctx, r)));
-    MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, ok)));
-    MIR_append_insn (g_ctx, g_func, bad);
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, stop_proto),
-                                        MIR_new_ref_op (g_ctx, stop_import)));
-    MIR_append_insn (g_ctx, g_func, ok);
   }
 }
 
