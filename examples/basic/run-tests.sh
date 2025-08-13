@@ -172,7 +172,7 @@ PY
         diff "$ROOT/examples/basic/extern.out" "$ROOT/basic/extern.out"
         echo "extern OK"
 
-for t in hello relop delay adder string strfuncs instr gosub on funcproc vtab restore data_read data_multi clear circle box sudoku array_oob_read array_oob_write dim_expr pi pi_builtin baseconv mir_demo datediff date random rnd_noarg hexoct def_fn let mat swap chain log test/do_loop test/repeat_until bitops ifendif asin_acos; do>>>>>>> master
+for t in hello relop delay adder string strfuncs instr gosub on funcproc vtab restore data_read data_multi clear circle box sudoku array_oob_read array_oob_write dim_expr pi pi_builtin baseconv mir_demo datediff date random rnd_noarg hexoct def_fn let mat swap chain log test/do_loop test/repeat_until bitops ifendif asin_acos pow; do>>>>>>> master
                 echo "Running $t"
                 run_test "$t"
                 echo "$t OK"
