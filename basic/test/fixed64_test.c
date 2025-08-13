@@ -7,10 +7,13 @@
 int main (void) {
   fixed64_t half = {.hi = 0, .lo = 1ULL << 63};
   fixed64_t quarter = {.hi = 0, .lo = 1ULL << 62};
+  fixed64_t two = fixed64_from_int (2);
+  assert (fixed64_cmp (fixed64_from_int (1), two) < 0);
+  assert (fixed64_cmp (two, fixed64_from_int (1)) > 0);
+  assert (fixed64_cmp (two, two) == 0);
+  assert (fixed64_to_int (two) == 2);
   fixed64_t res = fixed64_add (half, quarter);
   assert (res.hi == 0 && res.lo == ((1ULL << 63) + (1ULL << 62)));
-
-  fixed64_t two = fixed64_from_int (2);
   res = fixed64_sub (two, half);
   assert (res.hi == 1 && res.lo == (1ULL << 63));
 
