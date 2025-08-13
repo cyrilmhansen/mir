@@ -2229,7 +2229,10 @@ static int parse_stmt (Parser *p, Stmt *out) {
       Token t = peek_token (p);
       if (t.type == TOK_STRING) {
         d.is_str = 1;
-        d.str = parse_string (p);
+        char *s = parse_string (p);
+        if (s == NULL) return 0;
+        d.str = basic_strdup (s);
+        if (d.str == NULL) return 0;
       } else {
         d.num = parse_number (p);
       }
@@ -2880,9 +2883,12 @@ static int parse_line (Parser *p, char *line, Line *out) {
         break;
       }
     }
+    if (s.kind != ST_REM) {
+      t = peek_token (p);
+      if (t.type != TOK_EOF && t.type != TOK_COLON) return parse_error (p);
+    }
     stmt_vec_push (&out->stmts, s);
     if (s.kind == ST_REM) break;
-    t = peek_token (p);
     if (t.type == TOK_COLON) {
       do {
         next_token (p);

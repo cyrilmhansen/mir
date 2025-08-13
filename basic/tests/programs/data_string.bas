@@ -1,0 +1,4 @@
+10 DATA "HELLO","WORLD"
+20 READ A$,B$
+30 PRINT A$;" ";B$
+40 END
