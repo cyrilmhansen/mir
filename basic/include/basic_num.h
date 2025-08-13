@@ -143,7 +143,7 @@ static inline void basic_num_print (FILE *f, basic_num_t x) {
 #define BASIC_NUM_SCANF(f, out) basic_num_scan ((f), (out))
 #define BASIC_NUM_PRINTF(f, x) basic_num_print ((f), (x))
 
-#elif defined(BASIC_USE_DECIMAL128)
+#elif defined(BASIC_USE_DECIMAL128) || defined(BASIC_USE_MSFP)
 #include <dfp/decimal128.h>
 #include <dfp/math.h>
 #include <dfp/stdlib.h>
@@ -192,7 +192,7 @@ static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
   return (int) strlen (buf);
 }
 
-#else
+#else /* BASIC_USE_DOUBLE or default */
 #include "ryu/ryu.h"
 typedef double basic_num_t;
 #define BASIC_NUM_SCANF "%lf"
