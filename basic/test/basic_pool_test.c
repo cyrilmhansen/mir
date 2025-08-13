@@ -15,25 +15,19 @@ int main (void) {
   strcpy (s2, "world");
   if (strcmp (s2, "world") != 0) return 1;
 
-  int *arr1 = basic_calloc (4, sizeof (int));
-  arr1[0] = 42;
+  basic_num_t *arr1 = basic_calloc (4, sizeof (basic_num_t));
+  arr1[0] = BASIC_FROM_INT (42);
   basic_pool_free (arr1);
-  int *arr2 = basic_calloc (4, sizeof (int));
+  basic_num_t *arr2 = basic_calloc (4, sizeof (basic_num_t));
   if (arr2 != arr1) return 1;
   for (int i = 0; i < 4; ++i)
-    if (arr2[i] != 0) return 1;
+    if (!BASIC_EQ (arr2[i], BASIC_ZERO)) return 1;
 
-  basic_num_t *narr1 = basic_calloc (4, sizeof (basic_num_t));
+  if ((uintptr_t) arr2 % _Alignof (basic_num_t) != 0) return 1;
+  for (int i = 0; i < 4; ++i) arr2[i] = BASIC_FROM_INT (i + 1);
+  if (!basic_clear_array_pool (arr2, 4, sizeof (basic_num_t))) return 1;
   for (int i = 0; i < 4; ++i)
-    if (!BASIC_EQ (narr1[i], BASIC_ZERO)) return 1;
-  if ((uintptr_t) narr1 % _Alignof (basic_num_t) != 0) return 1;
-  basic_pool_free (narr1);
-  basic_num_t *narr2 = basic_calloc (4, sizeof (basic_num_t));
-  if (narr2 != narr1) return 1;
-  for (int i = 0; i < 4; ++i) narr2[i] = BASIC_FROM_INT (i + 1);
-  if (!basic_clear_array_pool (narr2, 4, sizeof (basic_num_t))) return 1;
-  for (int i = 0; i < 4; ++i)
-    if (!BASIC_EQ (narr2[i], BASIC_ZERO)) return 1;
+    if (!BASIC_EQ (arr2[i], BASIC_ZERO)) return 1;
 
   basic_pool_destroy ();
   printf ("basic_pool_test OK\n");
