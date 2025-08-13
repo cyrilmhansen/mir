@@ -267,17 +267,9 @@ static char *next_input_field (void) {
   }
 }
 
-static int basic_read_num (FILE *f, basic_num_t *out) {
-  char buf[128], *end;
-  if (fgets (buf, sizeof (buf), f) == NULL) return 0;
-  *out = BASIC_STRTOF (buf, &end);
-  if (end == buf) return 0;
-  return 1;
-}
-
 basic_num_t basic_input (void) {
-  basic_num_t x = BASIC_ZERO; 
-  if (!basic_read_num (stdin, &x)) return BASIC_ZERO;
+  basic_num_t x = BASIC_ZERO;
+  if (!basic_num_scan (stdin, &x)) return BASIC_ZERO;
   return x;
 }
 
@@ -383,7 +375,7 @@ basic_num_t basic_input_hash (basic_num_t n) {
   int idx = basic_num_to_int (n);
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return BASIC_ZERO;
   basic_num_t x = BASIC_ZERO;
-  if (!basic_read_num (basic_files[idx], &x)) return BASIC_ZERO;
+  if (!basic_num_scan (basic_files[idx], &x)) return BASIC_ZERO;
   return x;
 }
 
