@@ -106,25 +106,25 @@ static inline int BASIC_GT (basic_num_t a, basic_num_t b) { return BASIC_LT (b, 
 static inline int BASIC_GE (basic_num_t a, basic_num_t b) { return BASIC_LE (b, a); }
 #define BASIC_STRTOF fixed64_from_string
 #define BASIC_FABS fixed64_abs
-#define BASIC_SQRT fixed64_stub_unary
+#define BASIC_SQRT fixed64_sqrt
 #define BASIC_SIN fixed64_sin
 #define BASIC_COS fixed64_cos
 #define BASIC_TAN fixed64_tan
-#define BASIC_SINH fixed64_stub_unary
-#define BASIC_COSH fixed64_stub_unary
-#define BASIC_TANH fixed64_stub_unary
-#define BASIC_ASINH fixed64_stub_unary
-#define BASIC_ACOSH fixed64_stub_unary
-#define BASIC_ATANH fixed64_stub_unary
-#define BASIC_ASIN fixed64_stub_unary
-#define BASIC_ACOS fixed64_stub_unary
-#define BASIC_ATAN fixed64_stub_unary
-#define BASIC_LOG fixed64_stub_unary
-#define BASIC_LOG2 fixed64_stub_unary
-#define BASIC_LOG10 fixed64_stub_unary
-#define BASIC_EXP fixed64_stub_unary
-#define BASIC_POW fixed64_stub_binary
-#define BASIC_FLOOR fixed64_stub_unary
+#define BASIC_SINH fixed64_sinh
+#define BASIC_COSH fixed64_cosh
+#define BASIC_TANH fixed64_tanh
+#define BASIC_ASINH fixed64_asinh
+#define BASIC_ACOSH fixed64_acosh
+#define BASIC_ATANH fixed64_atanh
+#define BASIC_ASIN fixed64_asin
+#define BASIC_ACOS fixed64_acos
+#define BASIC_ATAN fixed64_atan
+#define BASIC_LOG fixed64_log
+#define BASIC_LOG2 fixed64_log2
+#define BASIC_LOG10 fixed64_log10
+#define BASIC_EXP fixed64_exp
+#define BASIC_POW fixed64_pow
+#define BASIC_FLOOR fixed64_floor
 static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
   return fixed64_to_string (x, buf, size);
 }

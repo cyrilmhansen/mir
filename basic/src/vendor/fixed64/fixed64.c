@@ -233,13 +233,102 @@ fixed64_t fixed64_tan (fixed64_t angle) {
   return fixed64_div (s, c);
 }
 
+fixed64_t fixed64_sqrt (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  if (da < 0) {
+    fprintf (stderr, "runtime error: sqrt of negative value\n");
+    exit (1);
+  }
+  return fixed64_from_double (sqrt (da));
+}
+
+fixed64_t fixed64_pow (fixed64_t a, fixed64_t b) {
+  double da = fixed64_to_double (a);
+  double db = fixed64_to_double (b);
+  return fixed64_from_double (pow (da, db));
+}
+
+fixed64_t fixed64_floor (fixed64_t a) {
+  double da = floor (fixed64_to_double (a));
+  return fixed64_from_double (da);
+}
+
+fixed64_t fixed64_sinh (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (sinh (da));
+}
+
+fixed64_t fixed64_cosh (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (cosh (da));
+}
+
+fixed64_t fixed64_tanh (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (tanh (da));
+}
+
+fixed64_t fixed64_asinh (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (asinh (da));
+}
+
+fixed64_t fixed64_acosh (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (acosh (da));
+}
+
+fixed64_t fixed64_atanh (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (atanh (da));
+}
+
+fixed64_t fixed64_asin (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (asin (da));
+}
+
+fixed64_t fixed64_acos (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (acos (da));
+}
+
+fixed64_t fixed64_atan (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (atan (da));
+}
+
+fixed64_t fixed64_log (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (log (da));
+}
+
+fixed64_t fixed64_log2 (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (log2 (da));
+}
+
+fixed64_t fixed64_log10 (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (log10 (da));
+}
+
+fixed64_t fixed64_exp (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (exp (da));
+}
+
 fixed64_t fixed64_stub_unary (fixed64_t a) {
   (void) a;
+  fprintf (stderr, "runtime error: unsupported fixed64 operation\n");
+  exit (1);
   return fixed64_from_int (0);
 }
 
 fixed64_t fixed64_stub_binary (fixed64_t a, fixed64_t b) {
   (void) a;
   (void) b;
+  fprintf (stderr, "runtime error: unsupported fixed64 operation\n");
+  exit (1);
   return fixed64_from_int (0);
 }
