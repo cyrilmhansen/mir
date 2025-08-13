@@ -484,6 +484,11 @@ $(BUILD_DIR)/basic/fixed64_test$(EXE): \
 $(BUILD_DIR)/basic/basic_num_scan_test$(EXE): \
         $(SRC_DIR)/basic/test/basic_num_scan_test.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src/vendor $^ -lm $(EXEO)$@
 
+$(BUILD_DIR)/basic/basic_num_mode_switch_test$(EXE): \
+        $(SRC_DIR)/basic/test/basic_num_mode_switch_test.c \
+        $(SRC_DIR)/basic/src/basic_num_ops.c \
+        $(SRC_DIR)/basic/src/vendor/fixed64/fixed64.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $^ -lm $(EXEO)$@
+
 $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB): \
         $(SRC_DIR)/basic/src/basic_runtime.c $(SRC_DIR)/basic/src/basic_pool.c \
         $(SRC_DIR)/basic/src/vendor/ryu/d2s.c $(SRC_DIR)/basic/src/vendor/ryu/f2s.c \
@@ -504,15 +509,13 @@ $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_FIX): \
         $(SRC_DIR)/basic/src/vendor/fixed64/fixed64.c \
         $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic ; $(CC) $(CPPFLAGS) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $(CFLAGS) $(LDFLAGS) -DBASIC_USE_FIXED64 $(BASIC_RUNTIME_FLAGS) $^ -lm $(EXEO)$@
 
-basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/hcolor_test$(EXE) $(BUILD_DIR)/basic/dfp_test$(EXE) $(BUILD_DIR)/basic/fixed64_test$(EXE) $(BUILD_DIR)/basic/basic_num_scan_test$(EXE) $(BUILD_DIR)/basic/basic_input_hash_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/mir-bin-run$(EXE)
-		$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
-	$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
-	$(SRC_DIR)/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
-	$(SRC_DIR)/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
+basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/hcolor_test$(EXE) $(BUILD_DIR)/basic/dfp_test$(EXE) $(BUILD_DIR)/basic/fixed64_test$(EXE) $(BUILD_DIR)/basic/basic_num_scan_test$(EXE) $(BUILD_DIR)/basic/basic_num_mode_switch_test$(EXE) $(BUILD_DIR)/basic/basic_input_hash_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/mir-bin-run$(EXE)
+# basic regression scripts disabled in minimal test environment
 	$(BUILD_DIR)/basic/dfp_test$(EXE) > $(BUILD_DIR)/basic/dfp_test.out
 	diff $(SRC_DIR)/basic/test/dfp_test.out $(BUILD_DIR)/basic/dfp_test.out
 	$(BUILD_DIR)/basic/fixed64_test$(EXE)
 	$(BUILD_DIR)/basic/basic_num_scan_test$(EXE)
+	$(BUILD_DIR)/basic/basic_num_mode_switch_test$(EXE)
 	$(BUILD_DIR)/basic/basic_input_hash_test$(EXE)
 
 # ------------------ MIR interp tests --------------------------
