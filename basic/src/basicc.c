@@ -3029,7 +3029,7 @@ static int load_program (LineVec *prog, const char *path) {
   char line[256];
   int ok = 1;
   while (fgets (line, sizeof (line), f)) {
-    line[strcspn (line, "\n")] = '\0';
+    line[strcspn (line, "\r\n")] = '\0';
     Parser p_obj = {0};
     Parser *p = &p_obj;
     p->cur = line;
