@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run selected Minimal BASIC test programs with basicc.
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BASICC="${1:-$ROOT/basic/basicc}"
 
 # Selected test cases from the NBS Minimal BASIC suite.
@@ -20,7 +20,7 @@ XFAIL=(P173.BAS)
 run_case() {
   local mode="$1"; shift
   local file="$1"; shift
-  local src="$ROOT/examples/basic/test/mbasic-nbs/$file"
+  local src="$ROOT/basic/test/mbasic-nbs/$file"
   local -a flags=()
   [[ "$mode" == compiled ]] && flags+=(-j)
   echo "Running $file ($mode)"
@@ -73,8 +73,8 @@ for mode in interpreted compiled; do
   [[ "$mode" == compiled ]] && flags+=(-j)
   echo "Running incdec.bas ($mode)"
   out="$ROOT/basic/incdec.$mode.out"
-  "$BASICC" "${flags[@]}" "$ROOT/examples/basic/test/incdec.bas" > "$out"
-  diff "$ROOT/examples/basic/test/incdec.out" "$out"
+  "$BASICC" "${flags[@]}" "$ROOT/basic/test/incdec.bas" > "$out"
+  diff "$ROOT/basic/test/incdec.out" "$out"
   rm -f "$out"
   echo "incdec.bas ($mode) OK"
 done
