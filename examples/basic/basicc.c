@@ -768,6 +768,12 @@ struct Stmt {
       char *name;
       Node *arg1, *arg2, *arg3, *arg4, *arg5;
     } call;
+    struct {
+      size_t idx;
+      int is_proc;
+      int is_str_ret;
+      size_t n_params;
+    } ext;
   } u;
 };
 
@@ -1895,6 +1901,10 @@ static int parse_stmt (Parser *p, Stmt *out) {
                   NULL,  NULL,         NULL,         0, 0};
     func_vec_push (&func_defs, fd);
     out->kind = ST_EXTERN;
+    out->u.ext.idx = func_defs.len - 1;
+    out->u.ext.is_proc = is_proc;
+    out->u.ext.is_str_ret = f_is_str;
+    out->u.ext.n_params = n;
     return 1;
   }
   case TOK_DEF: {
@@ -3843,9 +3853,30 @@ static void gen_stmt (Stmt *s) {
   case ST_DEF:
     /* no code generation needed */
     break;
-  case ST_EXTERN:
-    /* extern declarations are handled during parsing */
+  case ST_EXTERN: {
+    FuncDef *fd = &func_defs.data[s->u.ext.idx];
+    if (fd->item == NULL) {
+      MIR_type_t rtype = fd->is_str_ret ? MIR_T_P : MIR_T_D;
+      MIR_var_t *vars = NULL;
+      if (fd->n != 0) {
+        vars = basic_pool_alloc (sizeof (MIR_var_t) * fd->n);
+        for (size_t j = 0; j < fd->n; j++) {
+          vars[j].type = fd->is_str[j] ? MIR_T_P : MIR_T_D;
+          vars[j].name = fd->params[j];
+        }
+      }
+      char proto_name[128];
+      safe_snprintf (proto_name, sizeof (proto_name), "%s_p", fd->name);
+      if (fd->is_proc) {
+        fd->proto = MIR_new_proto_arr (g_ctx, proto_name, 0, NULL, fd->n, vars);
+      } else {
+        fd->proto = MIR_new_proto_arr (g_ctx, proto_name, 1, &rtype, fd->n, vars);
+      }
+      fd->item = MIR_new_import (g_ctx, fd->name);
+      basic_pool_free (vars);
+    }
     break;
+  }
   case ST_PRINT: gen_print (s); break;
   case ST_PRINT_HASH: gen_print_hash (s); break;
   case ST_INPUT: gen_input (s); break;
@@ -5086,6 +5117,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   g_ctx = ctx;
   for (size_t i = 0; i < func_defs.len; i++) {
     FuncDef *fd = &func_defs.data[i];
+    if (fd->is_extern) continue;
     MIR_type_t rtype = fd->is_str_ret ? MIR_T_P : MIR_T_D;
     MIR_var_t *vars = NULL;
     if (fd->n != 0) {
@@ -5097,16 +5129,6 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     }
     char proto_name[128];
     safe_snprintf (proto_name, sizeof (proto_name), "%s_p", fd->name);
-    if (fd->is_extern) {
-      if (fd->is_proc) {
-        fd->proto = MIR_new_proto_arr (ctx, proto_name, 0, NULL, fd->n, vars);
-      } else {
-        fd->proto = MIR_new_proto_arr (ctx, proto_name, 1, &rtype, fd->n, vars);
-      }
-      fd->item = MIR_new_import (ctx, fd->name);
-      basic_pool_free (vars);
-      continue;
-    }
     if (fd->is_proc) {
       fd->proto = MIR_new_proto_arr (ctx, proto_name, 0, NULL, fd->n, vars);
       fd->item = MIR_new_func_arr (ctx, fd->name, 0, NULL, fd->n, vars);
