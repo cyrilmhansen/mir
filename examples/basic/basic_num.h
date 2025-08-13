@@ -19,6 +19,8 @@ typedef long double basic_num_t;
 #define BASIC_TAN tanl
 #define BASIC_ATAN atanl
 #define BASIC_LOG logl
+#define BASIC_LOG2 log2l
+#define BASIC_LOG10 log10l
 #define BASIC_EXP expl
 #define BASIC_FLOOR floorl
 static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
@@ -55,6 +57,28 @@ static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
   }
   return (int) strlen (buf);
 }
+#elif defined(BASIC_USE_DECIMAL128)
+#include <dfp/decimal128.h>
+#include <dfp/math.h>
+#include <dfp/stdlib.h>
+typedef _Decimal128 basic_num_t;
+#define BASIC_NUM_SCANF "%DDf"
+#define BASIC_NUM_PRINTF "%.34DDg"
+#define BASIC_STRTOF strtod128
+#define BASIC_FABS fabsd128
+#define BASIC_SQRT sqrtd128
+#define BASIC_SIN sind128
+#define BASIC_COS cosd128
+#define BASIC_TAN tand128
+#define BASIC_ATAN atand128
+#define BASIC_LOG logd128
+#define BASIC_EXP expd128
+#define BASIC_FLOOR floord128
+static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
+  (void) size;
+  decimal128ToString ((decimal128 *) &x, buf);
+  return (int) strlen (buf);
+}
 #else
 #include "ryu/ryu.h"
 typedef double basic_num_t;
@@ -68,6 +92,8 @@ typedef double basic_num_t;
 #define BASIC_TAN tan
 #define BASIC_ATAN atan
 #define BASIC_LOG log
+#define BASIC_LOG2 log2
+#define BASIC_LOG10 log10
 #define BASIC_EXP exp
 #define BASIC_FLOOR floor
 static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
