@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <ctype.h>
 #include <time.h>
 #include <math.h>
 #ifndef M_PI
@@ -547,7 +548,6 @@ basic_num_t basic_fact (basic_num_t x) {
 basic_num_t basic_pow (basic_num_t x, basic_num_t y) { return BASIC_POW (x, y); }
 
 basic_num_t basic_pi (void) { return M_PI; }
-       
 
 /* Allocate a one-character string. Caller must free with basic_free. */
 char *basic_chr (basic_num_t n) {
@@ -578,6 +578,26 @@ char *basic_concat (const char *a, const char *b) {
     memcpy (res, a, la);
     memcpy (res + la, b, lb + 1);
   }
+  return res;
+}
+
+/* Return a copy of S converted to uppercase as a newly allocated string.
+   Caller must free the result with basic_free. */
+char *basic_upper (const char *s) {
+  size_t len = strlen (s);
+  char *res = basic_alloc_string (len);
+  if (res != NULL)
+    for (size_t i = 0; i < len; i++) res[i] = (char) toupper ((unsigned char) s[i]);
+  return res;
+}
+
+/* Return a copy of S converted to lowercase as a newly allocated string.
+   Caller must free the result with basic_free. */
+char *basic_lower (const char *s) {
+  size_t len = strlen (s);
+  char *res = basic_alloc_string (len);
+  if (res != NULL)
+    for (size_t i = 0; i < len; i++) res[i] = (char) tolower ((unsigned char) s[i]);
   return res;
 }
 
