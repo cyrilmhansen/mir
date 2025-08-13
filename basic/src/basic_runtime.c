@@ -571,8 +571,8 @@ char *basic_string (basic_num_t n, const char *s) {
 /* Concatenate A and B into a newly allocated string.
    Caller must free the result with basic_free. */
 char *basic_concat (const char *a, const char *b) {
-  size_t la = strlen (a);
-  size_t lb = strlen (b);
+  size_t la = a != NULL ? strlen (a) : 0;
+  size_t lb = b != NULL ? strlen (b) : 0;
   char *res = basic_alloc_string (la + lb);
   if (res != NULL) {
     memcpy (res, a, la);
@@ -584,7 +584,7 @@ char *basic_concat (const char *a, const char *b) {
 /* Return a copy of S converted to uppercase as a newly allocated string.
    Caller must free the result with basic_free. */
 char *basic_upper (const char *s) {
-  size_t len = strlen (s);
+  size_t len = s != NULL ? strlen (s) : 0;
   char *res = basic_alloc_string (len);
   if (res != NULL)
     for (size_t i = 0; i < len; i++) res[i] = (char) toupper ((unsigned char) s[i]);
@@ -594,7 +594,7 @@ char *basic_upper (const char *s) {
 /* Return a copy of S converted to lowercase as a newly allocated string.
    Caller must free the result with basic_free. */
 char *basic_lower (const char *s) {
-  size_t len = strlen (s);
+  size_t len = s != NULL ? strlen (s) : 0;
   char *res = basic_alloc_string (len);
   if (res != NULL)
     for (size_t i = 0; i < len; i++) res[i] = (char) tolower ((unsigned char) s[i]);
@@ -604,7 +604,7 @@ char *basic_lower (const char *s) {
 /* Return the leftmost N characters of S as a newly allocated string.
    Caller must free the result with basic_free. */
 char *basic_left (const char *s, basic_num_t n) {
-  size_t len = strlen (s);
+  size_t len = s != NULL ? strlen (s) : 0;
   size_t cnt = (size_t) n;
   if (cnt > len) cnt = len;
   char *res = basic_alloc_string (cnt);
@@ -615,7 +615,7 @@ char *basic_left (const char *s, basic_num_t n) {
 /* Return the rightmost N characters of S as a newly allocated string.
    Caller must free the result with basic_free. */
 char *basic_right (const char *s, basic_num_t n) {
-  size_t len = strlen (s);
+  size_t len = s != NULL ? strlen (s) : 0;
   size_t cnt = (size_t) n;
   if (cnt > len) cnt = len;
   char *res = basic_alloc_string (cnt);
@@ -626,7 +626,7 @@ char *basic_right (const char *s, basic_num_t n) {
 /* Return a substring of S starting at START_D with length LEN_D.
    Caller must free the result with basic_free. */
 char *basic_mid (const char *s, basic_num_t start_d, basic_num_t len_d) {
-  size_t len = strlen (s);
+  size_t len = s != NULL ? strlen (s) : 0;
   size_t start = (size_t) start_d;
   if (start < 1) start = 1;
   start--;
@@ -645,7 +645,7 @@ char *basic_mid (const char *s, basic_num_t start_d, basic_num_t len_d) {
 /* Return a new string with characters of S in reverse order.
    Caller must free the result with basic_free. */
 char *basic_mirror (const char *s) {
-  size_t len = strlen (s);
+  size_t len = s != NULL ? strlen (s) : 0;
   char *res = basic_alloc_string (len);
   if (res != NULL) {
     for (size_t i = 0; i < len; i++) res[i] = s[len - 1 - i];
@@ -659,7 +659,7 @@ basic_num_t basic_instr (const char *s, const char *sub) {
   return p == NULL ? 0.0 : (basic_num_t) (p - s + 1);
 }
 
-basic_num_t basic_len (const char *s) { return (basic_num_t) strlen (s); }
+basic_num_t basic_len (const char *s) { return (basic_num_t) (s != NULL ? strlen (s) : 0); }
 
 basic_num_t basic_val (const char *s) { return BASIC_STRTOF (s, NULL); }
 
