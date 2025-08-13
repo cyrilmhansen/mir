@@ -590,6 +590,17 @@ char *basic_mid (const char *s, basic_num_t start_d, basic_num_t len_d) {
   return res;
 }
 
+/* Return a new string with characters of S in reverse order.
+   Caller must free the result with basic_free. */
+char *basic_mirror (const char *s) {
+  size_t len = strlen (s);
+  char *res = basic_alloc_string (len);
+  if (res != NULL) {
+    for (size_t i = 0; i < len; i++) res[i] = s[len - 1 - i];
+  }
+  return res;
+}
+
 basic_num_t basic_instr (const char *s, const char *sub) {
   if (s == NULL || sub == NULL || *sub == '\0') return 0.0;
   const char *p = strstr (s, sub);
