@@ -524,6 +524,14 @@ basic_num_t basic_log10 (basic_num_t x) { return BASIC_LOG10 (x); }
 
 basic_num_t basic_exp (basic_num_t x) { return BASIC_EXP (x); }
 
+basic_num_t basic_fact (basic_num_t x) {
+  if (x < 0) return 0;
+  long n = (long) x;
+  basic_num_t res = 1;
+  for (long i = 2; i <= n; i++) res *= (basic_num_t) i;
+  return res;
+}
+
 basic_num_t basic_pow (basic_num_t x, basic_num_t y) { return BASIC_POW (x, y); }
 
 basic_num_t basic_pi (void) { return M_PI; }
