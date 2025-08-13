@@ -66,3 +66,15 @@ run_mode() {
 run_mode interpreted
 run_mode compiled
 
+# Verify INC/DEC support
+for mode in interpreted compiled; do
+  flags=()
+  [[ "$mode" == compiled ]] && flags+=(-j)
+  echo "Running incdec.bas ($mode)"
+  out="$ROOT/basic/incdec.$mode.out"
+  "$BASICC" "${flags[@]}" "$ROOT/examples/basic/test/incdec.bas" > "$out"
+  diff "$ROOT/examples/basic/test/incdec.out" "$out"
+  rm -f "$out"
+  echo "incdec.bas ($mode) OK"
+done
+
