@@ -194,6 +194,7 @@ extern void basic_set_line (basic_num_t);
 extern basic_num_t basic_get_line (void);
 extern void basic_enable_line_tracking (basic_num_t);
 
+extern void basic_delay (basic_num_t);
 extern void basic_beep (void);
 extern void basic_sound (basic_num_t, basic_num_t);
 extern double basic_system (const char *);
@@ -319,6 +320,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_get_line")) return basic_get_line;
   if (!strcmp (name, "basic_enable_line_tracking")) return basic_enable_line_tracking;
 
+  if (!strcmp (name, "basic_delay")) return basic_delay;
   if (!strcmp (name, "basic_beep")) return basic_beep;
   if (!strcmp (name, "basic_sound")) return basic_sound;
   if (!strcmp (name, "basic_system")) return basic_system;
@@ -380,9 +382,9 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   on_error_proto, on_error_import, set_line_proto, set_line_import, get_line_proto, get_line_import,
   line_track_proto, line_track_import, profile_line_proto, profile_line_import,
   profile_func_enter_proto, profile_func_enter_import, profile_func_exit_proto,
-  profile_func_exit_import, beep_proto, beep_import, sound_proto, sound_import, system_proto,
-  system_import, system_out_proto, system_out_import, pool_reset_proto, pool_reset_import,
-  free_proto, free_import, chain_proto, chain_import;
+  profile_func_exit_import, delay_proto, delay_import, beep_proto, beep_import, sound_proto,
+  sound_import, system_proto, system_import, system_out_proto, system_out_import, pool_reset_proto,
+  pool_reset_import, free_proto, free_import, chain_proto, chain_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL } NodeKind;
@@ -488,6 +490,7 @@ typedef enum {
   ST_POKE,
   ST_HOME,
   ST_VTAB,
+  ST_DELAY,
   ST_BEEP,
   ST_SOUND,
   ST_SYSTEM,
@@ -558,6 +561,7 @@ static const char *stmt_kind_name (StmtKind kind) {
     [ST_POKE] = "ST_POKE",
     [ST_HOME] = "ST_HOME",
     [ST_VTAB] = "ST_VTAB",
+    [ST_DELAY] = "ST_DELAY",
     [ST_BEEP] = "ST_BEEP",
     [ST_SOUND] = "ST_SOUND",
     [ST_SYSTEM] = "ST_SYSTEM",
@@ -600,7 +604,7 @@ static const char *stmt_kind_name (StmtKind kind) {
 struct Stmt {
   StmtKind kind;
   union {
-    Node *expr; /* PRINT/VTAB/HTAB/SCREEN/COLOR/WHILE/HCOLOR/RANDOMIZE/MODE */
+    Node *expr; /* PRINT/VTAB/HTAB/SCREEN/COLOR/WHILE/HCOLOR/RANDOMIZE/MODE/DELAY */
     struct {
       Node **items;
       size_t n;
@@ -911,6 +915,7 @@ typedef enum {
   TOK_VTAB,
   TOK_POKE,
   TOK_HOME,
+  TOK_DELAY,
   TOK_BEEP,
   TOK_SOUND,
   TOK_SYSTEM,
@@ -1085,6 +1090,7 @@ static Token read_token (Parser *p) {
                     {"VTAB", TOK_VTAB},
                     {"POKE", TOK_POKE},
                     {"HOME", TOK_HOME},
+                    {"DELAY", TOK_DELAY},
                     {"BEEP", TOK_BEEP},
                     {"SOUND", TOK_SOUND},
                     {"SYSTEM", TOK_SYSTEM},
@@ -1680,6 +1686,10 @@ static int parse_stmt (Parser *p, Stmt *out) {
   case TOK_CLS: out->kind = ST_CLS; return 1;
   case TOK_KEYOFF: out->kind = ST_KEYOFF; return 1;
   case TOK_HOME: out->kind = ST_HOME; return 1;
+  case TOK_DELAY:
+    out->kind = ST_DELAY;
+    PARSE_EXPR_OR_ERROR (out->u.expr);
+    return 1;
   case TOK_BEEP: out->kind = ST_BEEP; return 1;
   case TOK_CHAIN:
     out->kind = ST_CHAIN;
@@ -4514,6 +4524,14 @@ static void gen_stmt (Stmt *s) {
                                         MIR_new_reg_op (g_ctx, x1), MIR_new_reg_op (g_ctx, y1)));
     break;
   }
+  case ST_DELAY: {
+    MIR_reg_t ms = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, delay_proto),
+                                        MIR_new_ref_op (g_ctx, delay_import),
+                                        MIR_new_reg_op (g_ctx, ms)));
+    break;
+  }
   case ST_BEEP: {
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, beep_proto),
@@ -4859,6 +4877,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   fill_proto = MIR_new_proto (ctx, "basic_fill_p", 0, NULL, 4, MIR_T_D, "x0", MIR_T_D, "y0",
                               MIR_T_D, "x1", MIR_T_D, "y1");
   fill_import = MIR_new_import (ctx, "basic_fill");
+  delay_proto = MIR_new_proto (ctx, "basic_delay_p", 0, NULL, 1, MIR_T_D, "ms");
+  delay_import = MIR_new_import (ctx, "basic_delay");
   beep_proto = MIR_new_proto (ctx, "basic_beep_p", 0, NULL, 0);
   beep_import = MIR_new_import (ctx, "basic_beep");
   sound_proto = MIR_new_proto (ctx, "basic_sound_p", 0, NULL, 2, MIR_T_D, "f", MIR_T_D, "d");
