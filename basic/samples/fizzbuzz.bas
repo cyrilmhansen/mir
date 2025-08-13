@@ -1,0 +1,8 @@
+10 FOR I = 1 TO 100
+20 F$ = ""
+30 IF I MOD 3 = 0 THEN F$ = F$ + "Fizz"
+40 IF I MOD 5 = 0 THEN F$ = F$ + "Buzz"
+50 IF F$ = "" THEN PRINT I: GOTO 70
+60 PRINT F$
+70 NEXT I
+80 END
