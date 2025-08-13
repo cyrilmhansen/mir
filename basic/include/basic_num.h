@@ -11,6 +11,21 @@
 typedef long double basic_num_t;
 #define BASIC_NUM_SCANF "%Lf"
 #define BASIC_NUM_PRINTF "%.21Lg"
+#define BASIC_FROM_INT(x) ((basic_num_t) (x))
+#define BASIC_TO_INT(x) ((long) (x))
+#define BASIC_ZERO ((basic_num_t) 0.0L)
+#define BASIC_ONE ((basic_num_t) 1.0L)
+#define BASIC_ADD(a, b) ((a) + (b))
+#define BASIC_SUB(a, b) ((a) - (b))
+#define BASIC_MUL(a, b) ((a) * (b))
+#define BASIC_DIV(a, b) ((a) / (b))
+#define BASIC_NEG(a) (-(a))
+#define BASIC_LT(a, b) ((a) < (b))
+#define BASIC_LE(a, b) ((a) <= (b))
+#define BASIC_GT(a, b) ((a) > (b))
+#define BASIC_GE(a, b) ((a) >= (b))
+#define BASIC_EQ(a, b) ((a) == (b))
+#define BASIC_NE(a, b) ((a) != (b))
 #define BASIC_STRTOF strtold
 #define BASIC_FABS fabsl
 #define BASIC_SQRT sqrtl
@@ -66,11 +81,29 @@ static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
   }
   return (int) strlen (buf);
 }
+
 #elif defined(BASIC_USE_FIXED64)
 #include "fixed64/fixed64.h"
 typedef fixed64_t basic_num_t;
-#define BASIC_NUM_SCANF "%lf" /* placeholder */
-#define BASIC_NUM_PRINTF "%lf"
+#define BASIC_FROM_INT(x) fixed64_from_int (x)
+static inline long BASIC_TO_INT (basic_num_t x) { return fixed64_to_int (x); }
+#define BASIC_ZERO ((basic_num_t) {.lo = 0, .hi = 0})
+#define BASIC_ONE ((basic_num_t) {.lo = 0, .hi = 1})
+static inline basic_num_t BASIC_ADD (basic_num_t a, basic_num_t b) { return fixed64_add (a, b); }
+static inline basic_num_t BASIC_SUB (basic_num_t a, basic_num_t b) { return fixed64_sub (a, b); }
+static inline basic_num_t BASIC_MUL (basic_num_t a, basic_num_t b) { return fixed64_mul (a, b); }
+static inline basic_num_t BASIC_DIV (basic_num_t a, basic_num_t b) { return fixed64_div (a, b); }
+static inline basic_num_t BASIC_NEG (basic_num_t a) { return fixed64_neg (a); }
+static inline int BASIC_EQ (basic_num_t a, basic_num_t b) { return a.hi == b.hi && a.lo == b.lo; }
+static inline int BASIC_NE (basic_num_t a, basic_num_t b) { return !BASIC_EQ (a, b); }
+static inline int BASIC_LT (basic_num_t a, basic_num_t b) {
+  return a.hi < b.hi || (a.hi == b.hi && a.lo < b.lo);
+}
+static inline int BASIC_LE (basic_num_t a, basic_num_t b) {
+  return BASIC_LT (a, b) || BASIC_EQ (a, b);
+}
+static inline int BASIC_GT (basic_num_t a, basic_num_t b) { return BASIC_LT (b, a); }
+static inline int BASIC_GE (basic_num_t a, basic_num_t b) { return BASIC_LE (b, a); }
 #define BASIC_STRTOF fixed64_from_string
 #define BASIC_FABS fixed64_abs
 #define BASIC_SQRT fixed64_stub_unary
@@ -95,6 +128,18 @@ typedef fixed64_t basic_num_t;
 static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
   return fixed64_to_string (x, buf, size);
 }
+static inline int BASIC_NUM_SCAN (FILE *f, basic_num_t *out) {
+  char buf[128];
+  if (fgets (buf, sizeof (buf), f) == NULL) return 0;
+  *out = fixed64_from_string (buf, NULL);
+  return 1;
+}
+static inline void BASIC_NUM_PRINT (FILE *f, basic_num_t x) {
+  char buf[128];
+  fixed64_to_string (x, buf, sizeof (buf));
+  fputs (buf, f);
+}
+
 #elif defined(BASIC_USE_DECIMAL128)
 #include <dfp/decimal128.h>
 #include <dfp/math.h>
@@ -102,6 +147,21 @@ static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
 typedef _Decimal128 basic_num_t;
 #define BASIC_NUM_SCANF "%DDf"
 #define BASIC_NUM_PRINTF "%.34DDg"
+#define BASIC_FROM_INT(x) ((basic_num_t) (x))
+#define BASIC_TO_INT(x) ((long) (x))
+#define BASIC_ZERO ((basic_num_t) 0DD)
+#define BASIC_ONE ((basic_num_t) 1DD)
+#define BASIC_ADD(a, b) ((a) + (b))
+#define BASIC_SUB(a, b) ((a) - (b))
+#define BASIC_MUL(a, b) ((a) * (b))
+#define BASIC_DIV(a, b) ((a) / (b))
+#define BASIC_NEG(a) (-(a))
+#define BASIC_LT(a, b) ((a) < (b))
+#define BASIC_LE(a, b) ((a) <= (b))
+#define BASIC_GT(a, b) ((a) > (b))
+#define BASIC_GE(a, b) ((a) >= (b))
+#define BASIC_EQ(a, b) ((a) == (b))
+#define BASIC_NE(a, b) ((a) != (b))
 #define BASIC_STRTOF strtod128
 #define BASIC_FABS fabsd128
 #define BASIC_SQRT sqrtd128
@@ -128,11 +188,27 @@ static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
   decimal128ToString ((decimal128 *) &x, buf);
   return (int) strlen (buf);
 }
+
 #else
 #include "ryu/ryu.h"
 typedef double basic_num_t;
 #define BASIC_NUM_SCANF "%lf"
 #define BASIC_NUM_PRINTF "%.15g"
+#define BASIC_FROM_INT(x) ((basic_num_t) (x))
+#define BASIC_TO_INT(x) ((long) (x))
+#define BASIC_ZERO ((basic_num_t) 0.0)
+#define BASIC_ONE ((basic_num_t) 1.0)
+#define BASIC_ADD(a, b) ((a) + (b))
+#define BASIC_SUB(a, b) ((a) - (b))
+#define BASIC_MUL(a, b) ((a) * (b))
+#define BASIC_DIV(a, b) ((a) / (b))
+#define BASIC_NEG(a) (-(a))
+#define BASIC_LT(a, b) ((a) < (b))
+#define BASIC_LE(a, b) ((a) <= (b))
+#define BASIC_GT(a, b) ((a) > (b))
+#define BASIC_GE(a, b) ((a) >= (b))
+#define BASIC_EQ(a, b) ((a) == (b))
+#define BASIC_NE(a, b) ((a) != (b))
 #define BASIC_STRTOF strtod
 #define BASIC_FABS fabs
 #define BASIC_SQRT sqrt
@@ -188,6 +264,13 @@ static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
   }
   return (int) strlen (buf);
 }
+#endif
+
+#if !defined(BASIC_USE_FIXED64)
+static inline int BASIC_NUM_SCAN (FILE *f, basic_num_t *out) {
+  return fscanf (f, BASIC_NUM_SCANF, out) == 1;
+}
+static inline void BASIC_NUM_PRINT (FILE *f, basic_num_t x) { fprintf (f, BASIC_NUM_PRINTF, x); }
 #endif
 
 #endif /* BASIC_NUM_H */
