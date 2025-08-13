@@ -704,6 +704,7 @@ struct Stmt {
     } iff;
     struct {
       Node *var;
+      Node *prompt;
     } input;
     struct {
       char *var;
@@ -1986,11 +1987,23 @@ static int parse_stmt (Parser *p, Stmt *out) {
     out->u.inputhash.var = parse_id (p);
     out->u.inputhash.is_str = out->u.inputhash.var[strlen (out->u.inputhash.var) - 1] == '$';
     return 1;
-  case TOK_INPUT:
+  case TOK_INPUT: {
     out->kind = ST_INPUT;
-    out->u.input.var = parse_factor (p);
-    if (out->u.input.var == NULL || out->u.input.var->kind != N_VAR) return parse_error (p);
+    Node *n = parse_factor (p);
+    if (n == NULL) return parse_error (p);
+    if (peek_token (p).type == TOK_SEMICOLON) {
+      next_token (p);
+      if (!n->is_str) return parse_error (p);
+      out->u.input.prompt = n;
+      out->u.input.var = parse_factor (p);
+      if (out->u.input.var == NULL || out->u.input.var->kind != N_VAR) return parse_error (p);
+    } else {
+      if (n->kind != N_VAR) return parse_error (p);
+      out->u.input.var = n;
+      out->u.input.prompt = NULL;
+    }
     return 1;
+  }
   case TOK_GET_HASH:
     out->kind = ST_GET_HASH;
     PARSE_EXPR_OR_ERROR (out->u.gethash.num);
@@ -4199,6 +4212,10 @@ static void input_num_var (MIR_reg_t v) {
 }
 
 static void gen_input (Stmt *s) {
+  if (s->u.input.prompt != NULL) {
+    MIR_reg_t p = gen_expr (g_ctx, g_func, &g_vars, s->u.input.prompt);
+    call1 (prints_proto, prints_import, MIR_new_reg_op (g_ctx, p));
+  }
   Node *v = s->u.input.var;
   if (v->index == NULL) {
     MIR_reg_t r = get_var (&g_vars, g_ctx, g_func, v->var);
