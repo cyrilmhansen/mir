@@ -89,6 +89,8 @@ typedef _Decimal128 basic_num_t;
 #define BASIC_ACOS acosd128
 #define BASIC_ATAN atand128
 #define BASIC_LOG logd128
+#define BASIC_LOG2 log2d128
+#define BASIC_LOG10 log10d128
 #define BASIC_POW powd128
 #define BASIC_EXP expd128
 #define BASIC_FLOOR floord128
