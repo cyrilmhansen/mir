@@ -3866,6 +3866,13 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
         args[nargs++] = MIR_new_reg_op (ctx, a);
       }
       FuncDef *fd = find_func (n->var);
+      if (fd == NULL) {
+        safe_fprintf (stderr, "undefined function %s\n", n->var);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, res),
+                                       MIR_new_double_op (ctx, 0.0)));
+        return res;
+      }
       MIR_item_t proto = fd->proto;
       MIR_item_t item = fd->item;
       switch (nargs) {
@@ -3925,6 +3932,13 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
         args[nargs++] = MIR_new_reg_op (ctx, a);
       }
       FuncDef *fd = find_func (n->var);
+      if (fd == NULL) {
+        safe_fprintf (stderr, "undefined function %s\n", n->var);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, res),
+                                       MIR_new_double_op (ctx, 0.0)));
+        return res;
+      }
       MIR_item_t proto = fd->proto;
       MIR_item_t item = fd->item;
       switch (nargs) {
