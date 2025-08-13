@@ -12,6 +12,8 @@ invoked.
 The compiler also understands `--option-base N` to set the default `OPTION BASE`
 for programs that omit it.  Specify `0` or `1` for `N`.
 
+Use `-h`, `--usage`, or `-?` to display all available command line options and exit.
+
 Mathematical built-ins include `ABS`, `SGN`, `SQR`, the trigonometric
 functions `SIN`, `COS`, `TAN`, and `ATN`, logarithms `LOG`, `LOG2`, `LOG10`, and
 `EXP`.  Hyperbolic counterparts `SINH`, `COSH`, `TANH` and their inverses

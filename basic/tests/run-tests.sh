@@ -22,6 +22,15 @@ run_tests() {
                 (cd "$ROOT" && make "basic/$(basename "$BASICC")")
         fi
 
+       echo "Running usage tests"
+       for opt in -h --usage -?; do
+               out="$(mktemp)"
+               "$BASICC" "$opt" > "$out" 2>&1
+               grep -q "Usage:" "$out"
+               rm -f "$out"
+       done
+       echo "Usage tests OK"
+
         echo "Running REPL smoke test"
         printf '10 PRINT 1\nRUN\nQUIT\n' | "$BASICC" > /dev/null
         echo "REPL smoke test OK"
