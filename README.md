@@ -441,6 +441,9 @@ The executable is "configurable" with environment variables:
     * On my estimation an experienced developer can port MIR (including `c2m`) to another target for 1-2 months
 
 ## BASIC example tests
+
+Documentation for the BASIC compiler example resides in `basic/docs/`.
+
 Run `make basic-test` to exercise the BASIC compiler samples. Many programs
 such as `hello.bas`, `relop.bas`, `adder.bas`, `string.bas`, `strfuncs.bas`,
 `instr.bas`, `array.bas`, `while.bas`, `not.bas`, and `sinewave.bas` currently

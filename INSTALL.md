@@ -37,6 +37,10 @@ with the right `SRC_DIR` if you build MIR in a different directory.
     can be useful to generate a standalone executable based on using
     MIR interpreter or generator
 
+The BASIC compiler example includes additional documentation under
+`basic/docs/`. Include this directory when packaging or installing the example
+to ensure the README, tutorial, and related materials are available.
+
   The default destination is `/usr/local/include` for include files,
 `/usr/local/lib` for the library, and `/usr/local/bin` for the
 executables.
