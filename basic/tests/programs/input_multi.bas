@@ -1,0 +1,2 @@
+10 INPUT A,B
+20 END

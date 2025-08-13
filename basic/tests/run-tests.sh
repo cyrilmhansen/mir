@@ -200,7 +200,7 @@ PY
         for src in "$ROOT/basic/tests/programs/"*.bas; do
                 name=$(basename "$src" .bas)
                case "$name" in
-                       base0_cli|base1_cli|extern|resume|dim_expr_error|line_number_float|print_expr_error|incdec)
+                       base0_cli|base1_cli|extern|resume|dim_expr_error|line_number_float|print_expr_error|input_multi|incdec)
                                continue
                                ;;
                        ahl_benchmark)
@@ -272,6 +272,14 @@ if ! grep -q "parse error at line 10" "$ROOT/basic/print_expr_error.err"; then
         exit 1
 fi
 echo "print expression error OK"
+
+echo "Running input multi (expect error)"
+if "$BASICC" "$ROOT/basic/tests/programs/input_multi.bas" >/dev/null 2> "$ROOT/basic/input_multi.err"; then
+echo "input multi should have failed"
+exit 1
+fi
+grep -q "parse error at line 10" "$ROOT/basic/input_multi.err"
+echo "input multi error OK"
 
         echo "Running repl LOAD"
         printf 'LOAD %s\nRUN\nQUIT\n' "$ROOT/basic/tests/programs/hello.bas" | "$BASICC" > "$ROOT/basic/repl-load.out"
