@@ -867,6 +867,14 @@ void basic_fill (basic_num_t x0, basic_num_t y0, basic_num_t x1, basic_num_t y1)
 
 void basic_mode (basic_num_t m) { basic_screen (m); }
 
+void basic_delay (basic_num_t ms) {
+#if defined(_WIN32)
+  Sleep ((DWORD) ms);
+#else
+  usleep ((useconds_t) (ms * 1000));
+#endif
+}
+
 void basic_beep (void) {
   fputc ('\a', stdout);
   fflush (stdout);
