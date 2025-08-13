@@ -12,6 +12,11 @@ invoked.
 The compiler also understands `--option-base N` to set the default `OPTION BASE`
 for programs that omit it.  Specify `0` or `1` for `N`.
 
+Mathematical built-ins include `ABS`, `SGN`, `SQR`, the trigonometric
+functions `SIN`, `COS`, `TAN`, and `ATN`, logarithms `LOG`, `LOG2`, `LOG10`, and
+`EXP`.  Hyperbolic counterparts `SINH`, `COSH`, `TANH` and their inverses
+`ASINH`, `ACOSH`, `ATANH` are also available.
+
 Automated Tests
 ---------------
 Run `make basic-test` to build the compiler and execute sample programs along with
