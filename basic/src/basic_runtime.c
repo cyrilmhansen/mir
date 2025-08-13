@@ -464,7 +464,7 @@ void *basic_dim_alloc (void *base, basic_num_t len, basic_num_t is_str) {
      any existing storage via basic_clear_array; the old base pointer is
      ignored here and a new block is always allocated. */
   (void) base;
-  size_t n = (size_t) len;
+  size_t n = basic_num_to_int (len);
   size_t elem_size = is_str != 0.0 ? sizeof (char *) : sizeof (basic_num_t);
   void *res = basic_alloc_array (n, elem_size, 1);
   if (res == NULL) return NULL;
@@ -472,7 +472,7 @@ void *basic_dim_alloc (void *base, basic_num_t len, basic_num_t is_str) {
 }
 
 void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str) {
-  size_t n = (size_t) len;
+  size_t n = basic_num_to_int (len);
   int str_p = is_str != 0.0;
   if (base == NULL || n == 0) return;
   if (str_p) {
