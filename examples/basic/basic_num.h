@@ -17,6 +17,8 @@ typedef long double basic_num_t;
 #define BASIC_SIN sinl
 #define BASIC_COS cosl
 #define BASIC_TAN tanl
+#define BASIC_ASIN asinl
+#define BASIC_ACOS acosl
 #define BASIC_ATAN atanl
 #define BASIC_LOG logl
 #define BASIC_LOG2 log2l
@@ -70,6 +72,8 @@ typedef _Decimal128 basic_num_t;
 #define BASIC_SIN sind128
 #define BASIC_COS cosd128
 #define BASIC_TAN tand128
+#define BASIC_ASIN asind128
+#define BASIC_ACOS acosd128
 #define BASIC_ATAN atand128
 #define BASIC_LOG logd128
 #define BASIC_EXP expd128
@@ -90,6 +94,8 @@ typedef double basic_num_t;
 #define BASIC_SIN sin
 #define BASIC_COS cos
 #define BASIC_TAN tan
+#define BASIC_ASIN asin
+#define BASIC_ACOS acos
 #define BASIC_ATAN atan
 #define BASIC_LOG log
 #define BASIC_LOG2 log2

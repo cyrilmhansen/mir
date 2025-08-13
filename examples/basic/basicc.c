@@ -106,6 +106,8 @@ extern basic_num_t basic_sin (basic_num_t);
 extern basic_num_t basic_cos (basic_num_t);
 extern basic_num_t basic_tan (basic_num_t);
 extern basic_num_t basic_atn (basic_num_t);
+extern basic_num_t basic_asin (basic_num_t);
+extern basic_num_t basic_acos (basic_num_t);
 extern basic_num_t basic_log (basic_num_t);
 extern basic_num_t basic_log2 (basic_num_t);
 extern basic_num_t basic_log10 (basic_num_t);
@@ -266,6 +268,8 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_cos")) return basic_cos;
   if (!strcmp (name, "basic_tan")) return basic_tan;
   if (!strcmp (name, "basic_atn")) return basic_atn;
+  if (!strcmp (name, "basic_asin")) return basic_asin;
+  if (!strcmp (name, "basic_acos")) return basic_acos;
   if (!strcmp (name, "basic_log")) return basic_log;
   if (!strcmp (name, "basic_log2")) return basic_log2;
   if (!strcmp (name, "basic_log10")) return basic_log10;
@@ -362,7 +366,7 @@ static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, st
   date_str_import, input_chr_proto, input_chr_import, peek_proto, peek_import, eof_proto,
   eof_import, abs_proto, abs_import, sgn_proto, sgn_import, inkey_proto, inkey_import, sqr_proto,
   sqr_import, sin_proto, sin_import, cos_proto, cos_import, tan_proto, tan_import, atn_proto,
-  atn_import, log_proto, log_import, log2_proto, log2_import, log10_proto, log10_import, exp_proto,
+  atn_import, asin_proto, asin_import, acos_proto, acos_import, log_proto, log_import, log2_proto, log2_import, log10_proto, log10_import, exp_proto,
   exp_import, left_proto, left_import, right_proto, right_import, mid_proto, mid_import,
   mirror_proto, mirror_import, len_proto, len_import, val_proto, val_import, str_proto, str_import,
   asc_proto, asc_import, pos_proto, pos_import, instr_proto, instr_import, strdup_proto,
@@ -1469,7 +1473,7 @@ typedef struct {
 static const Builtin builtins[]
   = {{"RND", 0},     {"INT", 0},       {"TIMER", 0},    {"TIME", 0},    {"DATE", 0},
      {"PEEK", 0},    {"EOF", 0},       {"POS", 0},      {"ABS", 0},     {"SGN", 0},
-     {"SQR", 0},     {"SIN", 0},       {"COS", 0},      {"TAN", 0},     {"ATN", 0},
+     {"SQR", 0},     {"SIN", 0},       {"COS", 0},      {"TAN", 0},     {"ATN", 0}, {"ASIN", 0},    {"ACOS", 0},
      {"LOG", 0},     {"LOG2", 0},      {"LOG10", 0},    {"EXP", 0},     {"LEN", 0},
      {"VAL", 0},     {"ASC", 0},       {"INSTR", 0},    {"MIRCTX", 0},  {"MIRMOD", 0},
      {"MIRFUNC", 0}, {"MIRREG", 0},    {"MIRLABEL", 0}, {"MIREMIT", 0}, {"MIREMITLBL", 0},
@@ -3518,6 +3522,18 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, atn_proto),
                                           MIR_new_ref_op (ctx, atn_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "ASIN") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, asin_proto),
+                                          MIR_new_ref_op (ctx, asin_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "ACOS") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, acos_proto),
+                                          MIR_new_ref_op (ctx, acos_import),
                                           MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
     } else if (strcasecmp (n->var, "LOG") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
@@ -5660,6 +5676,10 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   tan_import = MIR_new_import (ctx, "basic_tan");
   atn_proto = MIR_new_proto (ctx, "basic_atn_p", 1, &d, 1, MIR_T_D, "x");
   atn_import = MIR_new_import (ctx, "basic_atn");
+  asin_proto = MIR_new_proto (ctx, "basic_asin_p", 1, &d, 1, MIR_T_D, "x");
+  asin_import = MIR_new_import (ctx, "basic_asin");
+  acos_proto = MIR_new_proto (ctx, "basic_acos_p", 1, &d, 1, MIR_T_D, "x");
+  acos_import = MIR_new_import (ctx, "basic_acos");
   log_proto = MIR_new_proto (ctx, "basic_log_p", 1, &d, 1, MIR_T_D, "x");
   log_import = MIR_new_import (ctx, "basic_log");
   log2_proto = MIR_new_proto (ctx, "basic_log2_p", 1, &d, 1, MIR_T_D, "x");
