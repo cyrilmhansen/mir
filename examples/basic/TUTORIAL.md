@@ -22,6 +22,8 @@ Assignments may optionally use the classic `LET` keyword, though it is not requi
 ```basic
 LET X = 1  ' explicit LET
 X = 1      ' implicit LET
+INC X      ' increment X
+DEC X      ' decrement X
 ```
 
 Key features include `PRINT`, `INPUT`, `IF`/`THEN`, `ELSE`, `FOR`/`NEXT`, `WHILE`/`WEND`, `GOTO`, `GOSUB`/`RETURN`, `DATA`/`READ`/`RESTORE`, and arrays declared with `DIM`.

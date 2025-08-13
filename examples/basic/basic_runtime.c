@@ -512,6 +512,10 @@ basic_num_t basic_tan (basic_num_t x) { return BASIC_TAN (x); }
 
 basic_num_t basic_atn (basic_num_t x) { return BASIC_ATAN (x); }
 
+basic_num_t basic_asin (basic_num_t x) { return BASIC_ASIN (x); }
+
+basic_num_t basic_acos (basic_num_t x) { return BASIC_ACOS (x); }
+
 basic_num_t basic_log (basic_num_t x) { return BASIC_LOG (x); }
 
 basic_num_t basic_log2 (basic_num_t x) { return BASIC_LOG2 (x); }
@@ -592,6 +596,17 @@ char *basic_mid (const char *s, basic_num_t start_d, basic_num_t len_d) {
   if (start + cnt > len) cnt = len - start;
   char *res = basic_alloc_string (cnt);
   if (res != NULL) memcpy (res, s + start, cnt);
+  return res;
+}
+
+/* Return a new string with characters of S in reverse order.
+   Caller must free the result with basic_free. */
+char *basic_mirror (const char *s) {
+  size_t len = strlen (s);
+  char *res = basic_alloc_string (len);
+  if (res != NULL) {
+    for (size_t i = 0; i < len; i++) res[i] = s[len - 1 - i];
+  }
   return res;
 }
 
