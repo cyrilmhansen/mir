@@ -6467,14 +6467,38 @@ static void repl (void) {
   arena_release (&ast_arena);
 }
 
+static void usage (const char *progname) {
+  safe_fprintf (stdout, "Usage: %s [options] [file]\n", progname);
+  safe_fprintf (stdout, "Options:\n");
+  safe_fprintf (stdout, "  -j                 Execute with the JIT generator\n");
+  safe_fprintf (stdout, "  -S                 Emit MIR text (.mir) and binary (.bmir) files\n");
+  safe_fprintf (stdout, "  -c                 Emit MIR text (.mir) and binary (.bmir) files\n");
+  safe_fprintf (stdout,
+                "  -r                 Emit only a binary (.bmir) file for use with mir-bin-run\n");
+  safe_fprintf (stdout, "  -b                 Build a standalone executable\n");
+  safe_fprintf (stdout, "  -l                 Reduce linked libraries when building executables\n");
+  safe_fprintf (stdout,
+                "  --no-line-tracking Skip inserting basic_set_line calls during code "
+                "generation\n");
+  safe_fprintf (stdout, "  --option-base N    Set default OPTION BASE (0 or 1)\n");
+  safe_fprintf (stdout, "  -o <path>          Set the base name for generated files\n");
+  safe_fprintf (stdout, "  -h, --usage, -?    Display this help message and exit\n");
+  safe_fprintf (stdout, "If no file is provided, an interactive REPL starts.\n");
+}
+
 int main (int argc, char **argv) {
   arena_init (&ast_arena);
   basic_pool_reset ();
-  if (kitty_graphics_available ()) show_kitty_banner ();
   int jit = 0, asm_p = 0, obj_p = 0, bin_p = 0, reduce_libs = 0;
   const char *fname = NULL, *out_name = NULL;
   for (int i = 1; i < argc; i++) {
-    if (strcmp (argv[i], "-j") == 0) {
+    if (strcmp (argv[i], "-h") == 0 || strcmp (argv[i], "--usage") == 0
+        || strcmp (argv[i], "-?") == 0) {
+      usage (argv[0]);
+      arena_release (&ast_arena);
+      basic_pool_destroy ();
+      return 0;
+    } else if (strcmp (argv[i], "-j") == 0) {
       jit = 1;
     } else if (strcmp (argv[i], "-S") == 0) {
       asm_p = obj_p = 1;
@@ -6502,6 +6526,7 @@ int main (int argc, char **argv) {
       fname = argv[i];
     }
   }
+  if (kitty_graphics_available ()) show_kitty_banner ();
   if (!fname) {
     repl ();
     arena_release (&ast_arena);
