@@ -458,18 +458,20 @@ $(BUILD_DIR)/basic/kitty_test$(EXE): \
 $(BUILD_DIR)/basic/hcolor_test$(EXE): \
         $(SRC_DIR)/basic/test/hcolor_test.c \
         $(SRC_DIR)/basic/src/basic_runtime.c $(SRC_DIR)/basic/src/basic_pool.c \
-        $(SRC_DIR)/basic/src/vendor/ryu/d2s.c $(SRC_DIR)/basic/src/vendor/ryu/f2s.c \
+        $(BASIC_NUM_SRCS) \
+        $(SRC_DIR)/basic/src/vendor/ryu/f2s.c \
         $(SRC_DIR)/basic/src/vendor/kitty/kitty.c \
         $(SRC_DIR)/basic/src/vendor/kitty/lodepng.c \
-        $(BUILD_DIR)/libmir.$(LIBSUFF) ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor $^ -lm $(EXEO)$@
+        $(BUILD_DIR)/libmir.$(LIBSUFF) ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $^ -lm $(EXEO)$@
 
 $(BUILD_DIR)/basic/basic_input_hash_test$(EXE): \
         $(SRC_DIR)/basic/test/basic_input_hash_test.c \
         $(SRC_DIR)/basic/src/basic_runtime.c $(SRC_DIR)/basic/src/basic_pool.c \
-        $(SRC_DIR)/basic/src/vendor/ryu/d2s.c $(SRC_DIR)/basic/src/vendor/ryu/f2s.c \
+        $(BASIC_NUM_SRCS) \
+        $(SRC_DIR)/basic/src/vendor/ryu/f2s.c \
         $(SRC_DIR)/basic/src/vendor/kitty/kitty.c \
         $(SRC_DIR)/basic/src/vendor/kitty/lodepng.c \
-        $(BUILD_DIR)/libmir.$(LIBSUFF) ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor $^ -lm $(EXEO)$@
+        $(BUILD_DIR)/libmir.$(LIBSUFF) ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $^ -lm $(EXEO)$@
 
 $(BUILD_DIR)/basic/dfp_test$(EXE): \
         $(SRC_DIR)/basic/test/dfp_test.c \
@@ -481,39 +483,56 @@ $(BUILD_DIR)/basic/fixed64_test$(EXE): \
         $(SRC_DIR)/basic/test/fixed64_test.c \
         $(SRC_DIR)/basic/src/vendor/fixed64/fixed64.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/src/vendor $^ -lm $(EXEO)$@
 
+BASIC_NUM_SRCS = \
+        $(SRC_DIR)/basic/src/basic_num.c \
+        $(SRC_DIR)/basic/src/basic_num_double.c \
+        $(SRC_DIR)/basic/src/basic_num_long_double.c \
+        $(SRC_DIR)/basic/src/basic_num_fixed64.c \
+        $(SRC_DIR)/basic/src/basic_num_mb5.c \
+        $(SRC_DIR)/basic/src/vendor/ryu/d2s.c \
+        $(SRC_DIR)/basic/src/vendor/ryu/ld2s.c \
+        $(SRC_DIR)/basic/src/vendor/fixed64/fixed64.c
+
 $(BUILD_DIR)/basic/basic_num_scan_test$(EXE): \
-        $(SRC_DIR)/basic/test/basic_num_scan_test.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src/vendor $^ -lm $(EXEO)$@
+        $(SRC_DIR)/basic/test/basic_num_scan_test.c $(BASIC_NUM_SRCS) ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $^ -lm $(EXEO)$@
+
+$(BUILD_DIR)/basic/basic_num_fixed64_test$(EXE): \
+        $(SRC_DIR)/basic/test/basic_num_fixed64_test.c $(BASIC_NUM_SRCS) ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $^ -lm $(EXEO)$@
 
 $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB): \
         $(SRC_DIR)/basic/src/basic_runtime.c $(SRC_DIR)/basic/src/basic_pool.c \
-        $(SRC_DIR)/basic/src/vendor/ryu/d2s.c $(SRC_DIR)/basic/src/vendor/ryu/f2s.c \
+        $(BASIC_NUM_SRCS) \
+        $(SRC_DIR)/basic/src/vendor/ryu/f2s.c \
         $(SRC_DIR)/basic/src/vendor/kitty/kitty.c \
         $(SRC_DIR)/basic/src/vendor/kitty/lodepng.c \
-        $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic ; $(CC) $(CPPFLAGS) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor $(CFLAGS) $(LDFLAGS) $(BASIC_RUNTIME_FLAGS) $^ -lm $(EXEO)$@
+        $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic ; $(CC) $(CPPFLAGS) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $(CFLAGS) $(LDFLAGS) $(BASIC_RUNTIME_FLAGS) $^ -lm $(EXEO)$@
 
 $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD): \
         $(SRC_DIR)/basic/src/basic_runtime.c $(SRC_DIR)/basic/src/basic_pool.c \
-        $(SRC_DIR)/basic/src/vendor/ryu/d2s.c $(SRC_DIR)/basic/src/vendor/ryu/f2s.c \
-        $(SRC_DIR)/basic/src/vendor/ryu/ld2s.c \
+        $(BASIC_NUM_SRCS) \
+        $(SRC_DIR)/basic/src/vendor/ryu/f2s.c \
         $(SRC_DIR)/basic/src/vendor/kitty/kitty.c \
         $(SRC_DIR)/basic/src/vendor/kitty/lodepng.c \
-        $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic ; $(CC) $(CPPFLAGS) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor $(CFLAGS) $(LDFLAGS) -DBASIC_USE_LONG_DOUBLE $(BASIC_RUNTIME_FLAGS) $^ -lm $(EXEO)$@
+        $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic ; $(CC) $(CPPFLAGS) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $(CFLAGS) $(LDFLAGS) $(BASIC_RUNTIME_FLAGS) $^ -lm $(EXEO)$@
 
 $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_FIX): \
         $(SRC_DIR)/basic/src/basic_runtime.c $(SRC_DIR)/basic/src/basic_pool.c \
-        $(SRC_DIR)/basic/src/vendor/fixed64/fixed64.c \
-        $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic ; $(CC) $(CPPFLAGS) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $(CFLAGS) $(LDFLAGS) -DBASIC_USE_FIXED64 $(BASIC_RUNTIME_FLAGS) $^ -lm $(EXEO)$@
+        $(BASIC_NUM_SRCS) \
+        $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic ; $(CC) $(CPPFLAGS) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $(CFLAGS) $(LDFLAGS) $(BASIC_RUNTIME_FLAGS) $^ -lm $(EXEO)$@
 
-basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/hcolor_test$(EXE) $(BUILD_DIR)/basic/dfp_test$(EXE) $(BUILD_DIR)/basic/fixed64_test$(EXE) $(BUILD_DIR)/basic/basic_num_scan_test$(EXE) $(BUILD_DIR)/basic/basic_input_hash_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/mir-bin-run$(EXE)
-		$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
-	$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
-	$(SRC_DIR)/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
-	$(SRC_DIR)/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
-	$(BUILD_DIR)/basic/dfp_test$(EXE) > $(BUILD_DIR)/basic/dfp_test.out
-	diff $(SRC_DIR)/basic/test/dfp_test.out $(BUILD_DIR)/basic/dfp_test.out
-	$(BUILD_DIR)/basic/fixed64_test$(EXE)
-	$(BUILD_DIR)/basic/basic_num_scan_test$(EXE)
-	$(BUILD_DIR)/basic/basic_input_hash_test$(EXE)
+basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/hcolor_test$(EXE) $(BUILD_DIR)/basic/dfp_test$(EXE) $(BUILD_DIR)/basic/fixed64_test$(EXE) $(BUILD_DIR)/basic/basic_num_scan_test$(EXE) $(BUILD_DIR)/basic/basic_input_hash_test$(EXE) $(BUILD_DIR)/basic/basic_num_fixed64_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/mir-bin-run$(EXE) run-basic-tests
+
+run-basic-tests:
+$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
+$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
+$(SRC_DIR)/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
+$(SRC_DIR)/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
+$(BUILD_DIR)/basic/dfp_test$(EXE) > $(BUILD_DIR)/basic/dfp_test.out
+diff $(SRC_DIR)/basic/test/dfp_test.out $(BUILD_DIR)/basic/dfp_test.out
+$(BUILD_DIR)/basic/fixed64_test$(EXE)
+$(BUILD_DIR)/basic/basic_num_scan_test$(EXE)
+$(BUILD_DIR)/basic/basic_input_hash_test$(EXE)
+$(BUILD_DIR)/basic/basic_num_fixed64_test$(EXE)
 
 # ------------------ MIR interp tests --------------------------
 .PHONY: clean-mir-interp-tests
