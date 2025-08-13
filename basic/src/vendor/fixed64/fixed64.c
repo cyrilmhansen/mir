@@ -34,6 +34,23 @@ static int ge128 (uint64_t ah, uint64_t al, uint64_t bh, uint64_t bl) {
   return ah > bh || (ah == bh && al >= bl);
 }
 
+fixed64_t fixed64_from_int (int64_t i) {
+  fixed64_t r;
+  r.hi = i;
+  r.lo = 0;
+  return r;
+}
+
+int64_t fixed64_to_int (fixed64_t x) { return x.hi; }
+
+int fixed64_cmp (fixed64_t a, fixed64_t b) {
+  if (a.hi > b.hi) return 1;
+  if (a.hi < b.hi) return -1;
+  if (a.lo > b.lo) return 1;
+  if (a.lo < b.lo) return -1;
+  return 0;
+}
+
 fixed64_t fixed64_mul (fixed64_t a, fixed64_t b) {
   int neg = (a.hi < 0) ^ (b.hi < 0);
   fixed64_t aa = fixed64_abs (a);
@@ -131,14 +148,6 @@ int fixed64_to_string (fixed64_t x, char *buf, size_t size) {
 fixed64_t fixed64_abs (fixed64_t x) { return x.hi < 0 ? fixed64_neg (x) : x; }
 
 /* CORDIC implementation for trigonometric functions. */
-
-static inline int fixed64_cmp (fixed64_t a, fixed64_t b) {
-  if (a.hi > b.hi) return 1;
-  if (a.hi < b.hi) return -1;
-  if (a.lo > b.lo) return 1;
-  if (a.lo < b.lo) return -1;
-  return 0;
-}
 
 static inline fixed64_t fixed64_shr (fixed64_t x, unsigned n) {
   for (; n; n--) {

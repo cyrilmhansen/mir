@@ -79,3 +79,9 @@ for mode in interpreted compiled; do
   echo "incdec.bas ($mode) OK"
 done
 
+# Verify sample instruction usage analysis script runs
+analysis_html="$ROOT/basic/samples/instruction_usage.html"
+python3 "$ROOT/basic/analyze_samples.py" -o "$analysis_html"
+test -f "$analysis_html"
+rm -f "$analysis_html"
+
