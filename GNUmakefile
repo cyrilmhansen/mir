@@ -492,11 +492,6 @@ $(BUILD_DIR)/basic/basic_num_scan_test$(EXE): \
 $(BUILD_DIR)/basic/basic_num_fixed64_test$(EXE): \
         $(SRC_DIR)/basic/test/basic_num_fixed64_test.c $(BASIC_NUM_SRCS) ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $^ -lm $(EXEO)$@
 
-$(BUILD_DIR)/basic/basic_num_mode_switch_test$(EXE): \
-        $(SRC_DIR)/basic/test/basic_num_mode_switch_test.c \
-        $(SRC_DIR)/basic/src/basic_num_ops.c \
-        $(SRC_DIR)/basic/src/vendor/fixed64/fixed64.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $^ -lm $(EXEO)$@
-
 $(BUILD_DIR)/basic/basic_handle_fixed64_test$(EXE): \
         $(SRC_DIR)/basic/test/basic_handle_fixed64_test.c \
         $(SRC_DIR)/basic/src/basic_runtime.c $(SRC_DIR)/basic/src/basic_pool.c \
