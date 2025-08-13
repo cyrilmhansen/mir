@@ -1389,8 +1389,8 @@ static const Builtin builtins[]
      {"MIRFUNC", 0}, {"MIRREG", 0},    {"MIRLABEL", 0}, {"MIREMIT", 0}, {"MIREMITLBL", 0},
      {"MIRRET", 0},  {"MIRFINISH", 0}, {"MIRRUN", 0},   {"MIRDUMP", 0}, {"CHR$", 1},
      {"STRING$", 1}, {"TIME$", 1},     {"DATE$", 1},    {"INPUT$", 1},  {"SPC", 1},
-     {"TAB", 0},     {"LEFT$", 1},     {"RIGHT$", 1},   {"MID$", 1},    {"STR$", 1},
-     {"INKEY$", 1},  {NULL, 0}};
+     {"SPACE$", 1},  {"TAB", 0},       {"LEFT$", 1},    {"RIGHT$", 1},  {"MID$", 1},
+     {"STR$", 1},    {"INKEY$", 1},    {NULL, 0}};
 
 static const Builtin *lookup_builtin (const char *id) {
   for (int i = 0; builtins[i].name != NULL; i++)
@@ -3011,6 +3011,19 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                             MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, a1),
                                             MIR_new_reg_op (ctx, a2)));
       } else if (strcasecmp (n->var, "SPC") == 0) {
+        MIR_reg_t a1 = gen_expr (ctx, func, vars, n->left);
+        char buf2[32];
+        safe_snprintf (buf2, sizeof (buf2), "$t%d", tmp_id++);
+        MIR_reg_t space = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf2);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, space),
+                                       MIR_new_str_op (ctx, (MIR_str_t) {2, " "})));
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, string_proto),
+                                            MIR_new_ref_op (ctx, string_import),
+                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, a1),
+                                            MIR_new_reg_op (ctx, space)));
+      } else if (strcasecmp (n->var, "SPACE$") == 0) {
         MIR_reg_t a1 = gen_expr (ctx, func, vars, n->left);
         char buf2[32];
         safe_snprintf (buf2, sizeof (buf2), "$t%d", tmp_id++);
