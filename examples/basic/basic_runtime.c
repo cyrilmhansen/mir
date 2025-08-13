@@ -511,6 +511,10 @@ basic_num_t basic_atn (basic_num_t x) { return BASIC_ATAN (x); }
 
 basic_num_t basic_log (basic_num_t x) { return BASIC_LOG (x); }
 
+basic_num_t basic_log2 (basic_num_t x) { return BASIC_LOG2 (x); }
+
+basic_num_t basic_log10 (basic_num_t x) { return BASIC_LOG10 (x); }
+
 basic_num_t basic_exp (basic_num_t x) { return BASIC_EXP (x); }
 
 /* Allocate a one-character string. Caller must free with basic_free. */
