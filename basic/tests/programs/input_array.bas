@@ -1,0 +1,3 @@
+10 DIM B$(1)
+20 INPUT B$(1)
+30 PRINT LEFT$(B$(1),1)
