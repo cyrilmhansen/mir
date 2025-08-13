@@ -411,6 +411,12 @@ typedef struct Node Node;
 #define OP_GE 'G'
 #define OP_AND '&'
 #define OP_OR '|'
+#define OP_BIT 'b'
+#define OP_XOR 'x'
+#define OP_NAND 'n'
+#define OP_NOR 'o'
+#define OP_SHL 'l'
+#define OP_SHR 'r'
 #define NUM_PREFIX_CHAR '&'
 #define HEX_PREFIX_CHAR 'H'
 #define OCT_PREFIX_CHAR 'O'
@@ -973,6 +979,12 @@ typedef enum {
   TOK_AND,
   TOK_OR,
   TOK_NOT,
+  TOK_XOR,
+  TOK_NAND,
+  TOK_NOR,
+  TOK_BIT,
+  TOK_SHL,
+  TOK_SHR,
   TOK_MOD,
   TOK_BASE,
   TOK_DECIMAL,
@@ -1151,6 +1163,12 @@ static Token read_token (Parser *p) {
                     {"AND", TOK_AND},
                     {"OR", TOK_OR},
                     {"NOT", TOK_NOT},
+                    {"XOR", TOK_XOR},
+                    {"NAND", TOK_NAND},
+                    {"NOR", TOK_NOR},
+                    {"BIT", TOK_BIT},
+                    {"SHL", TOK_SHL},
+                    {"SHR", TOK_SHR},
                     {"MOD", TOK_MOD},
                     {"BASE", TOK_BASE},
                     {"DECIMAL", TOK_DECIMAL},
@@ -1343,6 +1361,8 @@ static char *parse_rest (Parser *p) {
 static Node *parse_factor (Parser *p);
 static Node *parse_term (Parser *p);
 static Node *parse_add (Parser *p);
+static Node *parse_shift (Parser *p);
+static Node *parse_bit (Parser *p);
 
 static Node *parse_rel (Parser *p);
 static Node *parse_logical (Parser *p);
@@ -1560,8 +1580,48 @@ static Node *parse_add (Parser *p) {
   return n;
 }
 
-static Node *parse_rel (Parser *p) {
+static Node *parse_shift (Parser *p) {
   Node *n = parse_add (p);
+  if (n == NULL) return NULL;
+  while (1) {
+    Token t = peek_token (p);
+    if (t.type != TOK_SHL && t.type != TOK_SHR) break;
+    next_token (p);
+    Node *r = parse_add (p);
+    Node *nn = new_node (N_BIN);
+    nn->op = (t.type == TOK_SHL ? OP_SHL : OP_SHR);
+    nn->left = n;
+    nn->right = r;
+    n = nn;
+  }
+  return n;
+}
+
+static Node *parse_bit (Parser *p) {
+  Node *n = parse_shift (p);
+  if (n == NULL) return NULL;
+  while (1) {
+    Token t = peek_token (p);
+    if (t.type != TOK_BIT && t.type != TOK_XOR && t.type != TOK_NAND && t.type != TOK_NOR) break;
+    next_token (p);
+    Node *r = parse_shift (p);
+    Node *nn = new_node (N_BIN);
+    switch (t.type) {
+    case TOK_BIT: nn->op = OP_BIT; break;
+    case TOK_XOR: nn->op = OP_XOR; break;
+    case TOK_NAND: nn->op = OP_NAND; break;
+    case TOK_NOR: nn->op = OP_NOR; break;
+    default: break;
+    }
+    nn->left = n;
+    nn->right = r;
+    n = nn;
+  }
+  return n;
+}
+
+static Node *parse_rel (Parser *p) {
+  Node *n = parse_bit (p);
   Token t = peek_token (p);
   TokenType op_type = TOK_EOF;
   if (t.type == TOK_EQ || t.type == TOK_NE || t.type == TOK_LE || t.type == TOK_GE) {
@@ -3625,6 +3685,48 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       MIR_append_insn (ctx, func,
                        MIR_new_insn (ctx, bop, MIR_new_reg_op (ctx, resi), MIR_new_reg_op (ctx, li),
                                      MIR_new_reg_op (ctx, ri)));
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t resd = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
+      MIR_append_insn (ctx, func,
+                       MIR_new_insn (ctx, MIR_I2D, MIR_new_reg_op (ctx, resd),
+                                     MIR_new_reg_op (ctx, resi)));
+      return resd;
+    } else if (n->op == OP_BIT || n->op == OP_XOR || n->op == OP_NAND || n->op == OP_NOR
+               || n->op == OP_SHL || n->op == OP_SHR) {
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t li = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+      MIR_append_insn (ctx, func,
+                       MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, li),
+                                     MIR_new_reg_op (ctx, l)));
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t ri = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+      MIR_append_insn (ctx, func,
+                       MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, ri),
+                                     MIR_new_reg_op (ctx, r)));
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+      if (n->op == OP_SHL || n->op == OP_SHR) {
+        MIR_insn_code_t sop = n->op == OP_SHL ? MIR_LSH : MIR_URSH;
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, sop, MIR_new_reg_op (ctx, resi),
+                                       MIR_new_reg_op (ctx, li), MIR_new_reg_op (ctx, ri)));
+      } else {
+        MIR_insn_code_t bop = MIR_AND;
+        switch (n->op) {
+        case OP_BIT: bop = MIR_AND; break;
+        case OP_XOR: bop = MIR_XOR; break;
+        case OP_NAND: bop = MIR_AND; break;
+        case OP_NOR: bop = MIR_OR; break;
+        default: break;
+        }
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, bop, MIR_new_reg_op (ctx, resi),
+                                       MIR_new_reg_op (ctx, li), MIR_new_reg_op (ctx, ri)));
+        if (n->op == OP_NAND || n->op == OP_NOR)
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_XOR, MIR_new_reg_op (ctx, resi),
+                                         MIR_new_reg_op (ctx, resi), MIR_new_int_op (ctx, -1)));
+      }
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t resd = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
       MIR_append_insn (ctx, func,
