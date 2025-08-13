@@ -126,6 +126,16 @@ components can be extracted with `MID$` and converted with `VAL`:
 
 This program prints the year, month, and day as numbers.
 
+PI Function
+-----------
+The `PI` function returns the mathematical constant π.
+
+```
+10 PRINT PI
+```
+
+This example prints `3.14159265358979`.
+
 Pi Spigot Example
 -----------------
 The `pi_spigot.bas` program demonstrates generating digits of `PI` using only

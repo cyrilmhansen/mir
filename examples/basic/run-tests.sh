@@ -82,6 +82,8 @@ PY
                 elif [ "$name" = "pi" ]; then
                         grep -q '^PI=3.14159265358979' "$out"
                         grep -q '^TIME=' "$out" >/dev/null
+                elif [ "$name" = "pi_builtin" ]; then
+                        grep -q '^3.14159265358979' "$out"
                 else
                         diff "$exp" "$out"
                 fi
@@ -171,7 +173,7 @@ PY
 
 
 #for t in hello relop adder string strfuncs instr gosub on funcproc graphics normal vtab screen hplot_bounds readhplot restore data_read data_multi clear hgr2reset circle box sudoku array_oob_read array_oob_write dim_expr pi baseconv mir_demo datediff date random rnd_noarg hexoct def_fn; do
-for t in hello relop delay adder string strfuncs instr gosub on funcproc vtab restore data_read data_multi clear circle box sudoku array_oob_read array_oob_write dim_expr pi baseconv mir_demo datediff date random rnd_noarg hexoct def_fn let chain mat log; do
+for t in hello relop delay adder string strfuncs instr gosub on funcproc vtab restore data_read data_multi clear circle box sudoku array_oob_read array_oob_write dim_expr pi pi_builtin baseconv mir_demo datediff date random rnd_noarg hexoct def_fn let chain mat log; do
                 echo "Running $t"
                 run_test "$t"
                 echo "$t OK"
