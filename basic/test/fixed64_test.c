@@ -20,10 +20,11 @@ int main (void) {
   res = fixed64_mul (neg_two, half);
   assert (res.hi == -1 && res.lo == 0);
 
-#if 0
   res = fixed64_div (two, half);
   assert (res.hi == 4 && res.lo == 0);
-#endif
+
+  res = fixed64_div (neg_two, half);
+  assert (res.hi == -4 && res.lo == 0);
 
   printf ("fixed64 tests passed\n");
   return 0;
