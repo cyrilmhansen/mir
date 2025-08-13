@@ -72,6 +72,8 @@ typedef _Decimal128 basic_num_t;
 #define BASIC_TAN tand128
 #define BASIC_ATAN atand128
 #define BASIC_LOG logd128
+#define BASIC_LOG2 log2d128
+#define BASIC_LOG10 log10d128
 #define BASIC_EXP expd128
 #define BASIC_FLOOR floord128
 static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
