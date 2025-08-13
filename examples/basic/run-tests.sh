@@ -33,6 +33,7 @@ run_tests() {
                 local exp="$ROOT/examples/basic/$name.out"
                 local out="$ROOT/basic/$name.out"
                 local err="$ROOT/basic/$name.err"
+                mkdir -p "$(dirname "$out")"
                 if [ "$name" = "vtab" ]; then
                         "$BASICC" "$src" > "$out" 2> "$err"
                 else
@@ -82,6 +83,8 @@ PY
                 elif [ "$name" = "pi" ]; then
                         grep -q '^PI=3.14159265358979' "$out"
                         grep -q '^TIME=' "$out" >/dev/null
+                elif [ "$name" = "pi_builtin" ]; then
+                        grep -q '^3.14159265358979' "$out"
                 else
                         diff "$exp" "$out"
                 fi
@@ -169,9 +172,7 @@ PY
         diff "$ROOT/examples/basic/extern.out" "$ROOT/basic/extern.out"
         echo "extern OK"
 
-
-#for t in hello relop adder string strfuncs instr gosub on funcproc graphics normal vtab screen hplot_bounds readhplot restore data_read data_multi clear hgr2reset circle box sudoku array_oob_read array_oob_write dim_expr pi baseconv mir_demo datediff date random rnd_noarg hexoct def_fn; do
-for t in hello relop delay adder string strfuncs instr gosub on funcproc vtab restore data_read data_multi clear circle box sudoku array_oob_read array_oob_write dim_expr pi baseconv mir_demo datediff date random rnd_noarg hexoct def_fn let chain mat log pow; do
+for t in hello relop delay adder string strfuncs instr gosub on funcproc vtab restore data_read data_multi clear circle box sudoku array_oob_read array_oob_write dim_expr pi pi_builtin baseconv mir_demo datediff date random rnd_noarg hexoct def_fn let mat swap chain log test/do_loop test/repeat_until bitops ifendif asin_acos pow; do>>>>>>> master
                 echo "Running $t"
                 run_test "$t"
                 echo "$t OK"
