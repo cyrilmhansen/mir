@@ -128,13 +128,13 @@ static inline int BASIC_GE (basic_num_t a, basic_num_t b) { return BASIC_LE (b, 
 static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
   return fixed64_to_string (x, buf, size);
 }
-static inline int BASIC_NUM_SCAN (FILE *f, basic_num_t *out) {
+static inline int basic_num_scan (FILE *f, basic_num_t *out) {
   char buf[128];
   if (fgets (buf, sizeof (buf), f) == NULL) return 0;
   *out = fixed64_from_string (buf, NULL);
   return 1;
 }
-static inline void BASIC_NUM_PRINT (FILE *f, basic_num_t x) {
+static inline void basic_num_print (FILE *f, basic_num_t x) {
   char buf[128];
   fixed64_to_string (x, buf, sizeof (buf));
   fputs (buf, f);
@@ -266,11 +266,25 @@ static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
 }
 #endif
 
+static inline basic_num_t basic_num_from_int (long x) { return BASIC_FROM_INT (x); }
+static inline long basic_num_to_int (basic_num_t x) { return BASIC_TO_INT (x); }
+static inline basic_num_t basic_num_add (basic_num_t a, basic_num_t b) { return BASIC_ADD (a, b); }
+static inline basic_num_t basic_num_sub (basic_num_t a, basic_num_t b) { return BASIC_SUB (a, b); }
+static inline basic_num_t basic_num_mul (basic_num_t a, basic_num_t b) { return BASIC_MUL (a, b); }
+static inline basic_num_t basic_num_div (basic_num_t a, basic_num_t b) { return BASIC_DIV (a, b); }
+static inline basic_num_t basic_num_neg (basic_num_t a) { return BASIC_NEG (a); }
+static inline int basic_num_eq (basic_num_t a, basic_num_t b) { return BASIC_EQ (a, b); }
+static inline int basic_num_ne (basic_num_t a, basic_num_t b) { return BASIC_NE (a, b); }
+static inline int basic_num_lt (basic_num_t a, basic_num_t b) { return BASIC_LT (a, b); }
+static inline int basic_num_le (basic_num_t a, basic_num_t b) { return BASIC_LE (a, b); }
+static inline int basic_num_gt (basic_num_t a, basic_num_t b) { return BASIC_GT (a, b); }
+static inline int basic_num_ge (basic_num_t a, basic_num_t b) { return BASIC_GE (a, b); }
+
 #if !defined(BASIC_USE_FIXED64)
-static inline int BASIC_NUM_SCAN (FILE *f, basic_num_t *out) {
+static inline int basic_num_scan (FILE *f, basic_num_t *out) {
   return fscanf (f, BASIC_NUM_SCANF, out) == 1;
 }
-static inline void BASIC_NUM_PRINT (FILE *f, basic_num_t x) { fprintf (f, BASIC_NUM_PRINTF, x); }
+static inline void basic_num_print (FILE *f, basic_num_t x) { fprintf (f, BASIC_NUM_PRINTF, x); }
 #endif
 
 #endif /* BASIC_NUM_H */

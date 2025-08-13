@@ -5,15 +5,15 @@
 #include "basic_num.h"
 
 int main (void) {
-  basic_num_t two = BASIC_FROM_INT (2);
-  basic_num_t three = BASIC_FROM_INT (3);
-  basic_num_t five = BASIC_ADD (two, three);
-  assert (BASIC_TO_INT (five) == 5);
-  assert (BASIC_LT (two, three));
+  basic_num_t two = basic_num_from_int (2);
+  basic_num_t three = basic_num_from_int (3);
+  basic_num_t five = basic_num_add (two, three);
+  assert (basic_num_to_int (five) == 5);
+  assert (basic_num_lt (two, three));
 
   /* test print */
   FILE *tmp = tmpfile ();
-  BASIC_NUM_PRINT (tmp, five);
+  basic_num_print (tmp, five);
   rewind (tmp);
   char buf[16];
   fgets (buf, sizeof (buf), tmp);
@@ -25,9 +25,9 @@ int main (void) {
   fputs ("7\n", in);
   rewind (in);
   basic_num_t seven;
-  assert (BASIC_NUM_SCAN (in, &seven));
+  assert (basic_num_scan (in, &seven));
   fclose (in);
-  assert (BASIC_TO_INT (seven) == 7);
+  assert (basic_num_to_int (seven) == 7);
 
   return 0;
 }

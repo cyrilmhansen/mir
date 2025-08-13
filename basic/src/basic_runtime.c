@@ -192,15 +192,15 @@ void basic_profile_dump (void) {
 }
 
 void basic_enable_line_tracking (basic_num_t on) {
-  basic_line_tracking_enabled = BASIC_NE (on, BASIC_ZERO);
+  basic_line_tracking_enabled = basic_num_ne (on, BASIC_ZERO);
 }
 
-void basic_set_error_handler (basic_num_t line) { basic_error_handler = BASIC_TO_INT (line); }
+void basic_set_error_handler (basic_num_t line) { basic_error_handler = basic_num_to_int (line); }
 
-basic_num_t basic_get_error_handler (void) { return BASIC_FROM_INT (basic_error_handler); }
+basic_num_t basic_get_error_handler (void) { return basic_num_from_int (basic_error_handler); }
 
 void basic_set_line (basic_num_t line) {
-  if (basic_line_tracking_enabled) basic_line = (int) line;
+  if (basic_line_tracking_enabled) basic_line = basic_num_to_int (line);
 }
 
 basic_num_t basic_get_line (void) {
@@ -269,7 +269,7 @@ static char *next_input_field (void) {
 
 basic_num_t basic_input (void) {
   basic_num_t x = BASIC_ZERO;
-  if (!BASIC_NUM_SCAN (stdin, &x)) return BASIC_ZERO;
+  if (!basic_num_scan (stdin, &x)) return BASIC_ZERO;
   return x;
 }
 
@@ -285,7 +285,7 @@ void basic_print_str (const char *s) {
   fputs (s, stdout);
 }
 
-basic_num_t basic_pos (void) { return BASIC_FROM_INT (basic_pos_val); }
+basic_num_t basic_pos (void) { return basic_num_from_int (basic_pos_val); }
 
 /* Allocate a new string containing input from stdin.
    Caller must free the returned buffer with basic_free. */
@@ -337,7 +337,7 @@ int basic_strcmp (const char *a, const char *b) {
 static FILE *basic_files[BASIC_MAX_FILES];
 
 void basic_open (basic_num_t n, const char *path) {
-  int idx = (int) n;
+  int idx = basic_num_to_int (n);
   if (idx < 0 || idx >= BASIC_MAX_FILES) return;
   if (basic_files[idx] != NULL) {
     fclose (basic_files[idx]);
@@ -349,7 +349,7 @@ void basic_open (basic_num_t n, const char *path) {
 }
 
 void basic_close (basic_num_t n) {
-  int idx = (int) n;
+  int idx = basic_num_to_int (n);
   if (idx < 0 || idx >= BASIC_MAX_FILES) return;
   if (basic_files[idx] != NULL) {
     fclose (basic_files[idx]);
@@ -358,7 +358,7 @@ void basic_close (basic_num_t n) {
 }
 
 void basic_print_hash (basic_num_t n, basic_num_t x) {
-  int idx = BASIC_TO_INT (n);
+  int idx = basic_num_to_int (n);
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return;
   char buf[128];
   basic_num_to_chars (x, buf, sizeof (buf));
@@ -366,23 +366,23 @@ void basic_print_hash (basic_num_t n, basic_num_t x) {
 }
 
 void basic_print_hash_str (basic_num_t n, const char *s) {
-  int idx = BASIC_TO_INT (n);
+  int idx = basic_num_to_int (n);
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return;
   fputs (s, basic_files[idx]);
 }
 
 basic_num_t basic_input_hash (basic_num_t n) {
-  int idx = BASIC_TO_INT (n);
+  int idx = basic_num_to_int (n);
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return BASIC_ZERO;
   basic_num_t x = BASIC_ZERO;
-  if (!BASIC_NUM_SCAN (basic_files[idx], &x)) return BASIC_ZERO;
+  if (!basic_num_scan (basic_files[idx], &x)) return BASIC_ZERO;
   return x;
 }
 
 /* Read a line from an open file and return a newly allocated string.
    Caller must free the result with basic_free. */
 char *basic_input_hash_str (basic_num_t n) {
-  int idx = BASIC_TO_INT (n);
+  int idx = basic_num_to_int (n);
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) {
     char *res = basic_alloc_string (0);
     if (res == NULL) return NULL;
@@ -407,7 +407,7 @@ char *basic_input_hash_str (basic_num_t n) {
 /* Read a single character from an open file and return it as a
    newly allocated string. Caller must free the result with basic_free. */
 char *basic_get_hash (basic_num_t n) {
-  int idx = (int) n;
+  int idx = basic_num_to_int (n);
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) {
     char *s = basic_alloc_string (1);
     if (s != NULL) s[0] = 0;
@@ -421,14 +421,14 @@ char *basic_get_hash (basic_num_t n) {
 }
 
 void basic_put_hash (basic_num_t n, const char *s) {
-  int idx = (int) n;
+  int idx = basic_num_to_int (n);
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return;
   int c = s != NULL && s[0] != '\0' ? (unsigned char) s[0] : 0;
   fputc (c, basic_files[idx]);
 }
 
 basic_num_t basic_eof (basic_num_t n) {
-  int idx = (int) n;
+  int idx = basic_num_to_int (n);
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return -1.0;
   return feof (basic_files[idx]) ? -1.0 : 0.0;
 }
@@ -484,11 +484,11 @@ void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str) {
 
 void basic_home (void) { printf ("\x1b[2J\x1b[H"); }
 
-void basic_vtab (basic_num_t n) { printf ("\x1b[%d;H", (int) n); }
+void basic_vtab (basic_num_t n) { printf ("\x1b[%ld;H", basic_num_to_int (n)); }
 
 void basic_cls (void) { printf ("\x1b[2J\x1b[H"); }
 
-void basic_color (basic_num_t c) { printf ("\x1b[%dm", (int) c); }
+void basic_color (basic_num_t c) { printf ("\x1b[%ldm", basic_num_to_int (c)); }
 void basic_key_off (void) {
 #if defined(_WIN32)
   HANDLE h = GetStdHandle (STD_INPUT_HANDLE);
@@ -507,9 +507,11 @@ void basic_key_off (void) {
 #endif
 }
 
-void basic_locate (basic_num_t r, basic_num_t c) { printf ("\x1b[%d;%dH", (int) r, (int) c); }
+void basic_locate (basic_num_t r, basic_num_t c) {
+  printf ("\x1b[%ld;%ldH", basic_num_to_int (r), basic_num_to_int (c));
+}
 
-void basic_tab (basic_num_t n) { printf ("\x1b[%dG", (int) n); }
+void basic_tab (basic_num_t n) { printf ("\x1b[%ldG", basic_num_to_int (n)); }
 void basic_htab (basic_num_t n) { basic_tab (n); }
 
 void basic_randomize (basic_num_t n, basic_num_t has_seed) {
@@ -584,14 +586,14 @@ basic_num_t basic_pi (void) { return M_PI; }
 /* Allocate a one-character string. Caller must free with basic_free. */
 char *basic_chr (basic_num_t n) {
   char *s = basic_alloc_string (1);
-  if (s != NULL) s[0] = (char) ((int) n);
+  if (s != NULL) s[0] = (char) basic_num_to_int (n);
   return s;
 }
 
 /* Return a string of length N filled with the first character of S.
    Caller must free the result with basic_free. */
 char *basic_string (basic_num_t n, const char *s) {
-  int len = (int) n;
+  int len = basic_num_to_int (n);
   char ch = s != NULL && s[0] != '\0' ? s[0] : '\0';
   char *res = basic_alloc_string ((size_t) len);
   if (res != NULL) {
@@ -752,7 +754,7 @@ char *basic_date_str (void) {
 /* Read N characters from stdin and return them as a newly allocated string.
    Caller must free the result with basic_free. */
 char *basic_input_chr (basic_num_t n) {
-  int len = (int) n;
+  int len = basic_num_to_int (n);
   char *res = basic_alloc_string ((size_t) len);
   int i = 0;
   if (res != NULL) {
@@ -770,14 +772,14 @@ char *basic_input_chr (basic_num_t n) {
 static uint8_t basic_memory[BASIC_MEM_SIZE];
 
 basic_num_t basic_peek (basic_num_t addr) {
-  int a = (int) addr;
-  if (a < 0 || a >= BASIC_MEM_SIZE) return 0.0;
-  return (basic_num_t) basic_memory[a];
+  int a = basic_num_to_int (addr);
+  if (a < 0 || a >= BASIC_MEM_SIZE) return basic_num_from_int (0);
+  return basic_num_from_int (basic_memory[a]);
 }
 
 void basic_poke (basic_num_t addr, basic_num_t value) {
-  int a = (int) addr;
-  int v = (int) value & 0xff;
+  int a = basic_num_to_int (addr);
+  int v = basic_num_to_int (value) & 0xff;
   if (a < 0 || a >= BASIC_MEM_SIZE) return;
   basic_memory[a] = (uint8_t) v;
 }
@@ -826,12 +828,12 @@ static void basic_ensure_palette (void) {
 
 void basic_screen (basic_num_t m) {
 #if defined(_WIN32)
-  if ((int) m == 0)
+  if (basic_num_to_int (m) == 0)
     basic_text ();
   else
     basic_hgr2 ();
 #else
-  if ((int) m != 0) {
+  if (basic_num_to_int (m) != 0) {
     /* Switch to the alternate screen buffer and enter graphics mode. */
     printf ("\x1b[?1049h");
     basic_hgr2 ();
@@ -849,7 +851,7 @@ void basic_screen (basic_num_t m) {
 
 void basic_hcolor (basic_num_t c) {
   basic_ensure_palette ();
-  int ic = (int) c;
+  int ic = basic_num_to_int (c);
   if (ic >= 0 && ic < 8)
     current_hcolor = basic_palette[ic];
   else
@@ -859,7 +861,7 @@ void basic_hcolor (basic_num_t c) {
 uint32_t basic_get_hcolor (void) { return current_hcolor; }
 
 static void basic_kitty_plot (basic_num_t x, basic_num_t y) {
-  int ix = (int) x, iy = (int) y;
+  int ix = basic_num_to_int (x), iy = basic_num_to_int (y);
   if (ix < 0 || ix >= BASIC_MAX_WIDTH || iy < 0 || iy >= BASIC_MAX_HEIGHT) return;
   uint8_t pixel[4]
     = {(current_hcolor >> 16) & 0xFF, (current_hcolor >> 8) & 0xFF, current_hcolor & 0xFF, 0xFF};
