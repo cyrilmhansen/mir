@@ -2211,7 +2211,10 @@ static int parse_stmt (Parser *p, Stmt *out) {
       Token t = peek_token (p);
       if (t.type == TOK_STRING) {
         d.is_str = 1;
-        d.str = parse_string (p);
+        char *s = parse_string (p);
+        if (s == NULL) return 0;
+        d.str = basic_strdup (s);
+        if (d.str == NULL) return 0;
       } else {
         d.num = parse_number (p);
       }
