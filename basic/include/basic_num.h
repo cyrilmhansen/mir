@@ -86,14 +86,14 @@ static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
 #include "fixed64/fixed64.h"
 typedef fixed64_t basic_num_t;
 #define BASIC_FROM_INT(x) fixed64_from_int (x)
-static inline long BASIC_TO_INT (basic_num_t x) { return fixed64_to_int (x); }
+#define BASIC_TO_INT(x) fixed64_to_int (x)
 #define BASIC_ZERO ((basic_num_t) {.lo = 0, .hi = 0})
 #define BASIC_ONE ((basic_num_t) {.lo = 0, .hi = 1})
-static inline basic_num_t BASIC_ADD (basic_num_t a, basic_num_t b) { return fixed64_add (a, b); }
-static inline basic_num_t BASIC_SUB (basic_num_t a, basic_num_t b) { return fixed64_sub (a, b); }
-static inline basic_num_t BASIC_MUL (basic_num_t a, basic_num_t b) { return fixed64_mul (a, b); }
-static inline basic_num_t BASIC_DIV (basic_num_t a, basic_num_t b) { return fixed64_div (a, b); }
-static inline basic_num_t BASIC_NEG (basic_num_t a) { return fixed64_neg (a); }
+#define BASIC_ADD fixed64_add
+#define BASIC_SUB fixed64_sub
+#define BASIC_MUL fixed64_mul
+#define BASIC_DIV fixed64_div
+#define BASIC_NEG fixed64_neg
 static inline int BASIC_EQ (basic_num_t a, basic_num_t b) { return a.hi == b.hi && a.lo == b.lo; }
 static inline int BASIC_NE (basic_num_t a, basic_num_t b) { return !BASIC_EQ (a, b); }
 static inline int BASIC_LT (basic_num_t a, basic_num_t b) {
@@ -140,6 +140,8 @@ static inline void basic_num_print (FILE *f, basic_num_t x) {
   fixed64_to_string (x, buf, sizeof (buf));
   fputs (buf, f);
 }
+#define BASIC_NUM_SCANF(f, out) basic_num_scan ((f), (out))
+#define BASIC_NUM_PRINTF(f, x) basic_num_print ((f), (x))
 
 #elif defined(BASIC_USE_DECIMAL128)
 #include <dfp/decimal128.h>
