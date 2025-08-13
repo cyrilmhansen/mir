@@ -129,9 +129,10 @@ static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
   return fixed64_to_string (x, buf, size);
 }
 static inline int BASIC_NUM_SCAN (FILE *f, basic_num_t *out) {
-  char buf[128];
+  char buf[128], *end;
   if (fgets (buf, sizeof (buf), f) == NULL) return 0;
-  *out = fixed64_from_string (buf, NULL);
+  *out = fixed64_from_string (buf, &end);
+  if (end == buf) return 0;
   return 1;
 }
 static inline void BASIC_NUM_PRINT (FILE *f, basic_num_t x) {
@@ -268,7 +269,11 @@ static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
 
 #if !defined(BASIC_USE_FIXED64)
 static inline int BASIC_NUM_SCAN (FILE *f, basic_num_t *out) {
-  return fscanf (f, BASIC_NUM_SCANF, out) == 1;
+  char buf[128], *end;
+  if (fgets (buf, sizeof (buf), f) == NULL) return 0;
+  *out = BASIC_STRTOF (buf, &end);
+  if (end == buf) return 0;
+  return 1;
 }
 static inline void BASIC_NUM_PRINT (FILE *f, basic_num_t x) { fprintf (f, BASIC_NUM_PRINTF, x); }
 #endif
