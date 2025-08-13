@@ -3599,6 +3599,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, atanh_proto),
                                           MIR_new_ref_op (ctx, atanh_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
     } else if (strcasecmp (n->var, "ASIN") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
       MIR_append_insn (ctx, func,
