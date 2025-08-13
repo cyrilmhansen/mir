@@ -3,143 +3,85 @@
 
 #include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <stdint.h>
 
-#if defined(BASIC_USE_LONG_DOUBLE)
-#include "ryu/ld2s.h"
-typedef long double basic_num_t;
-#define BASIC_NUM_SCANF "%Lf"
-#define BASIC_NUM_PRINTF "%.21Lg"
-#define BASIC_FROM_INT(x) ((basic_num_t) (x))
-#define BASIC_TO_INT(x) ((long) (x))
-#define BASIC_ZERO ((basic_num_t) 0.0L)
-#define BASIC_ONE ((basic_num_t) 1.0L)
-#define BASIC_ADD(a, b) ((a) + (b))
-#define BASIC_SUB(a, b) ((a) - (b))
-#define BASIC_MUL(a, b) ((a) * (b))
-#define BASIC_DIV(a, b) ((a) / (b))
-#define BASIC_NEG(a) (-(a))
-#define BASIC_LT(a, b) ((a) < (b))
-#define BASIC_LE(a, b) ((a) <= (b))
-#define BASIC_GT(a, b) ((a) > (b))
-#define BASIC_GE(a, b) ((a) >= (b))
-#define BASIC_EQ(a, b) ((a) == (b))
-#define BASIC_NE(a, b) ((a) != (b))
-#define BASIC_STRTOF strtold
-#define BASIC_FABS fabsl
-#define BASIC_SQRT sqrtl
-#define BASIC_SIN sinl
-#define BASIC_COS cosl
-#define BASIC_TAN tanl
-#define BASIC_SINH sinhl
-#define BASIC_COSH coshl
-#define BASIC_TANH tanhl
-#define BASIC_ASINH asinhl
-#define BASIC_ACOSH acoshl
-#define BASIC_ATANH atanhl
-#define BASIC_ASIN asinl
-#define BASIC_ACOS acosl
-#define BASIC_ATAN atanl
-#define BASIC_LOG logl
-#define BASIC_LOG2 log2l
-#define BASIC_LOG10 log10l
-#define BASIC_EXP expl
-#define BASIC_POW powl
-#define BASIC_FLOOR floorl
-static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
-  (void) size;
-  ld2s_buffered (x, buf);
-  char *e = strchr (buf, 'e');
-  if (e == NULL) e = strchr (buf, 'E');
-  if (e != NULL) {
-    long exp = strtol (e + 1, NULL, 10);
-    int mant_len = (int) (e - buf);
-    char digits[64];
-    int digits_len = 0;
-    for (int i = 0; i < mant_len; i++)
-      if (buf[i] != '.') digits[digits_len++] = buf[i];
-    if (exp >= 0) {
-      if (exp >= digits_len - 1) {
-        memcpy (buf, digits, digits_len);
-        for (long k = 0; k < exp - (digits_len - 1); k++) buf[digits_len + k] = '0';
-        buf[digits_len + exp - (digits_len - 1)] = '\0';
-      } else {
-        memcpy (buf, digits, exp + 1);
-        buf[exp + 1] = '.';
-        memcpy (buf + exp + 2, digits + exp + 1, digits_len - (exp + 1));
-        buf[digits_len + 1] = '\0';
-      }
-    } else {
-      long k = -exp;
-      buf[0] = '0';
-      buf[1] = '.';
-      for (long j = 0; j < k - 1; j++) buf[2 + j] = '0';
-      memcpy (buf + 1 + k, digits, digits_len);
-      buf[1 + k + digits_len] = '\0';
-    }
-  }
-  return (int) strlen (buf);
-}
-
-#elif defined(BASIC_USE_FIXED64)
 #include "fixed64/fixed64.h"
-typedef fixed64_t basic_num_t;
-#define BASIC_FROM_INT(x) fixed64_from_int (x)
-#define BASIC_TO_INT(x) fixed64_to_int (x)
-#define BASIC_ZERO ((basic_num_t) {.lo = 0, .hi = 0})
-#define BASIC_ONE ((basic_num_t) {.lo = 0, .hi = 1})
-#define BASIC_ADD fixed64_add
-#define BASIC_SUB fixed64_sub
-#define BASIC_MUL fixed64_mul
-#define BASIC_DIV fixed64_div
-#define BASIC_NEG fixed64_neg
-static inline int BASIC_EQ (basic_num_t a, basic_num_t b) { return a.hi == b.hi && a.lo == b.lo; }
-static inline int BASIC_NE (basic_num_t a, basic_num_t b) { return !BASIC_EQ (a, b); }
-static inline int BASIC_LT (basic_num_t a, basic_num_t b) {
-  return a.hi < b.hi || (a.hi == b.hi && a.lo < b.lo);
+
+typedef union {
+  double d;
+  long double ld;
+  fixed64_t f64;
+  uint8_t bytes[16];
+} basic_num_t;
+
+typedef struct {
+  basic_num_t (*from_int) (long);
+  basic_num_t (*from_string) (const char *, char **);
+  long (*to_int) (basic_num_t);
+  basic_num_t (*add) (basic_num_t, basic_num_t);
+  basic_num_t (*sub) (basic_num_t, basic_num_t);
+  basic_num_t (*mul) (basic_num_t, basic_num_t);
+  basic_num_t (*div) (basic_num_t, basic_num_t);
+  basic_num_t (*neg) (basic_num_t);
+  int (*eq) (basic_num_t, basic_num_t);
+  int (*ne) (basic_num_t, basic_num_t);
+  int (*lt) (basic_num_t, basic_num_t);
+  int (*le) (basic_num_t, basic_num_t);
+  int (*gt) (basic_num_t, basic_num_t);
+  int (*ge) (basic_num_t, basic_num_t);
+  int (*to_chars) (basic_num_t, char *, size_t);
+  int (*scan) (FILE *, basic_num_t *);
+  void (*print) (FILE *, basic_num_t);
+  basic_num_t (*fabs) (basic_num_t);
+  basic_num_t (*sqrt) (basic_num_t);
+  basic_num_t (*sin) (basic_num_t);
+  basic_num_t (*cos) (basic_num_t);
+  basic_num_t (*tan) (basic_num_t);
+  basic_num_t (*sinh) (basic_num_t);
+  basic_num_t (*cosh) (basic_num_t);
+  basic_num_t (*tanh) (basic_num_t);
+  basic_num_t (*asinh) (basic_num_t);
+  basic_num_t (*acosh) (basic_num_t);
+  basic_num_t (*atanh) (basic_num_t);
+  basic_num_t (*asin) (basic_num_t);
+  basic_num_t (*acos) (basic_num_t);
+  basic_num_t (*atan) (basic_num_t);
+  basic_num_t (*log) (basic_num_t);
+  basic_num_t (*log2) (basic_num_t);
+  basic_num_t (*log10) (basic_num_t);
+  basic_num_t (*exp) (basic_num_t);
+  basic_num_t (*pow) (basic_num_t, basic_num_t);
+  basic_num_t (*floor) (basic_num_t);
+} basic_num_ops_t;
+
+extern basic_num_ops_t basic_num;
+
+typedef enum {
+  BASIC_NUM_MODE_DOUBLE,
+  BASIC_NUM_MODE_LONG_DOUBLE,
+  BASIC_NUM_MODE_FIXED64,
+  BASIC_NUM_MODE_MBASIC5
+} basic_num_mode_t;
+
+void basic_num_init (basic_num_mode_t mode);
+
+#define BASIC_ZERO ((basic_num_t) {.bytes = {0}})
+
+static inline basic_num_t basic_num_from_int (long x) { return basic_num.from_int (x); }
+static inline basic_num_t basic_num_from_string (const char *s, char **end) {
+  return basic_num.from_string (s, end);
 }
-static inline int BASIC_LE (basic_num_t a, basic_num_t b) {
-  return BASIC_LT (a, b) || BASIC_EQ (a, b);
+static inline long basic_num_to_int (basic_num_t x) { return basic_num.to_int (x); }
+static inline basic_num_t basic_num_add (basic_num_t a, basic_num_t b) {
+  return basic_num.add (a, b);
 }
-static inline int BASIC_GT (basic_num_t a, basic_num_t b) { return BASIC_LT (b, a); }
-static inline int BASIC_GE (basic_num_t a, basic_num_t b) { return BASIC_LE (b, a); }
-#define BASIC_STRTOF fixed64_from_string
-#define BASIC_FABS fixed64_abs
-#define BASIC_SQRT fixed64_sqrt
-#define BASIC_SIN fixed64_sin
-#define BASIC_COS fixed64_cos
-#define BASIC_TAN fixed64_tan
-#define BASIC_SINH fixed64_sinh
-#define BASIC_COSH fixed64_cosh
-#define BASIC_TANH fixed64_tanh
-#define BASIC_ASINH fixed64_asinh
-#define BASIC_ACOSH fixed64_acosh
-#define BASIC_ATANH fixed64_atanh
-#define BASIC_ASIN fixed64_asin
-#define BASIC_ACOS fixed64_acos
-#define BASIC_ATAN fixed64_atan
-#define BASIC_LOG fixed64_log
-#define BASIC_LOG2 fixed64_log2
-#define BASIC_LOG10 fixed64_log10
-#define BASIC_EXP fixed64_exp
-#define BASIC_POW fixed64_pow
-#define BASIC_FLOOR fixed64_floor
-static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
-  return fixed64_to_string (x, buf, size);
+static inline basic_num_t basic_num_sub (basic_num_t a, basic_num_t b) {
+  return basic_num.sub (a, b);
 }
-static inline int basic_num_scan (FILE *f, basic_num_t *out) {
-  char buf[128], *end;
-  if (fgets (buf, sizeof (buf), f) == NULL) return 0;
-  *out = fixed64_from_string (buf, &end);
-  if (end == buf) return 0;
-  return 1;
+static inline basic_num_t basic_num_mul (basic_num_t a, basic_num_t b) {
+  return basic_num.mul (a, b);
 }
-static inline void basic_num_print (FILE *f, basic_num_t x) {
-  char buf[128];
-  fixed64_to_string (x, buf, sizeof (buf));
-  fputs (buf, f);
-}
+
 #define BASIC_NUM_SCANF(f, out) basic_num_scan ((f), (out))
 #define BASIC_NUM_PRINTF(f, x) basic_num_print ((f), (x))
 
@@ -233,66 +175,45 @@ typedef double basic_num_t;
 #define BASIC_EXP exp
 #define BASIC_POW pow
 #define BASIC_FLOOR floor
+
+static inline basic_num_t basic_num_div (basic_num_t a, basic_num_t b) {
+  return basic_num.div (a, b);
+}
+static inline basic_num_t basic_num_neg (basic_num_t a) { return basic_num.neg (a); }
+static inline int basic_num_eq (basic_num_t a, basic_num_t b) { return basic_num.eq (a, b); }
+static inline int basic_num_ne (basic_num_t a, basic_num_t b) { return basic_num.ne (a, b); }
+static inline int basic_num_lt (basic_num_t a, basic_num_t b) { return basic_num.lt (a, b); }
+static inline int basic_num_le (basic_num_t a, basic_num_t b) { return basic_num.le (a, b); }
+static inline int basic_num_gt (basic_num_t a, basic_num_t b) { return basic_num.gt (a, b); }
+static inline int basic_num_ge (basic_num_t a, basic_num_t b) { return basic_num.ge (a, b); }
+
 static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
-  (void) size;
-  d2s_buffered (x, buf);
-  char *e = strchr (buf, 'e');
-  if (e == NULL) e = strchr (buf, 'E');
-  if (e != NULL) {
-    long exp = strtol (e + 1, NULL, 10);
-    int mant_len = (int) (e - buf);
-    char digits[32];
-    int digits_len = 0;
-    for (int i = 0; i < mant_len; i++)
-      if (buf[i] != '.') digits[digits_len++] = buf[i];
-    if (exp >= 0) {
-      if (exp >= digits_len - 1) {
-        memcpy (buf, digits, digits_len);
-        for (long k = 0; k < exp - (digits_len - 1); k++) buf[digits_len + k] = '0';
-        buf[digits_len + exp - (digits_len - 1)] = '\0';
-      } else {
-        memcpy (buf, digits, exp + 1);
-        buf[exp + 1] = '.';
-        memcpy (buf + exp + 2, digits + exp + 1, digits_len - (exp + 1));
-        buf[digits_len + 1] = '\0';
-      }
-    } else {
-      long k = -exp;
-      buf[0] = '0';
-      buf[1] = '.';
-      for (long j = 0; j < k - 1; j++) buf[2 + j] = '0';
-      memcpy (buf + 1 + k, digits, digits_len);
-      buf[1 + k + digits_len] = '\0';
-    }
-  }
-  return (int) strlen (buf);
+  return basic_num.to_chars (x, buf, size);
 }
-#endif
+static inline int basic_num_scan (FILE *f, basic_num_t *out) { return basic_num.scan (f, out); }
+static inline void basic_num_print (FILE *f, basic_num_t x) { basic_num.print (f, x); }
 
-static inline basic_num_t basic_num_from_int (long x) { return BASIC_FROM_INT (x); }
-static inline long basic_num_to_int (basic_num_t x) { return BASIC_TO_INT (x); }
-static inline basic_num_t basic_num_add (basic_num_t a, basic_num_t b) { return BASIC_ADD (a, b); }
-static inline basic_num_t basic_num_sub (basic_num_t a, basic_num_t b) { return BASIC_SUB (a, b); }
-static inline basic_num_t basic_num_mul (basic_num_t a, basic_num_t b) { return BASIC_MUL (a, b); }
-static inline basic_num_t basic_num_div (basic_num_t a, basic_num_t b) { return BASIC_DIV (a, b); }
-static inline basic_num_t basic_num_neg (basic_num_t a) { return BASIC_NEG (a); }
-static inline int basic_num_eq (basic_num_t a, basic_num_t b) { return BASIC_EQ (a, b); }
-static inline int basic_num_ne (basic_num_t a, basic_num_t b) { return BASIC_NE (a, b); }
-static inline int basic_num_lt (basic_num_t a, basic_num_t b) { return BASIC_LT (a, b); }
-static inline int basic_num_le (basic_num_t a, basic_num_t b) { return BASIC_LE (a, b); }
-static inline int basic_num_gt (basic_num_t a, basic_num_t b) { return BASIC_GT (a, b); }
-static inline int basic_num_ge (basic_num_t a, basic_num_t b) { return BASIC_GE (a, b); }
-
-#if !defined(BASIC_USE_FIXED64)
-
-static inline int basic_num_scan (FILE *f, basic_num_t *out) {
-  char buf[128], *end;
-  if (fgets (buf, sizeof (buf), f) == NULL) return 0;
-  *out = BASIC_STRTOF (buf, &end);
-  if (end == buf) return 0;
-  return 1;
+static inline basic_num_t basic_num_fabs (basic_num_t x) { return basic_num.fabs (x); }
+static inline basic_num_t basic_num_sqrt (basic_num_t x) { return basic_num.sqrt (x); }
+static inline basic_num_t basic_num_sin (basic_num_t x) { return basic_num.sin (x); }
+static inline basic_num_t basic_num_cos (basic_num_t x) { return basic_num.cos (x); }
+static inline basic_num_t basic_num_tan (basic_num_t x) { return basic_num.tan (x); }
+static inline basic_num_t basic_num_sinh (basic_num_t x) { return basic_num.sinh (x); }
+static inline basic_num_t basic_num_cosh (basic_num_t x) { return basic_num.cosh (x); }
+static inline basic_num_t basic_num_tanh (basic_num_t x) { return basic_num.tanh (x); }
+static inline basic_num_t basic_num_asinh (basic_num_t x) { return basic_num.asinh (x); }
+static inline basic_num_t basic_num_acosh (basic_num_t x) { return basic_num.acosh (x); }
+static inline basic_num_t basic_num_atanh (basic_num_t x) { return basic_num.atanh (x); }
+static inline basic_num_t basic_num_asin (basic_num_t x) { return basic_num.asin (x); }
+static inline basic_num_t basic_num_acos (basic_num_t x) { return basic_num.acos (x); }
+static inline basic_num_t basic_num_atan (basic_num_t x) { return basic_num.atan (x); }
+static inline basic_num_t basic_num_log (basic_num_t x) { return basic_num.log (x); }
+static inline basic_num_t basic_num_log2 (basic_num_t x) { return basic_num.log2 (x); }
+static inline basic_num_t basic_num_log10 (basic_num_t x) { return basic_num.log10 (x); }
+static inline basic_num_t basic_num_exp (basic_num_t x) { return basic_num.exp (x); }
+static inline basic_num_t basic_num_pow (basic_num_t x, basic_num_t y) {
+  return basic_num.pow (x, y);
 }
-static inline void basic_num_print (FILE *f, basic_num_t x) { fprintf (f, BASIC_NUM_PRINTF, x); }
-#endif
+static inline basic_num_t basic_num_floor (basic_num_t x) { return basic_num.floor (x); }
 
 #endif /* BASIC_NUM_H */
