@@ -33,7 +33,7 @@ int main (void) {
   basic_num_t y = basic_input_hash (basic_num_from_int (1));
   basic_close (basic_num_from_int (1));
   unlink (path2);
-  assert (basic_num_to_int (y) == 0);
+  assert (BASIC_EQ (y, BASIC_ZERO));
 
   return 0;
 }

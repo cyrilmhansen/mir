@@ -885,13 +885,14 @@ static void basic_kitty_plot (basic_num_t x, basic_num_t y) {
 
 static void basic_kitty_line (basic_num_t x0, basic_num_t y0, basic_num_t x1, basic_num_t y1) {
   basic_num_t dx = basic_num_sub (x1, x0), dy = basic_num_sub (y1, y0);
-  basic_num_t abs_dx = basic_num_fabs (dx);
-  basic_num_t abs_dy = basic_num_fabs (dy);
+  basic_num_t abs_dx = BASIC_FABS (dx);
+  basic_num_t abs_dy = BASIC_FABS (dy);
   basic_num_t max = basic_num_gt (abs_dx, abs_dy) ? abs_dx : abs_dy;
   int steps = basic_num_to_int (max);
   basic_num_t step_num = basic_num_from_int (steps);
   basic_num_t xi = basic_num_eq (step_num, BASIC_ZERO) ? BASIC_ZERO : basic_num_div (dx, step_num);
   basic_num_t yi = basic_num_eq (step_num, BASIC_ZERO) ? BASIC_ZERO : basic_num_div (dy, step_num);
+
   for (int i = 0; i <= steps; i++) {
     basic_num_t idx = basic_num_from_int (i);
     basic_kitty_plot (basic_num_add (x0, basic_num_mul (xi, idx)),

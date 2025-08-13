@@ -174,6 +174,45 @@ PY
         diff "$ROOT/basic/test/basic_pool_test.out" "$ROOT/basic/basic_pool_test.out"
         echo "basic_pool_test OK"
 
+        echo "Building basic_num_array_align_test"
+        if [[ "$BASICC" == *-ld ]]; then
+                cc -Wall -Wextra -DBASIC_USE_LONG_DOUBLE -I"$ROOT/basic/include" -I"$ROOT/basic/src" -I"$ROOT/basic/src/vendor" -I"$ROOT/basic/src/vendor/fixed64" \
+                        "$ROOT/basic/src/basic_pool.c" \
+                        "$ROOT/basic/src/basic_num.c" \
+                        "$ROOT/basic/src/basic_num_double.c" \
+                        "$ROOT/basic/src/basic_num_long_double.c" \
+                        "$ROOT/basic/src/basic_num_fixed64.c" \
+                        "$ROOT/basic/src/basic_num_mb5.c" \
+                        "$ROOT/basic/src/vendor/ryu/d2s.c" \
+                        "$ROOT/basic/src/vendor/ryu/ld2s.c" \
+                        "$ROOT/basic/src/vendor/fixed64/fixed64.c" \
+                        "$ROOT/basic/test/basic_num_array_align_test.c" \
+                        -lm -o "$ROOT/basic/basic_num_array_align_test"
+        else
+                cc -Wall -Wextra -I"$ROOT/basic/include" -I"$ROOT/basic/src" -I"$ROOT/basic/src/vendor" -I"$ROOT/basic/src/vendor/fixed64" \
+                        "$ROOT/basic/src/basic_pool.c" \
+                        "$ROOT/basic/src/basic_num.c" \
+                        "$ROOT/basic/src/basic_num_double.c" \
+                        "$ROOT/basic/src/basic_num_long_double.c" \
+                        "$ROOT/basic/src/basic_num_fixed64.c" \
+                        "$ROOT/basic/src/basic_num_mb5.c" \
+                        "$ROOT/basic/src/vendor/ryu/d2s.c" \
+                        "$ROOT/basic/src/vendor/ryu/ld2s.c" \
+                        "$ROOT/basic/src/vendor/fixed64/fixed64.c" \
+                        "$ROOT/basic/test/basic_num_array_align_test.c" \
+                        -lm -o "$ROOT/basic/basic_num_array_align_test"
+        fi
+        echo "Running basic_num_array_align_test"
+        "$ROOT/basic/basic_num_array_align_test" > "$ROOT/basic/basic_num_array_align_test.out" 2> "$ROOT/basic/basic_num_array_align_test.err"
+        if [ -s "$ROOT/basic/basic_num_array_align_test.err" ]; then
+                echo "Unexpected stderr for basic_num_array_align_test"
+                cat "$ROOT/basic/basic_num_array_align_test.err"
+                exit 1
+        fi
+        rm -f "$ROOT/basic/basic_num_array_align_test.err"
+        diff "$ROOT/basic/test/basic_num_array_align_test.out" "$ROOT/basic/basic_num_array_align_test.out"
+        echo "basic_num_array_align_test OK"
+
         echo "Building basic_runtime_lowmem_test"
         cc -Wall -Wextra -I"$ROOT/basic/include" -I"$ROOT/basic/src" -I"$ROOT/basic/src/vendor" -I"$ROOT" -ffunction-sections \
                 "$ROOT/basic/src/basic_pool.c" \
