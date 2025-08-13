@@ -1,0 +1,3 @@
+10 PRINT PI
+20 END
+
