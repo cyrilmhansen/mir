@@ -220,9 +220,55 @@ char *basic_strdup (const char *s) {
   return res;
 }
 
+static char *next_input_field (void) {
+  static char line[256];
+  static char *pos = NULL;
+  if (pos == NULL || *pos == '\0') {
+    if (fgets (line, sizeof (line), stdin) == NULL) {
+      line[0] = '\0';
+    } else {
+      size_t len = strlen (line);
+      if (len > 0 && line[len - 1] == '\n') line[len - 1] = '\0';
+    }
+    pos = line;
+  }
+  while (*pos == ' ' || *pos == '\t') pos++;
+  char *start = pos;
+  if (*pos == '"') {
+    start = ++pos;
+    while (*pos != '\0' && *pos != '"') pos++;
+    char *end = pos;
+    if (*pos == '"') pos++;
+    while (*pos == ' ' || *pos == '\t') pos++;
+    if (*pos == ',') {
+      pos++;
+    } else if (*pos == '\0') {
+      pos = NULL;
+    }
+    size_t len = end - start;
+    char *res = basic_alloc_string (len);
+    if (res != NULL && len > 0) memcpy (res, start, len);
+    return res;
+  } else {
+    while (*pos != '\0' && *pos != ',') pos++;
+    char *end = pos;
+    while (end > start && isspace ((unsigned char) end[-1])) end--;
+    size_t len = end - start;
+    char *res = basic_alloc_string (len);
+    if (res != NULL && len > 0) memcpy (res, start, len);
+    if (*pos == ',') {
+      pos++;
+    } else if (*pos == '\0') {
+      pos = NULL;
+    }
+    return res;
+  }
+}
+
 basic_num_t basic_input (void) {
-  basic_num_t x = 0.0;
-  if (scanf (BASIC_NUM_SCANF, &x) != 1) return 0.0;
+  char *field = next_input_field ();
+  basic_num_t x = BASIC_STRTOF (field, NULL);
+  basic_free (field);
   return x;
 }
 
@@ -242,22 +288,7 @@ basic_num_t basic_pos (void) { return (basic_num_t) basic_pos_val; }
 
 /* Allocate a new string containing input from stdin.
    Caller must free the returned buffer with basic_free. */
-char *basic_input_str (void) {
-  char buf[256];
-  if (fgets (buf, sizeof (buf), stdin) == NULL) {
-    char *res = basic_alloc_string (0);
-    if (res == NULL) return NULL;
-    return res;
-  }
-  size_t len = strlen (buf);
-  if (len > 0 && buf[len - 1] == '\n') {
-    buf[len - 1] = '\0';
-    len--;
-  }
-  char *res = basic_alloc_string (len);
-  if (res != NULL) memcpy (res, buf, len);
-  return res;
-}
+char *basic_input_str (void) { return next_input_field (); }
 /* Allocate a one-character string from stdin.
    Caller must free the returned buffer with basic_free. */
 char *basic_get (void) {
