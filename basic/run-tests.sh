@@ -109,12 +109,12 @@ PY
 
         echo "Building basic_pool_test"
         if [[ "$BASICC" == *-ld ]]; then
-                cc -Wall -Wextra -DBASIC_USE_LONG_DOUBLE -I"$ROOT/basic/include" -I"$ROOT/basic/src" \
+                cc -Wall -Wextra -DBASIC_USE_LONG_DOUBLE -I"$ROOT/basic/include" -I"$ROOT/basic/src" -I"$ROOT/basic/src/vendor" \
                         "$ROOT/basic/src/basic_pool.c" \
                         "$ROOT/basic/test/basic_pool_test.c" \
                         -o "$ROOT/basic/basic_pool_test"
         else
-                cc -Wall -Wextra -I"$ROOT/basic/include" -I"$ROOT/basic/src" \
+                cc -Wall -Wextra -I"$ROOT/basic/include" -I"$ROOT/basic/src" -I"$ROOT/basic/src/vendor" \
                         "$ROOT/basic/src/basic_pool.c" \
                         "$ROOT/basic/test/basic_pool_test.c" \
                         -o "$ROOT/basic/basic_pool_test"
@@ -142,7 +142,7 @@ PY
         echo "basic_pool_test OK"
 
         echo "Building basic_runtime_lowmem_test"
-        cc -Wall -Wextra -I"$ROOT/basic/include" -I"$ROOT/basic/src" -I"$ROOT" -ffunction-sections \
+        cc -Wall -Wextra -I"$ROOT/basic/include" -I"$ROOT/basic/src" -I"$ROOT/basic/src/vendor" -I"$ROOT" -ffunction-sections \
                 "$ROOT/basic/src/basic_pool.c" \
                 "$ROOT/basic/src/basic_runtime.c" \
                 "$ROOT/basic/test/basic_runtime_lowmem_test.c" \
@@ -160,10 +160,10 @@ PY
 
         echo "Building extlib"
         if [[ "$BASICC" == *-ld ]]; then
-                cc -shared -fPIC -Wall -Wextra -DBASIC_USE_LONG_DOUBLE -I"$ROOT/basic/include" -I"$ROOT/basic/src" \
+                cc -shared -fPIC -Wall -Wextra -DBASIC_USE_LONG_DOUBLE -I"$ROOT/basic/include" -I"$ROOT/basic/src" -I"$ROOT/basic/src/vendor" \
                         "$ROOT/basic/test/extlib.c" -o "$ROOT/basic/libextlib.so"
         else
-                cc -shared -fPIC -Wall -Wextra -I"$ROOT/basic/include" -I"$ROOT/basic/src" \
+                cc -shared -fPIC -Wall -Wextra -I"$ROOT/basic/include" -I"$ROOT/basic/src" -I"$ROOT/basic/src/vendor" \
                         "$ROOT/basic/test/extlib.c" -o "$ROOT/basic/libextlib.so"
         fi
         echo "Running extern"
