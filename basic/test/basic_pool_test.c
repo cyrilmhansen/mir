@@ -1,4 +1,5 @@
 #include "basic_pool.h"
+#include "basic_num.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -22,21 +23,19 @@ int main (void) {
   for (int i = 0; i < 4; ++i)
     if (arr2[i] != 0) return 1;
 
-#if defined(BASIC_USE_LONG_DOUBLE)
-  long double *ldarr1 = basic_calloc (4, sizeof (long double));
+  basic_num_t *narr1 = basic_calloc (4, sizeof (basic_num_t));
   for (int i = 0; i < 4; ++i)
-    if (ldarr1[i] != 0.0L) return 1;
-  if ((uintptr_t) ldarr1 % _Alignof (long double) != 0) return 1;
-  basic_pool_free (ldarr1);
-  long double *ldarr2 = basic_calloc (4, sizeof (long double));
-  if (ldarr2 != ldarr1) return 1;
+    if (!basic_num_eq (narr1[i], BASIC_ZERO)) return 1;
+  if ((uintptr_t) narr1 % _Alignof (basic_num_t) != 0) return 1;
+  basic_pool_free (narr1);
+  basic_num_t *narr2 = basic_calloc (4, sizeof (basic_num_t));
+  if (narr2 != narr1) return 1;
   for (int i = 0; i < 4; ++i)
-    if (ldarr2[i] != 0.0L) return 1;
-  for (int i = 0; i < 4; ++i) ldarr2[i] = (long double) (i + 1);
-  if (!basic_clear_array_pool (ldarr2, 4, sizeof (long double))) return 1;
+    if (!basic_num_eq (narr2[i], BASIC_ZERO)) return 1;
+  for (int i = 0; i < 4; ++i) narr2[i] = basic_num_from_int (i + 1);
+  if (!basic_clear_array_pool (narr2, 4, sizeof (basic_num_t))) return 1;
   for (int i = 0; i < 4; ++i)
-    if (ldarr2[i] != 0.0L) return 1;
-#endif
+    if (!basic_num_eq (narr2[i], BASIC_ZERO)) return 1;
 
   basic_pool_destroy ();
   printf ("basic_pool_test OK\n");

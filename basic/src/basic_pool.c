@@ -1,4 +1,5 @@
 #include "basic_pool.h"
+#include "basic_num.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -20,7 +21,9 @@ static PoolBlock *pool = NULL;
 static FreeBlock *free_list = NULL;
 
 static size_t align_up (size_t n) {
-  size_t align = _Alignof (max_align_t);
+  size_t align1 = _Alignof (max_align_t);
+  size_t align2 = _Alignof (basic_num_t);
+  size_t align = align1 > align2 ? align1 : align2;
   return (n + align - 1) & ~(align - 1);
 }
 

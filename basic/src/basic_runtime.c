@@ -465,7 +465,7 @@ void *basic_dim_alloc (void *base, basic_num_t len, basic_num_t is_str) {
      ignored here and a new block is always allocated. */
   (void) base;
   size_t n = (size_t) len;
-  size_t elem_size = is_str != 0.0 ? sizeof (char *) : sizeof (basic_num_t);
+  size_t elem_size = basic_num_ne (is_str, BASIC_ZERO) ? sizeof (char *) : sizeof (basic_num_t);
   void *res = basic_alloc_array (n, elem_size, 1);
   if (res == NULL) return NULL;
   return res;
@@ -473,7 +473,7 @@ void *basic_dim_alloc (void *base, basic_num_t len, basic_num_t is_str) {
 
 void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str) {
   size_t n = (size_t) len;
-  int str_p = is_str != 0.0;
+  int str_p = basic_num_ne (is_str, BASIC_ZERO);
   if (base == NULL || n == 0) return;
   if (str_p) {
     char **sp = (char **) base;
@@ -515,7 +515,7 @@ void basic_tab (basic_num_t n) { printf ("\x1b[%ldG", basic_num_to_int (n)); }
 void basic_htab (basic_num_t n) { basic_tab (n); }
 
 void basic_randomize (basic_num_t n, basic_num_t has_seed) {
-  if (has_seed != 0.0) {
+  if (basic_num_ne (has_seed, BASIC_ZERO)) {
     srand ((unsigned) n);
   } else {
     srand ((unsigned) time (NULL));
