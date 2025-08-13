@@ -398,7 +398,7 @@ clean-mir-utility-tests:
 	$(RM) $(BUILD_DIR)/scan-test$(EXE) $(BUILD_DIR)/io-test$(EXE)
 
 # ------------------ BASIC compiler example -------------------
-.PHONY: basic-test clean-basic basic-bench
+.PHONY: basic-test clean-basic basic-bench run-basic-tests
 
 ifeq ($(OS),Windows_NT)
   BASIC_RUNTIME_LIB=basic_runtime.dll
