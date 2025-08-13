@@ -2813,7 +2813,10 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
             }
             continue;
           }
-          break;
+          if (t.type == TOK_COLON || t.type == TOK_EOF || t.type == TOK_ENDIF
+              || (stop_on_else && (t.type == TOK_ELSE || t.type == TOK_ELSEIF)))
+            break;
+          continue;
         }
         if (bs.kind == ST_PRINT) {
           Node **items = arena_alloc (&ast_arena, bs.u.print.n * sizeof (Node *));
@@ -2911,8 +2914,8 @@ static int parse_line (Parser *p, char *line, Line *out) {
           }
           s.u.printhash.items[s.u.printhash.n++] = e;
         }
-        Token sep = peek_token (p);
-        if (sep.type == TOK_SEMICOLON || sep.type == TOK_COMMA) {
+        t = peek_token (p);
+        if (t.type == TOK_SEMICOLON || t.type == TOK_COMMA) {
           next_token (p);
           t = peek_token (p);
           if (t.type == TOK_COLON || t.type == TOK_EOF) {
@@ -2924,7 +2927,8 @@ static int parse_line (Parser *p, char *line, Line *out) {
           }
           continue;
         }
-        break;
+        if (t.type == TOK_COLON || t.type == TOK_EOF) break;
+        continue;
       }
     }
     if (s.kind != ST_REM) {
