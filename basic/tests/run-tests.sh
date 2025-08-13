@@ -315,14 +315,22 @@ echo "print expression error OK"
 
 echo "Running bullfight sample"
 set +e
-printf 'NO\n' | timeout 1 "$BASICC" "$ROOT/basic/samples/bcg/bullfight.bas" > /dev/null 2> "$ROOT/basic/bullfight.err"
+printf 'NO\n' | timeout 1 "$BASICC" "$ROOT/basic/samples/bcg/bullfight.bas" \
+  > "$ROOT/basic/bullfight.out" 2> "$ROOT/basic/bullfight.err"
 rc=$?
 set -e
 if [ $rc -eq 139 ]; then
-echo "bullfight sample segfault"
-exit 1
+        echo "bullfight sample segfault"
+        exit 1
 fi
-rm -f "$ROOT/basic/bullfight.err"
+if [ -s "$ROOT/basic/bullfight.err" ]; then
+        echo "Unexpected stderr for bullfight"
+        cat "$ROOT/basic/bullfight.err"
+        exit 1
+fi
+grep -q BULL "$ROOT/basic/bullfight.out" || {
+        echo "bullfight output missing"; exit 1; }
+rm -f "$ROOT/basic/bullfight.err" "$ROOT/basic/bullfight.out"
 echo "bullfight sample OK"
 
 echo "Running hexapawn sample"

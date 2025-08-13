@@ -2259,7 +2259,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
     basic_pool_free (is_str);
     FuncDef fd = {fname, params_final, is_str_final, n, body, (StmtVec) {0}, f_is_str, 0, 0,
                   NULL,  NULL,         NULL,         0, 0};
-    func_vec_push (&func_defs, fd);
+    if (find_func (fname) == NULL) func_vec_push (&func_defs, fd);
     out->kind = ST_DEF;
     return 1;
   }
@@ -3463,6 +3463,13 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
           args[nargs++] = MIR_new_reg_op (ctx, a);
         }
         FuncDef *fd = find_func (n->var);
+        if (fd == NULL) {
+          safe_fprintf (stderr, "undefined function %s\n", n->var);
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, res),
+                                         MIR_new_int_op (ctx, 0)));
+          return res;
+        }
         MIR_item_t proto = fd->proto;
         MIR_item_t item = fd->item;
         switch (nargs) {
@@ -5812,6 +5819,15 @@ static void gen_stmt (Stmt *s) {
     /* comment */
     break;
   default: safe_fprintf (stderr, "Unsupported statement: %s\n", stmt_kind_name (s->kind)); break;
+  }
+}
+
+static void preregister_defs (LineVec *prog) {
+  for (size_t i = 0; i < prog->len; i++) {
+    Parser p;
+    Line dummy;
+    parse_line (&p, prog->data[i].src, &dummy);
+    cleanup_parser (&p);
   }
 }
 
