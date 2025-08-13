@@ -484,13 +484,6 @@ $(BUILD_DIR)/basic/fixed64_test$(EXE): \
         $(SRC_DIR)/basic/src/vendor/fixed64/fixed64.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/src/vendor $^ -lm $(EXEO)$@
 
 BASIC_NUM_SRCS = \
-        $(SRC_DIR)/basic/src/basic_num.c \
-        $(SRC_DIR)/basic/src/basic_num_double.c \
-        $(SRC_DIR)/basic/src/basic_num_long_double.c \
-        $(SRC_DIR)/basic/src/basic_num_fixed64.c \
-        $(SRC_DIR)/basic/src/basic_num_mb5.c \
-        $(SRC_DIR)/basic/src/vendor/ryu/d2s.c \
-        $(SRC_DIR)/basic/src/vendor/ryu/ld2s.c \
         $(SRC_DIR)/basic/src/vendor/fixed64/fixed64.c
 
 $(BUILD_DIR)/basic/basic_num_scan_test$(EXE): \
