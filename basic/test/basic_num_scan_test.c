@@ -4,6 +4,7 @@
 #include "basic_num.h"
 
 int main (void) {
+  basic_num_init (BASIC_NUM_MODE_DOUBLE);
   FILE *in = tmpfile ();
   fputs ("42\n", in);
   rewind (in);

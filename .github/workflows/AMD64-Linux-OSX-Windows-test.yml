@@ -23,3 +23,18 @@ jobs:
         cmake --build . --config Release
         ctest --verbose --output-on-failure
 
+  basic-modes:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [double, long-double, fixed64, msfp]
+    steps:
+    - uses: actions/checkout@v1
+    - name: Configure
+      run: cmake -S . -B build -DBUILD_TESTING=ON -DBASIC_NUM_MODE=${{ matrix.mode }}
+    - name: Build
+      run: cmake --build build
+    - name: Test
+      run: ctest --output-on-failure --test-dir build
+

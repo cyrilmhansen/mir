@@ -1,0 +1,4 @@
+10 PRINT TAB(40)"foo"
+20 IF 1 THEN PRINT TAB(20)"bar": ENDIF
+30 PRINT "x""y"
+40 END

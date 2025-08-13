@@ -36,21 +36,22 @@ run_tests() {
         printf '10 PRINT 1\nRUN\nQUIT\n' | "$BASICC" > /dev/null
         echo "REPL smoke test OK"
 
-        run_test() {
-                local name="$1"
-                local src="$ROOT/basic/tests/programs/$name.bas"
-                local in_file="$ROOT/basic/tests/inputs/$name.in"
-                local exp="$ROOT/basic/tests/expected/$name.out"
-                local out="$ROOT/basic/$name.out"
-                local err="$ROOT/basic/$name.err"
-                mkdir -p "$(dirname "$out")"
-               if [ "$name" = "vtab" ]; then
-                       "$BASICC" "$src" > "$out" 2> "$err"
+run_test() {
+        local name="$1"; shift
+        local opts=("$@")
+        local src="$ROOT/basic/tests/programs/$name.bas"
+        local in_file="$ROOT/basic/tests/inputs/$name.in"
+        local exp="$ROOT/basic/tests/expected/$name.out"
+        local out="$ROOT/basic/$name.out"
+        local err="$ROOT/basic/$name.err"
+        mkdir -p "$(dirname "$out")"
+       if [ "$name" = "vtab" ]; then
+                       "$BASICC" "${opts[@]}" "$src" > "$out" 2> "$err"
                elif [ "$name" = "ahl_benchmark" ]; then
                        local time_file="$ROOT/basic/${name}.time"
                        local start end
                        start=$(date +%s%N)
-                       "$BASICC" "$src" > "$out" 2> "$err"
+                       "$BASICC" "${opts[@]}" "$src" > "$out" 2> "$err"
                        end=$(date +%s%N)
                        python3 - "$start" "$end" <<'PY' > "$time_file"
 import sys
@@ -60,11 +61,11 @@ print((end-start)/1e9)
 PY
                else
                        if [ -f "$in_file" ]; then
-                               "$BASICC" "$src" < "$in_file" > "$out" 2> "$err"
+                               "$BASICC" "${opts[@]}" "$src" < "$in_file" > "$out" 2> "$err"
                        elif [ "$name" = "mandelbrot" ]; then
-                               timeout 0.6 "$BASICC" "$src" 2> "$err" | head -n 200 > "$out" || true
+                               timeout 0.6 "$BASICC" "${opts[@]}" "$src" 2> "$err" | head -n 200 > "$out" || true
                        else
-                               "$BASICC" "$src" > "$out" 2> "$err"
+                               "$BASICC" "${opts[@]}" "$src" > "$out" 2> "$err"
                        fi
                fi
                 # Strip terminal alternate screen sequences to keep diffs stable
@@ -116,14 +117,17 @@ PY
                fi
         }
 
-        if [[ "$BASICC" == *-fix ]]; then
-                for name in arith cmp io loop; do
-                        echo "Running $name"
+       if [[ "$BASICC" == *-fix ]]; then
+                for name in arith cmp loop dim_expr io align convert; do
+                        echo "Running $name (interp)"
                         run_test "$name"
-                        echo "$name OK"
+                        echo "$name interp OK"
+                        echo "Running $name (JIT)"
+                        run_test "$name" -j
+                        echo "$name JIT OK"
                 done
                 return
-        fi
+       fi
 
         echo "Running hcolor_test"
         "$ROOT/basic/hcolor_test" > "$ROOT/basic/hcolor_test.out" 2> "$ROOT/basic/hcolor_test.err"
@@ -315,14 +319,22 @@ echo "print expression error OK"
 
 echo "Running bullfight sample"
 set +e
-printf 'NO\n' | timeout 1 "$BASICC" "$ROOT/basic/samples/bcg/bullfight.bas" > /dev/null 2> "$ROOT/basic/bullfight.err"
+printf 'NO\n' | timeout 1 "$BASICC" "$ROOT/basic/samples/bcg/bullfight.bas" \
+  > "$ROOT/basic/bullfight.out" 2> "$ROOT/basic/bullfight.err"
 rc=$?
 set -e
 if [ $rc -eq 139 ]; then
-echo "bullfight sample segfault"
-exit 1
+        echo "bullfight sample segfault"
+        exit 1
 fi
-rm -f "$ROOT/basic/bullfight.err"
+if [ -s "$ROOT/basic/bullfight.err" ]; then
+        echo "Unexpected stderr for bullfight"
+        cat "$ROOT/basic/bullfight.err"
+        exit 1
+fi
+grep -q BULL "$ROOT/basic/bullfight.out" || {
+        echo "bullfight output missing"; exit 1; }
+rm -f "$ROOT/basic/bullfight.err" "$ROOT/basic/bullfight.out"
 echo "bullfight sample OK"
 
 echo "Running hexapawn sample"

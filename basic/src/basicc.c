@@ -2259,7 +2259,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
     basic_pool_free (is_str);
     FuncDef fd = {fname, params_final, is_str_final, n, body, (StmtVec) {0}, f_is_str, 0, 0,
                   NULL,  NULL,         NULL,         0, 0};
-    func_vec_push (&func_defs, fd);
+    if (find_func (fname) == NULL) func_vec_push (&func_defs, fd);
     out->kind = ST_DEF;
     return 1;
   }
@@ -2813,7 +2813,10 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
             }
             continue;
           }
-          break;
+          if (t.type == TOK_COLON || t.type == TOK_EOF || t.type == TOK_ENDIF
+              || (stop_on_else && (t.type == TOK_ELSE || t.type == TOK_ELSEIF)))
+            break;
+          continue;
         }
         if (bs.kind == ST_PRINT) {
           Node **items = arena_alloc (&ast_arena, bs.u.print.n * sizeof (Node *));
@@ -2911,8 +2914,8 @@ static int parse_line (Parser *p, char *line, Line *out) {
           }
           s.u.printhash.items[s.u.printhash.n++] = e;
         }
-        Token sep = peek_token (p);
-        if (sep.type == TOK_SEMICOLON || sep.type == TOK_COMMA) {
+        t = peek_token (p);
+        if (t.type == TOK_SEMICOLON || t.type == TOK_COMMA) {
           next_token (p);
           t = peek_token (p);
           if (t.type == TOK_COLON || t.type == TOK_EOF) {
@@ -2924,7 +2927,8 @@ static int parse_line (Parser *p, char *line, Line *out) {
           }
           continue;
         }
-        break;
+        if (t.type == TOK_COLON || t.type == TOK_EOF) break;
+        continue;
       }
     }
     if (s.kind != ST_REM) {
@@ -3463,6 +3467,13 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
           args[nargs++] = MIR_new_reg_op (ctx, a);
         }
         FuncDef *fd = find_func (n->var);
+        if (fd == NULL) {
+          safe_fprintf (stderr, "undefined function %s\n", n->var);
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, res),
+                                         MIR_new_int_op (ctx, 0)));
+          return res;
+        }
         MIR_item_t proto = fd->proto;
         MIR_item_t item = fd->item;
         switch (nargs) {
@@ -5815,6 +5826,15 @@ static void gen_stmt (Stmt *s) {
   }
 }
 
+static void preregister_defs (LineVec *prog) {
+  for (size_t i = 0; i < prog->len; i++) {
+    Parser p;
+    Line dummy;
+    parse_line (&p, prog->data[i].src, &dummy);
+    cleanup_parser (&p);
+  }
+}
+
 static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p, int code_p,
                          int reduce_libs, int profile_p, int track_lines, const char *out_name,
                          const char *src_name) {
@@ -6697,6 +6717,7 @@ static void usage (const char *progname) {
 }
 
 int main (int argc, char **argv) {
+  basic_num_init (BASIC_NUM_MODE_DOUBLE);
   arena_init (&ast_arena);
   basic_pool_reset ();
   int jit = 0, asm_p = 0, obj_p = 0, bin_p = 0, reduce_libs = 0;

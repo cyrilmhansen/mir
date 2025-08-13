@@ -36,6 +36,9 @@ if(Threads_FOUND)
   link_libraries(${CMAKE_THREAD_LIBS_INIT})
 endif()
 
+set(BASIC_NUM_MODE "double" CACHE STRING "Numeric mode for BASIC: double, long-double, fixed64, msfp")
+set_property(CACHE BASIC_NUM_MODE PROPERTY STRINGS double long-double fixed64 msfp)
+
 message("C compiler flags: ${CMAKE_C_FLAGS}")
 
 option(BUILD_TESTING "" ON)
@@ -247,4 +250,8 @@ add_test(mir2c-test mir2c_test)
 # ------------------ c2m tests --------------------------
 
 add_test(c2mir-simple-test c2m -v ${PROJECT_SOURCE_DIR}/sieve.c -ei)
+
+if(BUILD_TESTING)
+  add_subdirectory(basic)
+endif()
 
