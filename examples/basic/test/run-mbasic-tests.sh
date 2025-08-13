@@ -11,6 +11,7 @@ CASES=(
   P067.BAS
   P173.BAS
   P174.BAS
+  ELSEIF.BAS
 )
 
 # Programs currently expected to fail.

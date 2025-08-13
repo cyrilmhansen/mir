@@ -553,6 +553,16 @@ typedef struct {
 } StmtVec;
 
 typedef struct {
+  Node *cond;
+  StmtVec stmts;
+} ElseIf;
+
+typedef struct {
+  ElseIf *data;
+  size_t len, cap;
+} ElseIfVec;
+
+typedef struct {
   Node *dest;
   Node *src1;
   Node *src2;
@@ -656,6 +666,7 @@ struct Stmt {
     struct {
       Node *cond;
       StmtVec then_stmts;
+      ElseIfVec elseifs;
       StmtVec else_stmts;
     } iff;
     struct {
@@ -881,6 +892,17 @@ static void stmt_vec_push (StmtVec *v, Stmt s) {
   v->data[v->len++] = s;
 }
 
+static void elseif_vec_push (ElseIfVec *v, ElseIf e) {
+  if (v->len == v->cap) {
+    size_t new_cap = v->cap ? 2 * v->cap : 4;
+    ElseIf *tmp = pool_realloc (v->data, v->cap * sizeof (ElseIf), new_cap * sizeof (ElseIf));
+    if (tmp == NULL) return;
+    v->data = tmp;
+    v->cap = new_cap;
+  }
+  v->data[v->len++] = e;
+}
+
 static void line_vec_clear (LineVec *v) { v->len = 0; }
 
 static void line_vec_destroy (LineVec *v) {
@@ -942,6 +964,7 @@ typedef enum {
   TOK_IF,
   TOK_THEN,
   TOK_ELSE,
+  TOK_ELSEIF,
   TOK_INPUT,
   TOK_GET,
   TOK_PUT,
@@ -1132,6 +1155,7 @@ static Token read_token (Parser *p) {
                     {"IF", TOK_IF},
                     {"THEN", TOK_THEN},
                     {"ELSE", TOK_ELSE},
+                    {"ELSEIF", TOK_ELSEIF},
                     {"INPUT", TOK_INPUT},
                     {"GET", TOK_GET},
                     {"PUT", TOK_PUT},
@@ -2334,8 +2358,19 @@ static int parse_stmt (Parser *p, Stmt *out) {
     if (tt.type != TOK_THEN) return 0;
     s.u.iff.then_stmts = (StmtVec) {0};
     if (!parse_if_part (p, &s.u.iff.then_stmts, 1)) return 0;
-    s.u.iff.else_stmts = (StmtVec) {0};
+    s.u.iff.elseifs = (ElseIfVec) {0};
     Token et = peek_token (p);
+    while (et.type == TOK_ELSEIF) {
+      ElseIf ei;
+      next_token (p);
+      PARSE_EXPR_OR_ERROR (ei.cond);
+      if (next_token (p).type != TOK_THEN) return 0;
+      ei.stmts = (StmtVec) {0};
+      if (!parse_if_part (p, &ei.stmts, 1)) return 0;
+      elseif_vec_push (&s.u.iff.elseifs, ei);
+      et = peek_token (p);
+    }
+    s.u.iff.else_stmts = (StmtVec) {0};
     if (et.type == TOK_ELSE) {
       next_token (p);
       if (!parse_if_part (p, &s.u.iff.else_stmts, 0)) return 0;
@@ -2602,7 +2637,8 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
         }
         while (1) {
           t = peek_token (p);
-          if (t.type == TOK_COLON || t.type == TOK_EOF || (stop_on_else && t.type == TOK_ELSE))
+          if (t.type == TOK_COLON || t.type == TOK_EOF
+              || (stop_on_else && (t.type == TOK_ELSE || t.type == TOK_ELSEIF)))
             break;
           Node *e;
           PARSE_EXPR_OR_ERROR (e);
@@ -2631,7 +2667,8 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
           if (t.type == TOK_SEMICOLON || t.type == TOK_COMMA) {
             next_token (p);
             t = peek_token (p);
-            if (t.type == TOK_COLON || t.type == TOK_EOF || (stop_on_else && t.type == TOK_ELSE)) {
+            if (t.type == TOK_COLON || t.type == TOK_EOF
+                || (stop_on_else && (t.type == TOK_ELSE || t.type == TOK_ELSEIF))) {
               if (bs.kind == ST_PRINT)
                 bs.u.print.no_nl = 1;
               else
@@ -2662,7 +2699,7 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
       next_token (p);
       t = peek_token (p);
     } while (t.type == TOK_COLON);
-    if (t.type == TOK_EOF || (stop_on_else && t.type == TOK_ELSE)) break;
+    if (t.type == TOK_EOF || (stop_on_else && (t.type == TOK_ELSE || t.type == TOK_ELSEIF))) break;
   }
   return 1;
 }
@@ -4795,14 +4832,28 @@ static void gen_stmt (Stmt *s) {
     break;
   }
   case ST_IF: {
-    MIR_label_t else_label = MIR_new_label (g_ctx), end = MIR_new_label (g_ctx);
+    MIR_label_t end = MIR_new_label (g_ctx);
+    size_t n = s->u.iff.elseifs.len;
+    MIR_label_t next = (n > 0 || s->u.iff.else_stmts.len > 0) ? MIR_new_label (g_ctx) : end;
     MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.iff.cond);
     MIR_append_insn (g_ctx, g_func,
-                     MIR_new_insn (g_ctx, MIR_DBEQ, MIR_new_label_op (g_ctx, else_label),
+                     MIR_new_insn (g_ctx, MIR_DBEQ, MIR_new_label_op (g_ctx, next),
                                    MIR_new_reg_op (g_ctx, r), MIR_new_double_op (g_ctx, 0.0)));
     for (size_t k = 0; k < s->u.iff.then_stmts.len; k++) gen_stmt (&s->u.iff.then_stmts.data[k]);
-    MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, end)));
-    MIR_append_insn (g_ctx, g_func, else_label);
+    if (n > 0 || s->u.iff.else_stmts.len > 0)
+      MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, end)));
+    if (next != end) MIR_append_insn (g_ctx, g_func, next);
+    for (size_t i = 0; i < n; i++) {
+      ElseIf *ei = &s->u.iff.elseifs.data[i];
+      MIR_label_t next2 = (i + 1 < n || s->u.iff.else_stmts.len > 0) ? MIR_new_label (g_ctx) : end;
+      MIR_reg_t ri = gen_expr (g_ctx, g_func, &g_vars, ei->cond);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_DBEQ, MIR_new_label_op (g_ctx, next2),
+                                     MIR_new_reg_op (g_ctx, ri), MIR_new_double_op (g_ctx, 0.0)));
+      for (size_t k = 0; k < ei->stmts.len; k++) gen_stmt (&ei->stmts.data[k]);
+      MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, end)));
+      if (next2 != end) MIR_append_insn (g_ctx, g_func, next2);
+    }
     for (size_t k = 0; k < s->u.iff.else_stmts.len; k++) gen_stmt (&s->u.iff.else_stmts.data[k]);
     MIR_append_insn (g_ctx, g_func, end);
     break;
