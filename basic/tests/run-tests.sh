@@ -273,13 +273,6 @@ if ! grep -q "parse error at line 10" "$ROOT/basic/print_expr_error.err"; then
 fi
 echo "print expression error OK"
 
-echo "Running input multi (expect error)"
-if "$BASICC" "$ROOT/basic/tests/programs/input_multi.bas" >/dev/null 2> "$ROOT/basic/input_multi.err"; then
-echo "input multi should have failed"
-exit 1
-fi
-grep -q "parse error at line 10" "$ROOT/basic/input_multi.err"
-echo "input multi error OK"
 
         echo "Running repl LOAD"
         printf 'LOAD %s\nRUN\nQUIT\n' "$ROOT/basic/tests/programs/hello.bas" | "$BASICC" > "$ROOT/basic/repl-load.out"

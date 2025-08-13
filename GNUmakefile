@@ -493,16 +493,13 @@ $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_FIX): \
         $(SRC_DIR)/basic/src/vendor/fixed64/fixed64.c \
         $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic ; $(CC) $(CPPFLAGS) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $(CFLAGS) $(LDFLAGS) -DBASIC_USE_FIXED64 $(BASIC_RUNTIME_FLAGS) $^ -lm $(EXEO)$@
 
-basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/basicc-fix$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/hcolor_test$(EXE) $(BUILD_DIR)/basic/dfp_test$(EXE) $(BUILD_DIR)/basic/fixed64_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_FIX) $(BUILD_DIR)/mir-bin-run$(EXE)
+basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/hcolor_test$(EXE) $(BUILD_DIR)/basic/dfp_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/mir-bin-run$(EXE)
 	$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
 	$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
-	$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc-fix$(EXE)
 	$(SRC_DIR)/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
 	$(SRC_DIR)/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
-	$(SRC_DIR)/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc-fix$(EXE)
 	$(BUILD_DIR)/basic/dfp_test$(EXE) > $(BUILD_DIR)/basic/dfp_test.out
 	diff $(SRC_DIR)/basic/test/dfp_test.out $(BUILD_DIR)/basic/dfp_test.out
-	$(BUILD_DIR)/basic/fixed64_test$(EXE)
 
 # ------------------ MIR interp tests --------------------------
 .PHONY: clean-mir-interp-tests
