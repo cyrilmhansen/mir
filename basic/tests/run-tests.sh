@@ -302,6 +302,30 @@ echo "print expression error OK"
         grep -q 'func ADD: count 1' "$ROOT/basic/repl-prof-funcproc.out"
         grep -q 'func HELLO: count 2' "$ROOT/basic/repl-prof-funcproc.out"
         echo "repl PROFILING funcproc done"
+
+echo "Running bullfight sample"
+set +e
+printf 'NO\n' | timeout 1 "$BASICC" "$ROOT/basic/samples/bcg/bullfight.bas" > /dev/null 2> "$ROOT/basic/bullfight.err"
+rc=$?
+set -e
+if [ $rc -eq 139 ]; then
+echo "bullfight sample segfault"
+exit 1
+fi
+rm -f "$ROOT/basic/bullfight.err"
+echo "bullfight sample OK"
+
+echo "Running hexapawn sample"
+set +e
+timeout 1 "$BASICC" "$ROOT/basic/samples/bcg/hexapawn.bas" > /dev/null 2> "$ROOT/basic/hexapawn.err"
+rc=$?
+set -e
+if [ $rc -eq 139 ]; then
+echo "hexapawn sample segfault"
+exit 1
+fi
+rm -f "$ROOT/basic/hexapawn.err"
+echo "hexapawn sample OK"
 }
 
 for cc in "${BASICCS[@]}"; do
