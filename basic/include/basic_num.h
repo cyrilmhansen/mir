@@ -128,7 +128,7 @@ static inline int BASIC_GE (basic_num_t a, basic_num_t b) { return BASIC_LE (b, 
 static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
   return fixed64_to_string (x, buf, size);
 }
-static inline int BASIC_NUM_SCAN (FILE *f, basic_num_t *out) {
+static inline int basic_num_scan (FILE *f, basic_num_t *out) {
   char buf[128], *end;
   if (fgets (buf, sizeof (buf), f) == NULL) return 0;
   *out = fixed64_from_string (buf, &end);
@@ -283,7 +283,7 @@ static inline int basic_num_ge (basic_num_t a, basic_num_t b) { return BASIC_GE 
 
 #if !defined(BASIC_USE_FIXED64)
 
-static inline int BASIC_NUM_SCAN (FILE *f, basic_num_t *out) {
+static inline int basic_num_scan (FILE *f, basic_num_t *out) {
   char buf[128], *end;
   if (fgets (buf, sizeof (buf), f) == NULL) return 0;
   *out = BASIC_STRTOF (buf, &end);

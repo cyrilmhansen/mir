@@ -8,14 +8,14 @@ int main (void) {
   fputs ("42\n", in);
   rewind (in);
   basic_num_t x;
-  assert (BASIC_NUM_SCAN (in, &x));
-  assert (BASIC_TO_INT (x) == 42);
+  assert (basic_num_scan (in, &x));
+  assert (basic_num_to_int (x) == 42);
   fclose (in);
 
   FILE *bad = tmpfile ();
   fputs ("oops\n", bad);
   rewind (bad);
-  assert (!BASIC_NUM_SCAN (bad, &x));
+  assert (!basic_num_scan (bad, &x));
   fclose (bad);
   (void) x;
   return 0;

@@ -181,6 +181,6 @@ Fixed-Point Variant
 -------------------
 For targets lacking floating-point support, the runtime can be built with
 `-DBASIC_USE_FIXED64` to use a 64.64 fixed-point representation. Arithmetic and
-I/O rely on helper macros such as `BASIC_ADD`, `BASIC_LT`, and `BASIC_NUM_SCAN`
-which wrap the underlying `fixed64` routines.
+I/O rely on helper functions such as `basic_num_add`, `basic_num_lt`, and
+`basic_num_scan` which wrap the underlying `fixed64` routines.
 
