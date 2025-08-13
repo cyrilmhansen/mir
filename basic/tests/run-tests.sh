@@ -34,17 +34,29 @@ run_tests() {
                 local out="$ROOT/basic/$name.out"
                 local err="$ROOT/basic/$name.err"
                 mkdir -p "$(dirname "$out")"
-                if [ "$name" = "vtab" ]; then
-                        "$BASICC" "$src" > "$out" 2> "$err"
-                else
-                        if [ -f "$in_file" ]; then
-                                "$BASICC" "$src" < "$in_file" > "$out" 2> "$err"
-                        elif [ "$name" = "mandelbrot" ]; then
-                                timeout 0.6 "$BASICC" "$src" 2> "$err" | head -n 200 > "$out" || true
-                        else
-                                "$BASICC" "$src" > "$out" 2> "$err"
-                        fi
-                fi
+               if [ "$name" = "vtab" ]; then
+                       "$BASICC" "$src" > "$out" 2> "$err"
+               elif [ "$name" = "ahl_benchmark" ]; then
+                       local time_file="$ROOT/basic/${name}.time"
+                       local start end
+                       start=$(date +%s%N)
+                       "$BASICC" "$src" > "$out" 2> "$err"
+                       end=$(date +%s%N)
+                       python3 - "$start" "$end" <<'PY' > "$time_file"
+import sys
+start=int(sys.argv[1])
+end=int(sys.argv[2])
+print((end-start)/1e9)
+PY
+               else
+                       if [ -f "$in_file" ]; then
+                               "$BASICC" "$src" < "$in_file" > "$out" 2> "$err"
+                       elif [ "$name" = "mandelbrot" ]; then
+                               timeout 0.6 "$BASICC" "$src" 2> "$err" | head -n 200 > "$out" || true
+                       else
+                               "$BASICC" "$src" > "$out" 2> "$err"
+                       fi
+               fi
                 # Strip terminal alternate screen sequences to keep diffs stable
                 perl -0 -i -pe 's/\x1b\[\?1049[hl]//g' "$out"
                 if [ "$name" = "circle" ] || [ "$name" = "box" ]; then
@@ -88,6 +100,10 @@ PY
                 else
                         diff "$exp" "$out"
                 fi
+               if [ "$name" = "ahl_benchmark" ]; then
+                       echo "ahl_benchmark time: $(cat "$time_file") s"
+                       rm -f "$time_file"
+               fi
         }
 
         echo "Running hcolor_test"
@@ -174,11 +190,16 @@ PY
 
         for src in "$ROOT/basic/tests/programs/"*.bas; do
                 name=$(basename "$src" .bas)
-                case "$name" in
-                        base0_cli|base1_cli|extern|resume|dim_expr_error|line_number_float|print_expr_error|incdec)
-                                continue
-                                ;;
-                esac
+               case "$name" in
+                       base0_cli|base1_cli|extern|resume|dim_expr_error|line_number_float|print_expr_error|incdec)
+                               continue
+                               ;;
+                       ahl_benchmark)
+                               if [[ "$BASICC" == *-ld ]]; then
+                                       continue
+                               fi
+                               ;;
+               esac
                 echo "Running $name"
                 run_test "$name"
                 echo "$name OK"

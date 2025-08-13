@@ -15,11 +15,12 @@ run_bench() {
   local file="$ROOT/basic/samples/${name}.bas"
   echo "== ${name} =="
   echo "-- JIT --"
-  (cd "$ROOT" && time -p "$BASICC" -j "$file" >/dev/null)
+  (cd "$ROOT" && { TIMEFORMAT='real %R'; time "$BASICC" -j "$file" >/dev/null; } 2>&1)
   echo "-- Compiled --"
-  (cd "$ROOT" && time -p "$BASICC" -b -o "$ROOT/basic/${name}-bench" "$file" >/dev/null)
-  time -p "$ROOT/basic/${name}-bench" >/dev/null
+  (cd "$ROOT" && { TIMEFORMAT='real %R'; time "$BASICC" -b -o "$ROOT/basic/${name}-bench" "$file" >/dev/null; } 2>&1)
+  { TIMEFORMAT='real %R'; time "$ROOT/basic/${name}-bench" >/dev/null; } 2>&1
 }
 
 run_bench sieve
 run_bench fib
+run_bench ahl_benchmark
