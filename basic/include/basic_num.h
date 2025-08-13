@@ -81,6 +81,101 @@ static inline basic_num_t basic_num_sub (basic_num_t a, basic_num_t b) {
 static inline basic_num_t basic_num_mul (basic_num_t a, basic_num_t b) {
   return basic_num.mul (a, b);
 }
+
+#define BASIC_NUM_SCANF(f, out) basic_num_scan ((f), (out))
+#define BASIC_NUM_PRINTF(f, x) basic_num_print ((f), (x))
+
+#elif defined(BASIC_USE_DECIMAL128) || defined(BASIC_USE_MSFP)
+#include <dfp/decimal128.h>
+#include <dfp/math.h>
+#include <dfp/stdlib.h>
+typedef _Decimal128 basic_num_t;
+#define BASIC_NUM_SCANF "%DDf"
+#define BASIC_NUM_PRINTF "%.34DDg"
+#define BASIC_FROM_INT(x) ((basic_num_t) (x))
+#define BASIC_TO_INT(x) ((long) (x))
+#define BASIC_ZERO ((basic_num_t) 0DD)
+#define BASIC_ONE ((basic_num_t) 1DD)
+#define BASIC_ADD(a, b) ((a) + (b))
+#define BASIC_SUB(a, b) ((a) - (b))
+#define BASIC_MUL(a, b) ((a) * (b))
+#define BASIC_DIV(a, b) ((a) / (b))
+#define BASIC_NEG(a) (-(a))
+#define BASIC_LT(a, b) ((a) < (b))
+#define BASIC_LE(a, b) ((a) <= (b))
+#define BASIC_GT(a, b) ((a) > (b))
+#define BASIC_GE(a, b) ((a) >= (b))
+#define BASIC_EQ(a, b) ((a) == (b))
+#define BASIC_NE(a, b) ((a) != (b))
+#define BASIC_STRTOF strtod128
+#define BASIC_FABS fabsd128
+#define BASIC_SQRT sqrtd128
+#define BASIC_SIN sind128
+#define BASIC_COS cosd128
+#define BASIC_TAN tand128
+#define BASIC_SINH sinhd128
+#define BASIC_COSH coshd128
+#define BASIC_TANH tanhd128
+#define BASIC_ASINH asinhd128
+#define BASIC_ACOSH acoshd128
+#define BASIC_ATANH atanhd128
+#define BASIC_ASIN asind128
+#define BASIC_ACOS acosd128
+#define BASIC_ATAN atand128
+#define BASIC_LOG logd128
+#define BASIC_LOG2 log2d128
+#define BASIC_LOG10 log10d128
+#define BASIC_POW powd128
+#define BASIC_EXP expd128
+#define BASIC_FLOOR floord128
+static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
+  (void) size;
+  decimal128ToString ((decimal128 *) &x, buf);
+  return (int) strlen (buf);
+}
+
+#else /* BASIC_USE_DOUBLE or default */
+#include "ryu/ryu.h"
+typedef double basic_num_t;
+#define BASIC_NUM_SCANF "%lf"
+#define BASIC_NUM_PRINTF "%.15g"
+#define BASIC_FROM_INT(x) ((basic_num_t) (x))
+#define BASIC_TO_INT(x) ((long) (x))
+#define BASIC_ZERO ((basic_num_t) 0.0)
+#define BASIC_ONE ((basic_num_t) 1.0)
+#define BASIC_ADD(a, b) ((a) + (b))
+#define BASIC_SUB(a, b) ((a) - (b))
+#define BASIC_MUL(a, b) ((a) * (b))
+#define BASIC_DIV(a, b) ((a) / (b))
+#define BASIC_NEG(a) (-(a))
+#define BASIC_LT(a, b) ((a) < (b))
+#define BASIC_LE(a, b) ((a) <= (b))
+#define BASIC_GT(a, b) ((a) > (b))
+#define BASIC_GE(a, b) ((a) >= (b))
+#define BASIC_EQ(a, b) ((a) == (b))
+#define BASIC_NE(a, b) ((a) != (b))
+#define BASIC_STRTOF strtod
+#define BASIC_FABS fabs
+#define BASIC_SQRT sqrt
+#define BASIC_SIN sin
+#define BASIC_COS cos
+#define BASIC_TAN tan
+#define BASIC_SINH sinh
+#define BASIC_COSH cosh
+#define BASIC_TANH tanh
+#define BASIC_ASINH asinh
+#define BASIC_ACOSH acosh
+#define BASIC_ATANH atanh
+#define BASIC_ASIN asin
+#define BASIC_ACOS acos
+#define BASIC_ATAN atan
+#define BASIC_LOG log
+#define BASIC_LOG2 log2
+#define BASIC_LOG10 log10
+#define BASIC_EXP exp
+#define BASIC_POW pow
+#define BASIC_FLOOR floor
+
 static inline basic_num_t basic_num_div (basic_num_t a, basic_num_t b) {
   return basic_num.div (a, b);
 }
@@ -91,6 +186,7 @@ static inline int basic_num_lt (basic_num_t a, basic_num_t b) { return basic_num
 static inline int basic_num_le (basic_num_t a, basic_num_t b) { return basic_num.le (a, b); }
 static inline int basic_num_gt (basic_num_t a, basic_num_t b) { return basic_num.gt (a, b); }
 static inline int basic_num_ge (basic_num_t a, basic_num_t b) { return basic_num.ge (a, b); }
+
 static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
   return basic_num.to_chars (x, buf, size);
 }

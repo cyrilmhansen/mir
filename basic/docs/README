@@ -28,6 +28,21 @@ invokes each test in both interpreted and JIT-compiled modes and looks for
 `*** TEST PASSED ***` in their output.  Test `P173.BAS` is currently marked as an
 expected failure until TAB error handling is improved.
 
+CMake Numeric Modes
+-------------------
+The BASIC example can also be built with CMake.  Configure with
+`-DBASIC_NUM_MODE=<mode>` to select the numeric representation.  Supported
+values are `double`, `long-double`, `fixed64`, and `msfp`, which map to the
+`BASIC_USE_DOUBLE`, `BASIC_USE_LONG_DOUBLE`, `BASIC_USE_FIXED64`, and
+`BASIC_USE_MSFP` definitions respectively.  For example:
+
+```
+cmake -S . -B build -DBUILD_TESTING=ON -DBASIC_NUM_MODE=fixed64
+cmake --build build
+ctest --output-on-failure --test-dir build
+```
+
+
 The interpreter also recognizes a `CHAIN <expr>` statement that clears the
 current program and loads another BASIC source file.  Because it depends on the
 interpreter runtime, programs containing `CHAIN` are rejected by compilation
