@@ -268,6 +268,12 @@ static char *next_input_field (void) {
 }
 
 basic_num_t basic_input (void) {
+  basic_num_t x = BASIC_ZERO;
+  if (!BASIC_NUM_SCAN (stdin, &x)) return BASIC_ZERO;
+  return x;
+}
+
+asic_num_t basic_input (void) {
   if (!BASIC_NUM_SCAN (stdin, &x)) return BASIC_ZERO;
   return x;
 }
