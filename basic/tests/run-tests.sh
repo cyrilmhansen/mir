@@ -4,13 +4,14 @@ set -eu
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 # Determine BASIC compiler binaries to test. If none are supplied as arguments,
-# test the double and long double variants built by the makefile.
+# test the double, long double, and fixed-point variants built by the makefile.
 if [ "$#" -gt 0 ]; then
         BASICCS=("$@")
 else
         BASICCS=(
                 "$ROOT/basic/basicc"
                 "$ROOT/basic/basicc-ld"
+                "$ROOT/basic/basicc-fix"
         )
 fi
 
@@ -114,6 +115,15 @@ PY
                        rm -f "$time_file"
                fi
         }
+
+        if [[ "$BASICC" == *-fix ]]; then
+                for name in arith cmp io loop; do
+                        echo "Running $name"
+                        run_test "$name"
+                        echo "$name OK"
+                done
+                return
+        fi
 
         echo "Running hcolor_test"
         "$ROOT/basic/hcolor_test" > "$ROOT/basic/hcolor_test.out" 2> "$ROOT/basic/hcolor_test.err"
