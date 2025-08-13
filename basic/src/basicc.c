@@ -6701,6 +6701,7 @@ static void usage (const char *progname) {
 }
 
 int main (int argc, char **argv) {
+  basic_num_init (BASIC_NUM_MODE_DOUBLE);
   arena_init (&ast_arena);
   basic_pool_reset ();
   int jit = 0, asm_p = 0, obj_p = 0, bin_p = 0, reduce_libs = 0;
