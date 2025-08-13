@@ -1,10 +1,10 @@
 #include <assert.h>
 #include <stdio.h>
 
-#define BASIC_USE_FIXED64
 #include "basic_num.h"
 
 int main (void) {
+  basic_num_init (BASIC_NUM_MODE_FIXED64);
   basic_num_t two = basic_num_from_int (2);
   basic_num_t three = basic_num_from_int (3);
   basic_num_t five = basic_num_add (two, three);

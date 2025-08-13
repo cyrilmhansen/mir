@@ -208,7 +208,7 @@ basic_num_t basic_get_line (void) {
     fprintf (stderr, "line tracking disabled\n");
     exit (1);
   }
-  return (basic_num_t) basic_line;
+  return basic_num_from_int (basic_line);
 }
 
 /* Release a string allocated by BASIC runtime helpers. */
@@ -464,16 +464,16 @@ void *basic_dim_alloc (void *base, basic_num_t len, basic_num_t is_str) {
      any existing storage via basic_clear_array; the old base pointer is
      ignored here and a new block is always allocated. */
   (void) base;
-  size_t n = (size_t) len;
-  size_t elem_size = is_str != 0.0 ? sizeof (char *) : sizeof (basic_num_t);
+  size_t n = (size_t) basic_num_to_int (len);
+  size_t elem_size = basic_num_ne (is_str, BASIC_ZERO) ? sizeof (char *) : sizeof (basic_num_t);
   void *res = basic_alloc_array (n, elem_size, 1);
   if (res == NULL) return NULL;
   return res;
 }
 
 void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str) {
-  size_t n = (size_t) len;
-  int str_p = is_str != 0.0;
+  size_t n = (size_t) basic_num_to_int (len);
+  int str_p = basic_num_ne (is_str, BASIC_ZERO);
   if (base == NULL || n == 0) return;
   if (str_p) {
     char **sp = (char **) base;
@@ -515,8 +515,8 @@ void basic_tab (basic_num_t n) { printf ("\x1b[%ldG", basic_num_to_int (n)); }
 void basic_htab (basic_num_t n) { basic_tab (n); }
 
 void basic_randomize (basic_num_t n, basic_num_t has_seed) {
-  if (has_seed != 0.0) {
-    srand ((unsigned) n);
+  if (basic_num_ne (has_seed, BASIC_ZERO)) {
+    srand ((unsigned) basic_num_to_int (n));
   } else {
     srand ((unsigned) time (NULL));
   }
@@ -530,58 +530,64 @@ basic_num_t basic_rnd (basic_num_t n) {
   }
   /* rand () can return RAND_MAX, which would make the result equal to n.
      Scale by RAND_MAX + 1.0 to keep the value in [0, n). */
-  return ((basic_num_t) rand () / ((basic_num_t) RAND_MAX + 1.0)) * n;
+  basic_num_t r = basic_num_from_int (rand ());
+  basic_num_t denom = basic_num_add (basic_num_from_int (RAND_MAX), basic_num_from_int (1));
+  return basic_num_mul (basic_num_div (r, denom), n);
 }
 
-basic_num_t basic_abs (basic_num_t x) { return BASIC_FABS (x); }
+basic_num_t basic_abs (basic_num_t x) { return basic_num_fabs (x); }
 
-basic_num_t basic_sgn (basic_num_t x) { return x > 0 ? 1.0 : x < 0 ? -1.0 : 0.0; }
+basic_num_t basic_sgn (basic_num_t x) {
+  if (basic_num_gt (x, BASIC_ZERO)) return basic_num_from_int (1);
+  if (basic_num_lt (x, BASIC_ZERO)) return basic_num_from_int (-1);
+  return BASIC_ZERO;
+}
 
-basic_num_t basic_sqr (basic_num_t x) { return BASIC_SQRT (x); }
+basic_num_t basic_sqr (basic_num_t x) { return basic_num_sqrt (x); }
 
-basic_num_t basic_sin (basic_num_t x) { return BASIC_SIN (x); }
+basic_num_t basic_sin (basic_num_t x) { return basic_num_sin (x); }
 
-basic_num_t basic_cos (basic_num_t x) { return BASIC_COS (x); }
+basic_num_t basic_cos (basic_num_t x) { return basic_num_cos (x); }
 
-basic_num_t basic_tan (basic_num_t x) { return BASIC_TAN (x); }
+basic_num_t basic_tan (basic_num_t x) { return basic_num_tan (x); }
 
-basic_num_t basic_atn (basic_num_t x) { return BASIC_ATAN (x); }
+basic_num_t basic_atn (basic_num_t x) { return basic_num_atan (x); }
 
-basic_num_t basic_sinh (basic_num_t x) { return BASIC_SINH (x); }
+basic_num_t basic_sinh (basic_num_t x) { return basic_num_sinh (x); }
 
-basic_num_t basic_cosh (basic_num_t x) { return BASIC_COSH (x); }
+basic_num_t basic_cosh (basic_num_t x) { return basic_num_cosh (x); }
 
-basic_num_t basic_tanh (basic_num_t x) { return BASIC_TANH (x); }
+basic_num_t basic_tanh (basic_num_t x) { return basic_num_tanh (x); }
 
-basic_num_t basic_asinh (basic_num_t x) { return BASIC_ASINH (x); }
+basic_num_t basic_asinh (basic_num_t x) { return basic_num_asinh (x); }
 
-basic_num_t basic_acosh (basic_num_t x) { return BASIC_ACOSH (x); }
+basic_num_t basic_acosh (basic_num_t x) { return basic_num_acosh (x); }
 
-basic_num_t basic_atanh (basic_num_t x) { return BASIC_ATANH (x); }
+basic_num_t basic_atanh (basic_num_t x) { return basic_num_atanh (x); }
 
-basic_num_t basic_asin (basic_num_t x) { return BASIC_ASIN (x); }
+basic_num_t basic_asin (basic_num_t x) { return basic_num_asin (x); }
 
-basic_num_t basic_acos (basic_num_t x) { return BASIC_ACOS (x); }
+basic_num_t basic_acos (basic_num_t x) { return basic_num_acos (x); }
 
-basic_num_t basic_log (basic_num_t x) { return BASIC_LOG (x); }
+basic_num_t basic_log (basic_num_t x) { return basic_num_log (x); }
 
-basic_num_t basic_log2 (basic_num_t x) { return BASIC_LOG2 (x); }
+basic_num_t basic_log2 (basic_num_t x) { return basic_num_log2 (x); }
 
-basic_num_t basic_log10 (basic_num_t x) { return BASIC_LOG10 (x); }
+basic_num_t basic_log10 (basic_num_t x) { return basic_num_log10 (x); }
 
-basic_num_t basic_exp (basic_num_t x) { return BASIC_EXP (x); }
+basic_num_t basic_exp (basic_num_t x) { return basic_num_exp (x); }
 
 basic_num_t basic_fact (basic_num_t x) {
-  if (x < 0) return 0;
-  long n = (long) x;
-  basic_num_t res = 1;
-  for (long i = 2; i <= n; i++) res *= (basic_num_t) i;
+  if (basic_num_lt (x, BASIC_ZERO)) return BASIC_ZERO;
+  long n = basic_num_to_int (x);
+  basic_num_t res = basic_num_from_int (1);
+  for (long i = 2; i <= n; i++) res = basic_num_mul (res, basic_num_from_int (i));
   return res;
 }
 
-basic_num_t basic_pow (basic_num_t x, basic_num_t y) { return BASIC_POW (x, y); }
+basic_num_t basic_pow (basic_num_t x, basic_num_t y) { return basic_num_pow (x, y); }
 
-basic_num_t basic_pi (void) { return M_PI; }
+basic_num_t basic_pi (void) { return basic_num_acos (basic_num_neg (basic_num_from_int (1))); }
 
 /* Allocate a one-character string. Caller must free with basic_free. */
 char *basic_chr (basic_num_t n) {
@@ -688,14 +694,17 @@ char *basic_mirror (const char *s) {
 }
 
 basic_num_t basic_instr (const char *s, const char *sub) {
-  if (s == NULL || sub == NULL || *sub == '\0') return 0.0;
+  if (s == NULL || sub == NULL || *sub == '\0') return BASIC_ZERO;
   const char *p = strstr (s, sub);
-  return p == NULL ? 0.0 : (basic_num_t) (p - s + 1);
+  return p == NULL ? BASIC_ZERO : basic_num_from_int (p - s + 1);
 }
 
-basic_num_t basic_len (const char *s) { return (basic_num_t) (s != NULL ? strlen (s) : 0); }
+basic_num_t basic_len (const char *s) { return basic_num_from_int (s != NULL ? strlen (s) : 0); }
 
-basic_num_t basic_val (const char *s) { return BASIC_STRTOF (s, NULL); }
+basic_num_t basic_val (const char *s) {
+  if (s == NULL) return BASIC_ZERO;
+  return basic_num_from_string (s, NULL);
+}
 
 /* Convert a number to a newly allocated string.
    Caller must free the result with basic_free. */
@@ -709,17 +718,19 @@ char *basic_str (basic_num_t n) {
 }
 
 basic_num_t basic_asc (const char *s) {
-  return s == NULL || s[0] == '\0' ? 0.0 : (basic_num_t) (unsigned char) s[0];
+  return s == NULL || s[0] == '\0' ? BASIC_ZERO : basic_num_from_int ((unsigned char) s[0]);
 }
 
-basic_num_t basic_int (basic_num_t x) { return BASIC_FLOOR (x); }
+basic_num_t basic_int (basic_num_t x) { return basic_num_floor (x); }
 
-basic_num_t basic_timer (void) { return (basic_num_t) clock () / CLOCKS_PER_SEC; }
+basic_num_t basic_timer (void) {
+  return basic_num_div (basic_num_from_int (clock ()), basic_num_from_int (CLOCKS_PER_SEC));
+}
 
 basic_num_t basic_time (void) {
   time_t t = time (NULL);
   struct tm *tm_info = localtime (&t);
-  return (basic_num_t) (tm_info->tm_hour * 3600 + tm_info->tm_min * 60 + tm_info->tm_sec);
+  return basic_num_from_int (tm_info->tm_hour * 3600 + tm_info->tm_min * 60 + tm_info->tm_sec);
 }
 
 /* Return current time formatted as HH:MM:SS in a newly allocated string.
@@ -737,7 +748,7 @@ char *basic_time_str (void) {
 
 basic_num_t basic_date (void) {
   time_t t = time (NULL);
-  return (basic_num_t) (t / 86400);
+  return basic_num_from_int (t / 86400);
 }
 
 char *basic_date_str (void) {
@@ -1060,12 +1071,12 @@ void basic_runtime_fini (void) {
 static basic_num_t new_handle (HandleKind kind, MIR_context_t ctx, void *ptr) {
   handle_tab = realloc (handle_tab, (handle_len + 1) * sizeof (Handle));
   handle_tab[handle_len] = (Handle) {kind, ctx, ptr};
-  return (basic_num_t) ++handle_len;
+  return basic_num_from_int (++handle_len);
 }
 
 static Handle *get_handle (basic_num_t h) {
-  size_t idx = (size_t) h;
-  if (idx == 0 || (basic_num_t) idx != h || idx > handle_len) return NULL;
+  size_t idx = (size_t) basic_num_to_int (h);
+  if (idx == 0 || basic_num_ne (basic_num_from_int (idx), h) || idx > handle_len) return NULL;
   return &handle_tab[idx - 1];
 }
 
