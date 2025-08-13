@@ -66,6 +66,35 @@ static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
   }
   return (int) strlen (buf);
 }
+#elif defined(BASIC_USE_FIXED64)
+#include "fixed64/fixed64.h"
+typedef fixed64_t basic_num_t;
+#define BASIC_NUM_SCANF "%lf" /* placeholder */
+#define BASIC_NUM_PRINTF "%lf"
+#define BASIC_STRTOF fixed64_from_string
+#define BASIC_FABS fixed64_abs
+#define BASIC_SQRT fixed64_stub_unary
+#define BASIC_SIN fixed64_stub_unary
+#define BASIC_COS fixed64_stub_unary
+#define BASIC_TAN fixed64_stub_unary
+#define BASIC_SINH fixed64_stub_unary
+#define BASIC_COSH fixed64_stub_unary
+#define BASIC_TANH fixed64_stub_unary
+#define BASIC_ASINH fixed64_stub_unary
+#define BASIC_ACOSH fixed64_stub_unary
+#define BASIC_ATANH fixed64_stub_unary
+#define BASIC_ASIN fixed64_stub_unary
+#define BASIC_ACOS fixed64_stub_unary
+#define BASIC_ATAN fixed64_stub_unary
+#define BASIC_LOG fixed64_stub_unary
+#define BASIC_LOG2 fixed64_stub_unary
+#define BASIC_LOG10 fixed64_stub_unary
+#define BASIC_EXP fixed64_stub_unary
+#define BASIC_POW fixed64_stub_binary
+#define BASIC_FLOOR fixed64_stub_unary
+static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
+  return fixed64_to_string (x, buf, size);
+}
 #elif defined(BASIC_USE_DECIMAL128)
 #include <dfp/decimal128.h>
 #include <dfp/math.h>
