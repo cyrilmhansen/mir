@@ -17,6 +17,13 @@ The dialect supports line‑numbered programs in the style of early microcompute
 80 END
 ```
 
+Assignments may optionally use the classic `LET` keyword, though it is not required:
+
+```basic
+LET X = 1  ' explicit LET
+X = 1      ' implicit LET
+```
+
 Key features include `PRINT`, `INPUT`, `IF`/`THEN`, `ELSE`, `FOR`/`NEXT`, `WHILE`/`WEND`, `GOTO`, `GOSUB`/`RETURN`, `DATA`/`READ`/`RESTORE`, and arrays declared with `DIM`.
 
 ## Functions and Optional Line Numbers

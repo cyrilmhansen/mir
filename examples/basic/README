@@ -1,6 +1,8 @@
 BASIC Compiler Notes
 ====================
 
+Assignments may begin with the optional `LET` keyword. `LET X=1` and `X=1` are equivalent forms.
+
 The `basicc` compiler accepts the `--no-line-tracking` flag to skip inserting
 `basic_set_line` calls during code generation.  Disabling line tracking can
 speed up compiled programs but removes support for `RESUME` without an explicit
