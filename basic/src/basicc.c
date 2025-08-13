@@ -2865,9 +2865,12 @@ static int parse_line (Parser *p, char *line, Line *out) {
         break;
       }
     }
+    if (s.kind != ST_REM) {
+      t = peek_token (p);
+      if (t.type != TOK_EOF && t.type != TOK_COLON) return parse_error (p);
+    }
     stmt_vec_push (&out->stmts, s);
     if (s.kind == ST_REM) break;
-    t = peek_token (p);
     if (t.type == TOK_COLON) {
       do {
         next_token (p);
