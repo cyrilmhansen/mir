@@ -509,6 +509,10 @@ basic_num_t basic_tan (basic_num_t x) { return BASIC_TAN (x); }
 
 basic_num_t basic_atn (basic_num_t x) { return BASIC_ATAN (x); }
 
+basic_num_t basic_asin (basic_num_t x) { return BASIC_ASIN (x); }
+
+basic_num_t basic_acos (basic_num_t x) { return BASIC_ACOS (x); }
+
 basic_num_t basic_log (basic_num_t x) { return BASIC_LOG (x); }
 
 basic_num_t basic_log2 (basic_num_t x) { return BASIC_LOG2 (x); }
