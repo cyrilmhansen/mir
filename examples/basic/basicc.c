@@ -106,10 +106,21 @@ extern basic_num_t basic_sin (basic_num_t);
 extern basic_num_t basic_cos (basic_num_t);
 extern basic_num_t basic_tan (basic_num_t);
 extern basic_num_t basic_atn (basic_num_t);
+extern basic_num_t basic_sinh (basic_num_t);
+extern basic_num_t basic_cosh (basic_num_t);
+extern basic_num_t basic_tanh (basic_num_t);
+extern basic_num_t basic_asinh (basic_num_t);
+extern basic_num_t basic_acosh (basic_num_t);
+extern basic_num_t basic_atanh (basic_num_t);
+extern basic_num_t basic_asin (basic_num_t);
+extern basic_num_t basic_acos (basic_num_t);
 extern basic_num_t basic_log (basic_num_t);
 extern basic_num_t basic_log2 (basic_num_t);
 extern basic_num_t basic_log10 (basic_num_t);
 extern basic_num_t basic_exp (basic_num_t);
+extern basic_num_t basic_fact (basic_num_t);
+extern basic_num_t basic_pow (basic_num_t, basic_num_t);
+extern basic_num_t basic_pi (void);
 
 extern void basic_screen (basic_num_t);
 extern void basic_cls (void);
@@ -140,6 +151,7 @@ extern char *basic_concat (const char *, const char *);
 extern char *basic_left (const char *, basic_num_t);
 extern char *basic_right (const char *, basic_num_t);
 extern char *basic_mid (const char *, basic_num_t, basic_num_t);
+extern char *basic_mirror (const char *);
 extern basic_num_t basic_len (const char *);
 extern basic_num_t basic_val (const char *);
 extern char *basic_str (basic_num_t);
@@ -265,10 +277,20 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_cos")) return basic_cos;
   if (!strcmp (name, "basic_tan")) return basic_tan;
   if (!strcmp (name, "basic_atn")) return basic_atn;
+  if (!strcmp (name, "basic_sinh")) return basic_sinh;
+  if (!strcmp (name, "basic_cosh")) return basic_cosh;
+  if (!strcmp (name, "basic_tanh")) return basic_tanh;
+  if (!strcmp (name, "basic_asinh")) return basic_asinh;
+  if (!strcmp (name, "basic_acosh")) return basic_acosh;
+  if (!strcmp (name, "basic_atanh")) return basic_atanh;
+  if (!strcmp (name, "basic_asin")) return basic_asin;
+  if (!strcmp (name, "basic_acos")) return basic_acos;
   if (!strcmp (name, "basic_log")) return basic_log;
   if (!strcmp (name, "basic_log2")) return basic_log2;
   if (!strcmp (name, "basic_log10")) return basic_log10;
   if (!strcmp (name, "basic_exp")) return basic_exp;
+  if (!strcmp (name, "basic_pow")) return basic_pow;
+  if (!strcmp (name, "basic_pi")) return basic_pi;
   if (!strcmp (name, "basic_instr")) return basic_instr;
 
   if (!strcmp (name, "basic_screen")) return basic_screen;
@@ -304,6 +326,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_left")) return basic_left;
   if (!strcmp (name, "basic_right")) return basic_right;
   if (!strcmp (name, "basic_mid")) return basic_mid;
+  if (!strcmp (name, "basic_mirror")) return basic_mirror;
   if (!strcmp (name, "basic_len")) return basic_len;
   if (!strcmp (name, "basic_val")) return basic_val;
   if (!strcmp (name, "basic_str")) return basic_str;
@@ -349,6 +372,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_mir_finish")) return basic_mir_finish;
   if (!strcmp (name, "basic_mir_run")) return basic_mir_run;
   if (!strcmp (name, "basic_mir_dump")) return basic_mir_dump;
+  if (!strcmp (name, "basic_fact")) return basic_fact;
   void *sym = dlsym (NULL, name);
   return sym;
 }
@@ -360,14 +384,17 @@ static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, st
   date_str_import, input_chr_proto, input_chr_import, peek_proto, peek_import, eof_proto,
   eof_import, abs_proto, abs_import, sgn_proto, sgn_import, inkey_proto, inkey_import, sqr_proto,
   sqr_import, sin_proto, sin_import, cos_proto, cos_import, tan_proto, tan_import, atn_proto,
-  atn_import, log_proto, log_import, log2_proto, log2_import, log10_proto, log10_import, exp_proto,
-  exp_import, left_proto, left_import, right_proto, right_import, mid_proto, mid_import, len_proto,
-  len_import, val_proto, val_import, str_proto, str_import, asc_proto, asc_import, pos_proto,
-  pos_import, instr_proto, instr_import, strdup_proto, strdup_import, mir_ctx_proto, mir_ctx_import,
-  mir_mod_proto, mir_mod_import, mir_func_proto, mir_func_import, mir_reg_proto, mir_reg_import,
-  mir_label_proto, mir_label_import, mir_emit_proto, mir_emit_import, mir_emitlbl_proto,
-  mir_emitlbl_import, mir_ret_proto, mir_ret_import, mir_finish_proto, mir_finish_import,
-  mir_run_proto, mir_run_import, mir_dump_proto, mir_dump_import;
+  atn_import, asin_proto, asin_import, acos_proto, acos_import, sinh_proto, sinh_import, cosh_proto, cosh_import, tanh_proto, tanh_import,
+  asinh_proto, asinh_import, acosh_proto, acosh_import, atanh_proto, atanh_import, log_proto, log_import, log2_proto, log2_import, log10_proto, log10_import, exp_proto,
+  exp_import, fact_proto, fact_import, pow_proto, pow_import, pi_proto, pi_import, left_proto, left_import, right_proto, right_import, mid_proto, mid_import,
+  mirror_proto, mirror_import, len_proto, len_import, val_proto, val_import, str_proto, str_import,
+  asc_proto, asc_import, pos_proto, pos_import, instr_proto, instr_import, strdup_proto,
+  strdup_import, mir_ctx_proto, mir_ctx_import, mir_mod_proto, mir_mod_import, mir_func_proto,
+  mir_func_import, mir_reg_proto, mir_reg_import, mir_label_proto, mir_label_import, mir_emit_proto,
+  mir_emit_import, mir_emitlbl_proto, mir_emitlbl_import, mir_ret_proto, mir_ret_import,
+  mir_finish_proto, mir_finish_import, mir_run_proto, mir_run_import, mir_dump_proto,
+  mir_dump_import;
+
 
 /* Runtime call prototypes for statements */
 static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_proto, input_import,
@@ -401,6 +428,7 @@ typedef struct Node Node;
 #define OP_SLASH '/'
 #define OP_BACKSLASH '\\'
 #define OP_MOD '%'
+#define OP_POW '^'
 #define OP_PLUS '+'
 #define OP_MINUS '-'
 #define OP_EQ '='
@@ -411,6 +439,12 @@ typedef struct Node Node;
 #define OP_GE 'G'
 #define OP_AND '&'
 #define OP_OR '|'
+#define OP_BIT 'b'
+#define OP_XOR 'x'
+#define OP_NAND 'n'
+#define OP_NOR 'o'
+#define OP_SHL 'l'
+#define OP_SHR 'r'
 #define NUM_PREFIX_CHAR '&'
 #define HEX_PREFIX_CHAR 'H'
 #define OCT_PREFIX_CHAR 'O'
@@ -471,11 +505,14 @@ static void data_vals_clear (void) {
 typedef enum {
   ST_PRINT,
   ST_LET,
+  ST_INC,
+  ST_DEC,
   ST_GOTO,
   ST_IF,
   ST_INPUT,
   ST_GET,
   ST_PUT,
+  ST_SWAP,
   ST_OPEN,
   ST_CLOSE,
   ST_PRINT_HASH,
@@ -522,6 +559,10 @@ typedef enum {
   ST_NEXT,
   ST_WHILE,
   ST_WEND,
+  ST_DO,
+  ST_LOOP,
+  ST_REPEAT,
+  ST_UNTIL,
   ST_GOSUB,
   ST_RETURN,
   ST_ON_GOTO,
@@ -540,6 +581,16 @@ typedef struct {
 } StmtVec;
 
 typedef struct {
+  Node *cond;
+  StmtVec stmts;
+} ElseIf;
+
+typedef struct {
+  ElseIf *data;
+  size_t len, cap;
+} ElseIfVec;
+
+typedef struct {
   Node *dest;
   Node *src1;
   Node *src2;
@@ -550,11 +601,14 @@ static const char *stmt_kind_name (StmtKind kind) {
   static const char *names[] = {
     [ST_PRINT] = "ST_PRINT",
     [ST_LET] = "ST_LET",
+    [ST_INC] = "ST_INC",
+    [ST_DEC] = "ST_DEC",
     [ST_GOTO] = "ST_GOTO",
     [ST_IF] = "ST_IF",
     [ST_INPUT] = "ST_INPUT",
     [ST_GET] = "ST_GET",
     [ST_PUT] = "ST_PUT",
+    [ST_SWAP] = "ST_SWAP",
     [ST_OPEN] = "ST_OPEN",
     [ST_CLOSE] = "ST_CLOSE",
     [ST_PRINT_HASH] = "ST_PRINT_HASH",
@@ -601,6 +655,10 @@ static const char *stmt_kind_name (StmtKind kind) {
     [ST_NEXT] = "ST_NEXT",
     [ST_WHILE] = "ST_WHILE",
     [ST_WEND] = "ST_WEND",
+    [ST_DO] = "ST_DO",
+    [ST_LOOP] = "ST_LOOP",
+    [ST_REPEAT] = "ST_REPEAT",
+    [ST_UNTIL] = "ST_UNTIL",
     [ST_GOSUB] = "ST_GOSUB",
     [ST_RETURN] = "ST_RETURN",
     [ST_ON_GOTO] = "ST_ON_GOTO",
@@ -619,7 +677,7 @@ static const char *stmt_kind_name (StmtKind kind) {
 struct Stmt {
   StmtKind kind;
   union {
-    Node *expr; /* PRINT/VTAB/HTAB/SCREEN/COLOR/WHILE/HCOLOR/RANDOMIZE/MODE/DELAY */
+    Node *expr; /* PRINT/VTAB/HTAB/SCREEN/COLOR/WHILE/UNTIL/HCOLOR/RANDOMIZE/MODE/DELAY */
     struct {
       Node **items;
       size_t n;
@@ -631,8 +689,12 @@ struct Stmt {
       int is_str;
     } let;
     struct {
+      Node *var;
+    } inc;
+    struct {
       Node *cond;
       StmtVec then_stmts;
+      ElseIfVec elseifs;
       StmtVec else_stmts;
     } iff;
     struct {
@@ -645,6 +707,10 @@ struct Stmt {
     struct {
       Node *expr;
     } put;
+    struct {
+      Node *var1;
+      Node *var2;
+    } swap;
     struct {
       Node *num;
       Node *path;
@@ -835,10 +901,12 @@ typedef struct {
   size_t len, cap;
 } LineVec;
 
+typedef enum { LOOP_FOR, LOOP_WHILE, LOOP_DO, LOOP_REPEAT } LoopType;
+
 typedef struct {
   MIR_reg_t var, end, step;
   MIR_label_t start_label, end_label;
-  int is_while;
+  LoopType type;
 } LoopInfo;
 
 static void stmt_vec_push (StmtVec *v, Stmt s) {
@@ -850,6 +918,17 @@ static void stmt_vec_push (StmtVec *v, Stmt s) {
     v->cap = new_cap;
   }
   v->data[v->len++] = s;
+}
+
+static void elseif_vec_push (ElseIfVec *v, ElseIf e) {
+  if (v->len == v->cap) {
+    size_t new_cap = v->cap ? 2 * v->cap : 4;
+    ElseIf *tmp = pool_realloc (v->data, v->cap * sizeof (ElseIf), new_cap * sizeof (ElseIf));
+    if (tmp == NULL) return;
+    v->data = tmp;
+    v->cap = new_cap;
+  }
+  v->data[v->len++] = e;
 }
 
 static void line_vec_clear (LineVec *v) { v->len = 0; }
@@ -913,9 +992,12 @@ typedef enum {
   TOK_IF,
   TOK_THEN,
   TOK_ELSE,
+  TOK_ENDIF,
+  TOK_ELSEIF,
   TOK_INPUT,
   TOK_GET,
   TOK_PUT,
+  TOK_SWAP,
   TOK_OPEN,
   TOK_CLOSE,
   TOK_PRINT,
@@ -963,6 +1045,10 @@ typedef enum {
   TOK_NEXT,
   TOK_WHILE,
   TOK_WEND,
+  TOK_DO,
+  TOK_LOOP,
+  TOK_REPEAT,
+  TOK_UNTIL,
   TOK_GOSUB,
   TOK_RETURN,
   TOK_ON,
@@ -973,6 +1059,14 @@ typedef enum {
   TOK_AND,
   TOK_OR,
   TOK_NOT,
+  TOK_INC,
+  TOK_DEC,
+  TOK_XOR,
+  TOK_NAND,
+  TOK_NOR,
+  TOK_BIT,
+  TOK_SHL,
+  TOK_SHR,
   TOK_MOD,
   TOK_BASE,
   TOK_DECIMAL,
@@ -1006,6 +1100,7 @@ typedef enum {
   TOK_STAR,
   TOK_SLASH,
   TOK_BACKSLASH,
+  TOK_CARET,
   TOK_EQ,
   TOK_LT,
   TOK_GT,
@@ -1090,9 +1185,12 @@ static Token read_token (Parser *p) {
                     {"IF", TOK_IF},
                     {"THEN", TOK_THEN},
                     {"ELSE", TOK_ELSE},
+                    {"ENDIF", TOK_ENDIF},
+                    {"ELSEIF", TOK_ELSEIF},
                     {"INPUT", TOK_INPUT},
                     {"GET", TOK_GET},
                     {"PUT", TOK_PUT},
+                    {"SWAP", TOK_SWAP},
                     {"OPEN", TOK_OPEN},
                     {"CLOSE", TOK_CLOSE},
                     {"PRINT", TOK_PRINT},
@@ -1140,6 +1238,10 @@ static Token read_token (Parser *p) {
                     {"NEXT", TOK_NEXT},
                     {"WHILE", TOK_WHILE},
                     {"WEND", TOK_WEND},
+                    {"DO", TOK_DO},
+                    {"LOOP", TOK_LOOP},
+                    {"REPEAT", TOK_REPEAT},
+                    {"UNTIL", TOK_UNTIL},
                     {"GOSUB", TOK_GOSUB},
                     {"RETURN", TOK_RETURN},
                     {"ON", TOK_ON},
@@ -1151,6 +1253,14 @@ static Token read_token (Parser *p) {
                     {"AND", TOK_AND},
                     {"OR", TOK_OR},
                     {"NOT", TOK_NOT},
+                    {"INC", TOK_INC},
+                    {"DEC", TOK_DEC},
+                    {"XOR", TOK_XOR},
+                    {"NAND", TOK_NAND},
+                    {"NOR", TOK_NOR},
+                    {"BIT", TOK_BIT},
+                    {"SHL", TOK_SHL},
+                    {"SHR", TOK_SHR},
                     {"MOD", TOK_MOD},
                     {"BASE", TOK_BASE},
                     {"DECIMAL", TOK_DECIMAL},
@@ -1249,6 +1359,7 @@ static Token read_token (Parser *p) {
   case '*': t.type = TOK_STAR; break;
   case '/': t.type = TOK_SLASH; break;
   case '\\': t.type = TOK_BACKSLASH; break;
+  case '^': t.type = TOK_CARET; break;
   case '=': t.type = TOK_EQ; break;
   case '<':
     if (*cur == '=') {
@@ -1341,8 +1452,11 @@ static char *parse_rest (Parser *p) {
 
 /* Expression parser */
 static Node *parse_factor (Parser *p);
+static Node *parse_pow (Parser *p);
 static Node *parse_term (Parser *p);
 static Node *parse_add (Parser *p);
+static Node *parse_shift (Parser *p);
+static Node *parse_bit (Parser *p);
 
 static Node *parse_rel (Parser *p);
 static Node *parse_logical (Parser *p);
@@ -1383,14 +1497,16 @@ typedef struct {
 static const Builtin builtins[]
   = {{"RND", 0},     {"INT", 0},       {"TIMER", 0},    {"TIME", 0},    {"DATE", 0},
      {"PEEK", 0},    {"EOF", 0},       {"POS", 0},      {"ABS", 0},     {"SGN", 0},
-     {"SQR", 0},     {"SIN", 0},       {"COS", 0},      {"TAN", 0},     {"ATN", 0},
-     {"LOG", 0},     {"LOG2", 0},      {"LOG10", 0},    {"EXP", 0},     {"LEN", 0},
+     {"SQR", 0},     {"SIN", 0},       {"COS", 0},      {"TAN", 0},     {"ATN", 0}, {"ASIN", 0},    {"ACOS", 0},
+     {"SINH", 0},       {"COSH", 0},    {"TANH", 0},      {"ASINH", 0},    {"ACOSH", 0},
+     {"ATANH", 0}, 
+     {"LOG", 0},     {"LOG2", 0},      {"LOG10", 0},    {"EXP", 0},    {"FACT", 0}, {"PI", 0},   {"LEN", 0},
      {"VAL", 0},     {"ASC", 0},       {"INSTR", 0},    {"MIRCTX", 0},  {"MIRMOD", 0},
      {"MIRFUNC", 0}, {"MIRREG", 0},    {"MIRLABEL", 0}, {"MIREMIT", 0}, {"MIREMITLBL", 0},
      {"MIRRET", 0},  {"MIRFINISH", 0}, {"MIRRUN", 0},   {"MIRDUMP", 0}, {"CHR$", 1},
      {"STRING$", 1}, {"TIME$", 1},     {"DATE$", 1},    {"INPUT$", 1},  {"SPC", 1},
-     {"TAB", 0},     {"LEFT$", 1},     {"RIGHT$", 1},   {"MID$", 1},    {"STR$", 1},
-     {"INKEY$", 1},  {NULL, 0}};
+     {"SPACE$", 1}, {"TAB", 0},     {"LEFT$", 1},     {"RIGHT$", 1},   {"MID$", 1},    {"STR$", 1},
+     {"INKEY$", 1},  {"MIRROR$", 1},   {NULL, 0}};
 
 static const Builtin *lookup_builtin (const char *id) {
   for (int i = 0; builtins[i].name != NULL; i++)
@@ -1518,15 +1634,30 @@ static Node *parse_factor (Parser *p) {
   return parse_variable (id, &a);
 }
 
-static Node *parse_term (Parser *p) {
+static Node *parse_pow (Parser *p) {
   Node *n = parse_factor (p);
+  if (n == NULL) return NULL;
+  if (peek_token (p).type == TOK_CARET) {
+    next_token (p);
+    Node *r = parse_pow (p);
+    Node *nn = new_node (N_BIN);
+    nn->op = OP_POW;
+    nn->left = n;
+    nn->right = r;
+    return nn;
+  }
+  return n;
+}
+
+static Node *parse_term (Parser *p) {
+  Node *n = parse_pow (p);
   if (n == NULL) return NULL;
   while (1) {
     Token t = peek_token (p);
     if (t.type != TOK_STAR && t.type != TOK_SLASH && t.type != TOK_BACKSLASH && t.type != TOK_MOD)
       break;
     next_token (p);
-    Node *r = parse_factor (p);
+    Node *r = parse_pow (p);
     Node *nn = new_node (N_BIN);
     switch (t.type) {
     case TOK_STAR: nn->op = OP_STAR; break;
@@ -1560,8 +1691,48 @@ static Node *parse_add (Parser *p) {
   return n;
 }
 
-static Node *parse_rel (Parser *p) {
+static Node *parse_shift (Parser *p) {
   Node *n = parse_add (p);
+  if (n == NULL) return NULL;
+  while (1) {
+    Token t = peek_token (p);
+    if (t.type != TOK_SHL && t.type != TOK_SHR) break;
+    next_token (p);
+    Node *r = parse_add (p);
+    Node *nn = new_node (N_BIN);
+    nn->op = (t.type == TOK_SHL ? OP_SHL : OP_SHR);
+    nn->left = n;
+    nn->right = r;
+    n = nn;
+  }
+  return n;
+}
+
+static Node *parse_bit (Parser *p) {
+  Node *n = parse_shift (p);
+  if (n == NULL) return NULL;
+  while (1) {
+    Token t = peek_token (p);
+    if (t.type != TOK_BIT && t.type != TOK_XOR && t.type != TOK_NAND && t.type != TOK_NOR) break;
+    next_token (p);
+    Node *r = parse_shift (p);
+    Node *nn = new_node (N_BIN);
+    switch (t.type) {
+    case TOK_BIT: nn->op = OP_BIT; break;
+    case TOK_XOR: nn->op = OP_XOR; break;
+    case TOK_NAND: nn->op = OP_NAND; break;
+    case TOK_NOR: nn->op = OP_NOR; break;
+    default: break;
+    }
+    nn->left = n;
+    nn->right = r;
+    n = nn;
+  }
+  return n;
+}
+
+static Node *parse_rel (Parser *p) {
+  Node *n = parse_bit (p);
   Token t = peek_token (p);
   TokenType op_type = TOK_EOF;
   if (t.type == TOK_EQ || t.type == TOK_NE || t.type == TOK_LE || t.type == TOK_GE) {
@@ -1835,6 +2006,18 @@ static int parse_stmt (Parser *p, Stmt *out) {
     out->kind = ST_PUT;
     PARSE_EXPR_OR_ERROR (out->u.put.expr);
     return 1;
+  case TOK_SWAP:
+    out->kind = ST_SWAP;
+    out->u.swap.var1 = parse_factor (p);
+    if (out->u.swap.var1 == NULL || out->u.swap.var1->kind != N_VAR) return parse_error (p);
+    if (next_token (p).type != TOK_COMMA) return 0;
+    out->u.swap.var2 = parse_factor (p);
+    if (out->u.swap.var2 == NULL || out->u.swap.var2->kind != N_VAR) return parse_error (p);
+    if (out->u.swap.var1->is_str != out->u.swap.var2->is_str) {
+      safe_fprintf (stderr, "type mismatch in SWAP\n");
+      return 0;
+    }
+    return 1;
   case TOK_GOTO:
     out->kind = ST_GOTO;
     tok = next_token (p);
@@ -1863,6 +2046,13 @@ static int parse_stmt (Parser *p, Stmt *out) {
     PARSE_EXPR_OR_ERROR (out->u.expr);
     return 1;
   case TOK_WEND: out->kind = ST_WEND; return 1;
+  case TOK_DO: out->kind = ST_DO; return 1;
+  case TOK_LOOP: out->kind = ST_LOOP; return 1;
+  case TOK_REPEAT: out->kind = ST_REPEAT; return 1;
+  case TOK_UNTIL:
+    out->kind = ST_UNTIL;
+    PARSE_EXPR_OR_ERROR (out->u.expr);
+    return 1;
   case TOK_RETURN: out->kind = ST_RETURN; return 1;
   case TOK_END: out->kind = ST_END; return 1;
   case TOK_STOP: out->kind = ST_STOP; return 1;
@@ -2201,6 +2391,15 @@ static int parse_stmt (Parser *p, Stmt *out) {
     out->u.let.is_str = v->is_str;
     return 1;
   }
+  case TOK_INC:
+  case TOK_DEC: {
+    Node *v = parse_factor (p);
+    if (v == NULL || v->kind != N_VAR || v->index != NULL || v->index2 != NULL || v->is_str)
+      return parse_error (p);
+    out->kind = tok.type == TOK_INC ? ST_INC : ST_DEC;
+    out->u.inc.var = v;
+    return 1;
+  }
   case TOK_IF: {
     Stmt s;
     s.kind = ST_IF;
@@ -2209,12 +2408,25 @@ static int parse_stmt (Parser *p, Stmt *out) {
     if (tt.type != TOK_THEN) return 0;
     s.u.iff.then_stmts = (StmtVec) {0};
     if (!parse_if_part (p, &s.u.iff.then_stmts, 1)) return 0;
-    s.u.iff.else_stmts = (StmtVec) {0};
+    s.u.iff.elseifs = (ElseIfVec) {0};
     Token et = peek_token (p);
+    while (et.type == TOK_ELSEIF) {
+      ElseIf ei;
+      next_token (p);
+      PARSE_EXPR_OR_ERROR (ei.cond);
+      if (next_token (p).type != TOK_THEN) return 0;
+      ei.stmts = (StmtVec) {0};
+      if (!parse_if_part (p, &ei.stmts, 1)) return 0;
+      elseif_vec_push (&s.u.iff.elseifs, ei);
+      et = peek_token (p);
+    }
+    s.u.iff.else_stmts = (StmtVec) {0};
     if (et.type == TOK_ELSE) {
       next_token (p);
       if (!parse_if_part (p, &s.u.iff.else_stmts, 0)) return 0;
+      et = peek_token (p);
     }
+    if (et.type == TOK_ENDIF) next_token (p);
     *out = s;
     return 1;
   }
@@ -2456,8 +2668,9 @@ static int parse_stmt (Parser *p, Stmt *out) {
 
 static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
   while (1) {
-    Stmt bs;
     Token t = peek_token (p);
+    if (t.type == TOK_EOF || t.type == TOK_ENDIF || (stop_on_else && t.type == TOK_ELSE)) break;
+    Stmt bs;
     if (t.type == TOK_NUMBER) {
       bs.kind = ST_GOTO;
       bs.u.target = (int) parse_number (p);
@@ -2477,7 +2690,8 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
         }
         while (1) {
           t = peek_token (p);
-          if (t.type == TOK_COLON || t.type == TOK_EOF || (stop_on_else && t.type == TOK_ELSE))
+          if (t.type == TOK_COLON || t.type == TOK_EOF || t.type == TOK_ENDIF
+              || (stop_on_else && (t.type == TOK_ELSE || t.type == TOK_ELSEIF)))
             break;
           Node *e;
           PARSE_EXPR_OR_ERROR (e);
@@ -2506,7 +2720,8 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
           if (t.type == TOK_SEMICOLON || t.type == TOK_COMMA) {
             next_token (p);
             t = peek_token (p);
-            if (t.type == TOK_COLON || t.type == TOK_EOF || (stop_on_else && t.type == TOK_ELSE)) {
+            if (t.type == TOK_COLON || t.type == TOK_EOF || t.type == TOK_ENDIF
+                || (stop_on_else && (t.type == TOK_ELSE || t.type == TOK_ELSEIF))) {
               if (bs.kind == ST_PRINT)
                 bs.u.print.no_nl = 1;
               else
@@ -2537,7 +2752,7 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
       next_token (p);
       t = peek_token (p);
     } while (t.type == TOK_COLON);
-    if (t.type == TOK_EOF || (stop_on_else && t.type == TOK_ELSE)) break;
+    if (t.type == TOK_EOF || t.type == TOK_ENDIF || (stop_on_else && (t.type == TOK_ELSE || t.type == TOK_ELSEIF))) break;
   }
   return 1;
 }
@@ -3023,6 +3238,19 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                             MIR_new_ref_op (ctx, string_import),
                                             MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, a1),
                                             MIR_new_reg_op (ctx, space)));
+      } else if (strcasecmp (n->var, "SPACE$") == 0) {
+        MIR_reg_t a1 = gen_expr (ctx, func, vars, n->left);
+        char buf2[32];
+        safe_snprintf (buf2, sizeof (buf2), "$t%d", tmp_id++);
+        MIR_reg_t space = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf2);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, space),
+                                       MIR_new_str_op (ctx, (MIR_str_t) {2, " "})));
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, string_proto),
+                                            MIR_new_ref_op (ctx, string_import),
+                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, a1),
+                                            MIR_new_reg_op (ctx, space)));
       } else if (strcasecmp (n->var, "INPUT$") == 0) {
         MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
         MIR_append_insn (ctx, func,
@@ -3075,6 +3303,12 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                             MIR_new_ref_op (ctx, mid_import),
                                             MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, s),
                                             MIR_new_reg_op (ctx, start), len_op));
+      } else if (strcasecmp (n->var, "MIRROR$") == 0) {
+        MIR_reg_t s = gen_expr (ctx, func, vars, n->left);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, mirror_proto),
+                                            MIR_new_ref_op (ctx, mirror_import),
+                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, s)));
       } else if (strcasecmp (n->var, "STR$") == 0) {
         MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
         MIR_append_insn (ctx, func,
@@ -3330,6 +3564,53 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                        MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, atn_proto),
                                           MIR_new_ref_op (ctx, atn_import),
                                           MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "SINH") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, sinh_proto),
+                                          MIR_new_ref_op (ctx, sinh_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "COSH") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, cosh_proto),
+                                          MIR_new_ref_op (ctx, cosh_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "TANH") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, tanh_proto),
+                                          MIR_new_ref_op (ctx, tanh_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "ASINH") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, asinh_proto),
+                                          MIR_new_ref_op (ctx, asinh_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "ACOSH") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, acosh_proto),
+                                          MIR_new_ref_op (ctx, acosh_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "ATANH") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, atanh_proto),
+                                          MIR_new_ref_op (ctx, atanh_import),
+    } else if (strcasecmp (n->var, "ASIN") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, asin_proto),
+                                          MIR_new_ref_op (ctx, asin_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "ACOS") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, acos_proto),
+                                          MIR_new_ref_op (ctx, acos_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
     } else if (strcasecmp (n->var, "LOG") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
       MIR_append_insn (ctx, func,
@@ -3354,6 +3635,17 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                        MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, exp_proto),
                                           MIR_new_ref_op (ctx, exp_import),
                                           MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "FACT") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, fact_proto),
+                                          MIR_new_ref_op (ctx, fact_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "PI") == 0) {
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, pi_proto),
+                                          MIR_new_ref_op (ctx, pi_import),
+                                          MIR_new_reg_op (ctx, res)));
     } else if (strcasecmp (n->var, "LEN") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
       MIR_append_insn (ctx, func,
@@ -3657,6 +3949,48 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                        MIR_new_insn (ctx, MIR_I2D, MIR_new_reg_op (ctx, resd),
                                      MIR_new_reg_op (ctx, resi)));
       return resd;
+    } else if (n->op == OP_BIT || n->op == OP_XOR || n->op == OP_NAND || n->op == OP_NOR
+               || n->op == OP_SHL || n->op == OP_SHR) {
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t li = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+      MIR_append_insn (ctx, func,
+                       MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, li),
+                                     MIR_new_reg_op (ctx, l)));
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t ri = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+      MIR_append_insn (ctx, func,
+                       MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, ri),
+                                     MIR_new_reg_op (ctx, r)));
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+      if (n->op == OP_SHL || n->op == OP_SHR) {
+        MIR_insn_code_t sop = n->op == OP_SHL ? MIR_LSH : MIR_URSH;
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, sop, MIR_new_reg_op (ctx, resi),
+                                       MIR_new_reg_op (ctx, li), MIR_new_reg_op (ctx, ri)));
+      } else {
+        MIR_insn_code_t bop = MIR_AND;
+        switch (n->op) {
+        case OP_BIT: bop = MIR_AND; break;
+        case OP_XOR: bop = MIR_XOR; break;
+        case OP_NAND: bop = MIR_AND; break;
+        case OP_NOR: bop = MIR_OR; break;
+        default: break;
+        }
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, bop, MIR_new_reg_op (ctx, resi),
+                                       MIR_new_reg_op (ctx, li), MIR_new_reg_op (ctx, ri)));
+        if (n->op == OP_NAND || n->op == OP_NOR)
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, MIR_XOR, MIR_new_reg_op (ctx, resi),
+                                         MIR_new_reg_op (ctx, resi), MIR_new_int_op (ctx, -1)));
+      }
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t resd = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
+      MIR_append_insn (ctx, func,
+                       MIR_new_insn (ctx, MIR_I2D, MIR_new_reg_op (ctx, resd),
+                                     MIR_new_reg_op (ctx, resi)));
+      return resd;
     } else if (n->op == OP_EQ || n->op == OP_NE || n->op == OP_LT || n->op == OP_GT
                || n->op == OP_LE || n->op == OP_GE) {
       MIR_insn_code_t cmp_code;
@@ -3727,6 +4061,12 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, MIR_I2D, MIR_new_reg_op (ctx, res),
                                        MIR_new_reg_op (ctx, resi)));
+      } else if (n->op == OP_POW) {
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, pow_proto),
+                                            MIR_new_ref_op (ctx, pow_import),
+                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, l),
+                                            MIR_new_reg_op (ctx, r)));
       } else {
         MIR_insn_code_t op = MIR_DADD;
         switch (n->op) {
@@ -3923,6 +4263,190 @@ static void gen_stmt (Stmt *s) {
   case ST_GET: gen_get (s); break;
   case ST_GET_HASH: gen_get_hash (s); break;
   case ST_PUT: gen_put (s); break;
+  case ST_SWAP: {
+    Node *v1 = s->u.swap.var1, *v2 = s->u.swap.var2;
+    char buf[32];
+    MIR_reg_t val1, val2, dest1, dest2;
+    int arr1 = v1->index != NULL;
+    int arr2 = v2->index != NULL;
+    if (arr1) {
+      MIR_reg_t base = get_array (&g_vars, g_ctx, g_func, v1->var, 0, 0, v1->is_str);
+      MIR_reg_t idxd1 = gen_expr (g_ctx, g_func, &g_vars, v1->index);
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t idx = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, idx),
+                                     MIR_new_reg_op (g_ctx, idxd1)));
+      if (array_base != 0)
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx),
+                                       MIR_new_reg_op (g_ctx, idx),
+                                       MIR_new_int_op (g_ctx, array_base)));
+      if (v1->index2 != NULL) {
+        MIR_reg_t idxd2 = gen_expr (g_ctx, g_func, &g_vars, v1->index2);
+        safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+        MIR_reg_t idx2 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, idx2),
+                                       MIR_new_reg_op (g_ctx, idxd2)));
+        if (array_base != 0)
+          MIR_append_insn (g_ctx, g_func,
+                           MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx2),
+                                         MIR_new_reg_op (g_ctx, idx2),
+                                         MIR_new_int_op (g_ctx, array_base)));
+        size_t dim2 = get_array_dim2 (&g_vars, v1->var);
+        safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+        MIR_reg_t tmp = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_MUL, MIR_new_reg_op (g_ctx, tmp),
+                                       MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, dim2)));
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, idx),
+                                       MIR_new_reg_op (g_ctx, tmp), MIR_new_reg_op (g_ctx, idx2)));
+      }
+      size_t asize = get_array_size (&g_vars, v1->var);
+      MIR_label_t bad = MIR_new_label (g_ctx), ok = MIR_new_label (g_ctx);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_BLT, MIR_new_label_op (g_ctx, bad),
+                                     MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, 0)));
+      if (asize != 0)
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_BGE, MIR_new_label_op (g_ctx, bad),
+                                       MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, asize)));
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t off = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+      size_t elem_size = v1->is_str ? sizeof (char *) : sizeof (basic_num_t);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_MUL, MIR_new_reg_op (g_ctx, off),
+                                     MIR_new_reg_op (g_ctx, idx),
+                                     MIR_new_int_op (g_ctx, elem_size)));
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      dest1 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, dest1),
+                                     MIR_new_reg_op (g_ctx, base), MIR_new_reg_op (g_ctx, off)));
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      val1 = MIR_new_func_reg (g_ctx, g_func->u.func, v1->is_str ? MIR_T_I64 : MIR_T_D, buf);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, v1->is_str ? MIR_MOV : MIR_DMOV,
+                                     MIR_new_reg_op (g_ctx, val1),
+                                     MIR_new_mem_op (g_ctx, v1->is_str ? MIR_T_P : MIR_T_D, 0,
+                                                     dest1, 0, 1)));
+      MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, ok)));
+      MIR_append_insn (g_ctx, g_func, bad);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, stop_proto),
+                                          MIR_new_ref_op (g_ctx, stop_import)));
+      MIR_append_insn (g_ctx, g_func, ok);
+    } else {
+      dest1 = get_var (&g_vars, g_ctx, g_func, v1->var);
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      val1 = MIR_new_func_reg (g_ctx, g_func->u.func, v1->is_str ? MIR_T_I64 : MIR_T_D, buf);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, v1->is_str ? MIR_MOV : MIR_DMOV,
+                                     MIR_new_reg_op (g_ctx, val1), MIR_new_reg_op (g_ctx, dest1)));
+    }
+    if (arr2) {
+      MIR_reg_t base = get_array (&g_vars, g_ctx, g_func, v2->var, 0, 0, v2->is_str);
+      MIR_reg_t idxd1 = gen_expr (g_ctx, g_func, &g_vars, v2->index);
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t idx = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, idx),
+                                     MIR_new_reg_op (g_ctx, idxd1)));
+      if (array_base != 0)
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx),
+                                       MIR_new_reg_op (g_ctx, idx),
+                                       MIR_new_int_op (g_ctx, array_base)));
+      if (v2->index2 != NULL) {
+        MIR_reg_t idxd2 = gen_expr (g_ctx, g_func, &g_vars, v2->index2);
+        safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+        MIR_reg_t idx2 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_D2I, MIR_new_reg_op (g_ctx, idx2),
+                                       MIR_new_reg_op (g_ctx, idxd2)));
+        if (array_base != 0)
+          MIR_append_insn (g_ctx, g_func,
+                           MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx2),
+                                         MIR_new_reg_op (g_ctx, idx2),
+                                         MIR_new_int_op (g_ctx, array_base)));
+        size_t dim2 = get_array_dim2 (&g_vars, v2->var);
+        safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+        MIR_reg_t tmp = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_MUL, MIR_new_reg_op (g_ctx, tmp),
+                                       MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, dim2)));
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, idx),
+                                       MIR_new_reg_op (g_ctx, tmp), MIR_new_reg_op (g_ctx, idx2)));
+      }
+      size_t asize = get_array_size (&g_vars, v2->var);
+      MIR_label_t bad = MIR_new_label (g_ctx), ok = MIR_new_label (g_ctx);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_BLT, MIR_new_label_op (g_ctx, bad),
+                                     MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, 0)));
+      if (asize != 0)
+        MIR_append_insn (g_ctx, g_func,
+                         MIR_new_insn (g_ctx, MIR_BGE, MIR_new_label_op (g_ctx, bad),
+                                       MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, asize)));
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t off = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+      size_t elem_size = v2->is_str ? sizeof (char *) : sizeof (basic_num_t);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_MUL, MIR_new_reg_op (g_ctx, off),
+                                     MIR_new_reg_op (g_ctx, idx),
+                                     MIR_new_int_op (g_ctx, elem_size)));
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      dest2 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, dest2),
+                                     MIR_new_reg_op (g_ctx, base), MIR_new_reg_op (g_ctx, off)));
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      val2 = MIR_new_func_reg (g_ctx, g_func->u.func, v2->is_str ? MIR_T_I64 : MIR_T_D, buf);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, v2->is_str ? MIR_MOV : MIR_DMOV,
+                                     MIR_new_reg_op (g_ctx, val2),
+                                     MIR_new_mem_op (g_ctx, v2->is_str ? MIR_T_P : MIR_T_D, 0,
+                                                     dest2, 0, 1)));
+      MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, ok)));
+      MIR_append_insn (g_ctx, g_func, bad);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, stop_proto),
+                                          MIR_new_ref_op (g_ctx, stop_import)));
+      MIR_append_insn (g_ctx, g_func, ok);
+    } else {
+      dest2 = get_var (&g_vars, g_ctx, g_func, v2->var);
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      val2 = MIR_new_func_reg (g_ctx, g_func->u.func, v2->is_str ? MIR_T_I64 : MIR_T_D, buf);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, v2->is_str ? MIR_MOV : MIR_DMOV,
+                                     MIR_new_reg_op (g_ctx, val2), MIR_new_reg_op (g_ctx, dest2)));
+    }
+    MIR_insn_code_t mov1 = v1->is_str ? MIR_MOV : MIR_DMOV;
+    MIR_insn_code_t mov2 = v2->is_str ? MIR_MOV : MIR_DMOV;
+    if (arr1)
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, mov1,
+                                     MIR_new_mem_op (g_ctx, v1->is_str ? MIR_T_P : MIR_T_D, 0,
+                                                     dest1, 0, 1),
+                                     MIR_new_reg_op (g_ctx, val2)));
+    else
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, mov1, MIR_new_reg_op (g_ctx, dest1),
+                                     MIR_new_reg_op (g_ctx, val2)));
+    if (arr2)
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, mov2,
+                                     MIR_new_mem_op (g_ctx, v2->is_str ? MIR_T_P : MIR_T_D, 0,
+                                                     dest2, 0, 1),
+                                     MIR_new_reg_op (g_ctx, val1)));
+    else
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, mov2, MIR_new_reg_op (g_ctx, dest2),
+                                     MIR_new_reg_op (g_ctx, val1)));
+    break;
+  }
   case ST_PUT_HASH: gen_put_hash (s); break;
   case ST_POKE: gen_poke (s); break;
   case ST_DATA:
@@ -4181,7 +4705,7 @@ static void gen_stmt (Stmt *s) {
       g_loop_stack = tmp;
       g_loop_cap = new_cap;
     }
-    g_loop_stack[g_loop_len++] = (LoopInfo) {var, end, step, start_label, end_label, 0};
+    g_loop_stack[g_loop_len++] = (LoopInfo) {var, end, step, start_label, end_label, LOOP_FOR};
     MIR_append_insn (g_ctx, g_func, start_label);
     MIR_label_t neg_step = MIR_new_label (g_ctx);
     MIR_label_t after_cmp = MIR_new_label (g_ctx);
@@ -4203,7 +4727,7 @@ static void gen_stmt (Stmt *s) {
   case ST_NEXT: {
     if (g_loop_len == 0) break;
     LoopInfo info = g_loop_stack[--g_loop_len];
-    if (info.is_while) break;
+    if (info.type != LOOP_FOR) break;
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_insn (g_ctx, MIR_DADD, MIR_new_reg_op (g_ctx, info.var),
                                    MIR_new_reg_op (g_ctx, info.var),
@@ -4224,7 +4748,7 @@ static void gen_stmt (Stmt *s) {
       g_loop_stack = tmp;
       g_loop_cap = new_cap;
     }
-    g_loop_stack[g_loop_len++] = (LoopInfo) {0, 0, 0, start_label, end_label, 1};
+    g_loop_stack[g_loop_len++] = (LoopInfo) {0, 0, 0, start_label, end_label, LOOP_WHILE};
     MIR_append_insn (g_ctx, g_func, start_label);
     MIR_reg_t cond = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
     MIR_append_insn (g_ctx, g_func,
@@ -4235,8 +4759,59 @@ static void gen_stmt (Stmt *s) {
   case ST_WEND: {
     if (g_loop_len == 0) break;
     LoopInfo info = g_loop_stack[--g_loop_len];
+    if (info.type != LOOP_WHILE) break;
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, info.start_label)));
+    MIR_append_insn (g_ctx, g_func, info.end_label);
+    break;
+  }
+  case ST_DO: {
+    MIR_label_t start_label = MIR_new_label (g_ctx);
+    MIR_label_t end_label = MIR_new_label (g_ctx);
+    if (g_loop_len == g_loop_cap) {
+      size_t new_cap = g_loop_cap ? 2 * g_loop_cap : 16;
+      LoopInfo *tmp
+        = pool_realloc (g_loop_stack, g_loop_cap * sizeof (LoopInfo), new_cap * sizeof (LoopInfo));
+      if (tmp == NULL) return;
+      g_loop_stack = tmp;
+      g_loop_cap = new_cap;
+    }
+    g_loop_stack[g_loop_len++] = (LoopInfo) {0, 0, 0, start_label, end_label, LOOP_DO};
+    MIR_append_insn (g_ctx, g_func, start_label);
+    break;
+  }
+  case ST_LOOP: {
+    if (g_loop_len == 0) break;
+    LoopInfo info = g_loop_stack[--g_loop_len];
+    if (info.type != LOOP_DO) break;
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, info.start_label)));
+    MIR_append_insn (g_ctx, g_func, info.end_label);
+    break;
+  }
+  case ST_REPEAT: {
+    MIR_label_t start_label = MIR_new_label (g_ctx);
+    MIR_label_t end_label = MIR_new_label (g_ctx);
+    if (g_loop_len == g_loop_cap) {
+      size_t new_cap = g_loop_cap ? 2 * g_loop_cap : 16;
+      LoopInfo *tmp
+        = pool_realloc (g_loop_stack, g_loop_cap * sizeof (LoopInfo), new_cap * sizeof (LoopInfo));
+      if (tmp == NULL) return;
+      g_loop_stack = tmp;
+      g_loop_cap = new_cap;
+    }
+    g_loop_stack[g_loop_len++] = (LoopInfo) {0, 0, 0, start_label, end_label, LOOP_REPEAT};
+    MIR_append_insn (g_ctx, g_func, start_label);
+    break;
+  }
+  case ST_UNTIL: {
+    if (g_loop_len == 0) break;
+    LoopInfo info = g_loop_stack[--g_loop_len];
+    if (info.type != LOOP_REPEAT) break;
+    MIR_reg_t cond = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_insn (g_ctx, MIR_DBEQ, MIR_new_label_op (g_ctx, info.start_label),
+                                   MIR_new_reg_op (g_ctx, cond), MIR_new_double_op (g_ctx, 0.0)));
     MIR_append_insn (g_ctx, g_func, info.end_label);
     break;
   }
@@ -4336,6 +4911,15 @@ static void gen_stmt (Stmt *s) {
     }
     break;
   }
+  case ST_INC:
+  case ST_DEC: {
+    MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.inc.var->var);
+    MIR_insn_code_t ic = s->kind == ST_INC ? MIR_DADD : MIR_DSUB;
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_insn (g_ctx, ic, MIR_new_reg_op (g_ctx, v), MIR_new_reg_op (g_ctx, v),
+                                   MIR_new_double_op (g_ctx, 1.0)));
+    break;
+  }
   case ST_GOTO: {
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_insn (g_ctx, MIR_JMP,
@@ -4384,14 +4968,28 @@ static void gen_stmt (Stmt *s) {
     break;
   }
   case ST_IF: {
-    MIR_label_t else_label = MIR_new_label (g_ctx), end = MIR_new_label (g_ctx);
+    MIR_label_t end = MIR_new_label (g_ctx);
+    size_t n = s->u.iff.elseifs.len;
+    MIR_label_t next = (n > 0 || s->u.iff.else_stmts.len > 0) ? MIR_new_label (g_ctx) : end;
     MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.iff.cond);
     MIR_append_insn (g_ctx, g_func,
-                     MIR_new_insn (g_ctx, MIR_DBEQ, MIR_new_label_op (g_ctx, else_label),
+                     MIR_new_insn (g_ctx, MIR_DBEQ, MIR_new_label_op (g_ctx, next),
                                    MIR_new_reg_op (g_ctx, r), MIR_new_double_op (g_ctx, 0.0)));
     for (size_t k = 0; k < s->u.iff.then_stmts.len; k++) gen_stmt (&s->u.iff.then_stmts.data[k]);
-    MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, end)));
-    MIR_append_insn (g_ctx, g_func, else_label);
+    if (n > 0 || s->u.iff.else_stmts.len > 0)
+      MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, end)));
+    if (next != end) MIR_append_insn (g_ctx, g_func, next);
+    for (size_t i = 0; i < n; i++) {
+      ElseIf *ei = &s->u.iff.elseifs.data[i];
+      MIR_label_t next2 = (i + 1 < n || s->u.iff.else_stmts.len > 0) ? MIR_new_label (g_ctx) : end;
+      MIR_reg_t ri = gen_expr (g_ctx, g_func, &g_vars, ei->cond);
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_DBEQ, MIR_new_label_op (g_ctx, next2),
+                                     MIR_new_reg_op (g_ctx, ri), MIR_new_double_op (g_ctx, 0.0)));
+      for (size_t k = 0; k < ei->stmts.len; k++) gen_stmt (&ei->stmts.data[k]);
+      MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, end)));
+      if (next2 != end) MIR_append_insn (g_ctx, g_func, next2);
+    }
     for (size_t k = 0; k < s->u.iff.else_stmts.len; k++) gen_stmt (&s->u.iff.else_stmts.data[k]);
     MIR_append_insn (g_ctx, g_func, end);
     break;
@@ -5171,6 +5769,22 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   tan_import = MIR_new_import (ctx, "basic_tan");
   atn_proto = MIR_new_proto (ctx, "basic_atn_p", 1, &d, 1, MIR_T_D, "x");
   atn_import = MIR_new_import (ctx, "basic_atn");
+  sinh_proto = MIR_new_proto (ctx, "basic_sinh_p", 1, &d, 1, MIR_T_D, "x");
+  sinh_import = MIR_new_import (ctx, "basic_sinh");
+  cosh_proto = MIR_new_proto (ctx, "basic_cosh_p", 1, &d, 1, MIR_T_D, "x");
+  cosh_import = MIR_new_import (ctx, "basic_cosh");
+  tanh_proto = MIR_new_proto (ctx, "basic_tanh_p", 1, &d, 1, MIR_T_D, "x");
+  tanh_import = MIR_new_import (ctx, "basic_tanh");
+  asinh_proto = MIR_new_proto (ctx, "basic_asinh_p", 1, &d, 1, MIR_T_D, "x");
+  asinh_import = MIR_new_import (ctx, "basic_asinh");
+  acosh_proto = MIR_new_proto (ctx, "basic_acosh_p", 1, &d, 1, MIR_T_D, "x");
+  acosh_import = MIR_new_import (ctx, "basic_acosh");
+  atanh_proto = MIR_new_proto (ctx, "basic_atanh_p", 1, &d, 1, MIR_T_D, "x");
+  atanh_import = MIR_new_import (ctx, "basic_atanh");
+  asin_proto = MIR_new_proto (ctx, "basic_asin_p", 1, &d, 1, MIR_T_D, "x");
+  asin_import = MIR_new_import (ctx, "basic_asin");
+  acos_proto = MIR_new_proto (ctx, "basic_acos_p", 1, &d, 1, MIR_T_D, "x");
+  acos_import = MIR_new_import (ctx, "basic_acos");
   log_proto = MIR_new_proto (ctx, "basic_log_p", 1, &d, 1, MIR_T_D, "x");
   log_import = MIR_new_import (ctx, "basic_log");
   log2_proto = MIR_new_proto (ctx, "basic_log2_p", 1, &d, 1, MIR_T_D, "x");
@@ -5179,7 +5793,12 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   log10_import = MIR_new_import (ctx, "basic_log10");
   exp_proto = MIR_new_proto (ctx, "basic_exp_p", 1, &d, 1, MIR_T_D, "x");
   exp_import = MIR_new_import (ctx, "basic_exp");
-
+  fact_proto = MIR_new_proto (ctx, "basic_fact_p", 1, &d, 1, MIR_T_D, "x");
+  fact_import = MIR_new_import (ctx, "basic_fact");
+  pow_proto = MIR_new_proto (ctx, "basic_pow_p", 1, &d, 2, MIR_T_D, "x", MIR_T_D, "y");
+  pow_import = MIR_new_import (ctx, "basic_pow");
+  pi_proto = MIR_new_proto (ctx, "basic_pi_p", 1, &d, 0);
+  pi_import = MIR_new_import (ctx, "basic_pi");
   left_proto = MIR_new_proto (ctx, "basic_left_p", 1, &p, 2, MIR_T_P, "s", MIR_T_D, "n");
   left_import = MIR_new_import (ctx, "basic_left");
   right_proto = MIR_new_proto (ctx, "basic_right_p", 1, &p, 2, MIR_T_P, "s", MIR_T_D, "n");
@@ -5187,6 +5806,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   mid_proto
     = MIR_new_proto (ctx, "basic_mid_p", 1, &p, 3, MIR_T_P, "s", MIR_T_D, "start", MIR_T_D, "len");
   mid_import = MIR_new_import (ctx, "basic_mid");
+  mirror_proto = MIR_new_proto (ctx, "basic_mirror_p", 1, &p, 1, MIR_T_P, "s");
+  mirror_import = MIR_new_import (ctx, "basic_mirror");
   len_proto = MIR_new_proto (ctx, "basic_len_p", 1, &d, 1, MIR_T_P, "s");
   len_import = MIR_new_import (ctx, "basic_len");
   val_proto = MIR_new_proto (ctx, "basic_val_p", 1, &d, 1, MIR_T_P, "s");

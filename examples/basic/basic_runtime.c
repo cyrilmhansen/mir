@@ -4,6 +4,9 @@
 #include <strings.h>
 #include <time.h>
 #include <math.h>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 #include <stdint.h>
 #include <sys/select.h>
 #include <unistd.h>
@@ -509,6 +512,22 @@ basic_num_t basic_tan (basic_num_t x) { return BASIC_TAN (x); }
 
 basic_num_t basic_atn (basic_num_t x) { return BASIC_ATAN (x); }
 
+basic_num_t basic_sinh (basic_num_t x) { return BASIC_SINH (x); }
+
+basic_num_t basic_cosh (basic_num_t x) { return BASIC_COSH (x); }
+
+basic_num_t basic_tanh (basic_num_t x) { return BASIC_TANH (x); }
+
+basic_num_t basic_asinh (basic_num_t x) { return BASIC_ASINH (x); }
+
+basic_num_t basic_acosh (basic_num_t x) { return BASIC_ACOSH (x); }
+
+basic_num_t basic_atanh (basic_num_t x) { return BASIC_ATANH (x); }
+
+basic_num_t basic_asin (basic_num_t x) { return BASIC_ASIN (x); }
+
+basic_num_t basic_acos (basic_num_t x) { return BASIC_ACOS (x); }
+
 basic_num_t basic_log (basic_num_t x) { return BASIC_LOG (x); }
 
 basic_num_t basic_log2 (basic_num_t x) { return BASIC_LOG2 (x); }
@@ -516,6 +535,19 @@ basic_num_t basic_log2 (basic_num_t x) { return BASIC_LOG2 (x); }
 basic_num_t basic_log10 (basic_num_t x) { return BASIC_LOG10 (x); }
 
 basic_num_t basic_exp (basic_num_t x) { return BASIC_EXP (x); }
+
+basic_num_t basic_fact (basic_num_t x) {
+  if (x < 0) return 0;
+  long n = (long) x;
+  basic_num_t res = 1;
+  for (long i = 2; i <= n; i++) res *= (basic_num_t) i;
+  return res;
+}
+
+basic_num_t basic_pow (basic_num_t x, basic_num_t y) { return BASIC_POW (x, y); }
+
+basic_num_t basic_pi (void) { return M_PI; }
+       
 
 /* Allocate a one-character string. Caller must free with basic_free. */
 char *basic_chr (basic_num_t n) {
@@ -587,6 +619,17 @@ char *basic_mid (const char *s, basic_num_t start_d, basic_num_t len_d) {
   if (start + cnt > len) cnt = len - start;
   char *res = basic_alloc_string (cnt);
   if (res != NULL) memcpy (res, s + start, cnt);
+  return res;
+}
+
+/* Return a new string with characters of S in reverse order.
+   Caller must free the result with basic_free. */
+char *basic_mirror (const char *s) {
+  size_t len = strlen (s);
+  char *res = basic_alloc_string (len);
+  if (res != NULL) {
+    for (size_t i = 0; i < len; i++) res[i] = s[len - 1 - i];
+  }
   return res;
 }
 
