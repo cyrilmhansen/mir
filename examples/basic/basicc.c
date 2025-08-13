@@ -5609,6 +5609,14 @@ int main (int argc, char **argv) {
       reduce_libs = 1;
     } else if (strcmp (argv[i], "--no-line-tracking") == 0) {
       line_tracking = 0;
+    } else if (strcmp (argv[i], "--option-base") == 0 && i + 1 < argc) {
+      char *end;
+      long b = strtol (argv[++i], &end, 10);
+      if (*end != '\0' || (b != 0 && b != 1)) {
+        safe_fprintf (stderr, "OPTION BASE must be 0 or 1\n");
+        return 1;
+      }
+      array_base = (int) b;
     } else if (strcmp (argv[i], "-o") == 0 && i + 1 < argc) {
       out_name = argv[++i];
     } else {
