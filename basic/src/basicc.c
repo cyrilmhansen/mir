@@ -217,6 +217,7 @@ extern double basic_system (const char *);
 extern char *basic_system_out (void);
 
 static int array_base = 0;
+#define DEFAULT_ARRAY_DIM 11
 static int use_decimal_floats = 0;
 static int decimal_locked = 0;
 static int line_tracking = 1;
@@ -3137,6 +3138,11 @@ static MIR_reg_t get_array (VarVec *vars, MIR_context_t ctx, MIR_item_t func, co
   char buf[64];
   safe_snprintf (buf, sizeof (buf), "%s_arr", name);
   vars->data[vars->len].reg = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+  if (g_var_init_anchor != NULL && func == g_func)
+    MIR_insert_insn_after (ctx, func, g_var_init_anchor,
+                           MIR_new_insn (ctx, MIR_MOV,
+                                         MIR_new_reg_op (ctx, vars->data[vars->len].reg),
+                                         MIR_new_int_op (ctx, 0)));
   return vars->data[vars->len++].reg;
 }
 
@@ -3154,9 +3160,35 @@ static size_t get_array_size (VarVec *vars, const char *name) {
   return 0;
 }
 
-/* Expression code generation */
 static int tmp_id = 0;
 
+static void ensure_array_dim (VarVec *vars, MIR_context_t ctx, MIR_item_t func, const char *name,
+                              MIR_reg_t base, int is_str, int has_dim2) {
+  size_t asize = get_array_size (vars, name);
+  if (asize == 0) {
+    get_array (vars, ctx, func, name, DEFAULT_ARRAY_DIM, has_dim2 ? DEFAULT_ARRAY_DIM : 0, is_str);
+    asize = get_array_size (vars, name);
+  }
+  MIR_label_t done = MIR_new_label (ctx);
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_BNE, MIR_new_label_op (ctx, done),
+                                 MIR_new_reg_op (ctx, base), MIR_new_int_op (ctx, 0)));
+  char buf[32];
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t len = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, len),
+                                 MIR_new_double_op (ctx, (basic_num_t) asize)));
+  MIR_append_insn (ctx, func,
+                   MIR_new_call_insn (ctx, 6, MIR_new_ref_op (ctx, dim_alloc_proto),
+                                      MIR_new_ref_op (ctx, dim_alloc_import),
+                                      MIR_new_reg_op (ctx, base), MIR_new_reg_op (ctx, base),
+                                      MIR_new_reg_op (ctx, len),
+                                      MIR_new_double_op (ctx, (basic_num_t) is_str)));
+  MIR_append_insn (ctx, func, done);
+}
+
+/* Expression code generation */
 static MIR_context_t g_ctx;
 static LineVec *g_prog;
 static Line *g_cur_line;
@@ -3187,6 +3219,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
     } else if (n->kind == N_VAR) {
       if (n->index != NULL) {
         MIR_reg_t base = get_array (vars, ctx, func, n->var, 0, 0, 1);
+        ensure_array_dim (vars, ctx, func, n->var, base, 1, n->index2 != NULL);
         MIR_reg_t idxd1 = gen_expr (ctx, func, vars, n->index);
         char buf[32];
         safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
@@ -3447,6 +3480,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
   } else if (n->kind == N_VAR) {
     if (n->index != NULL) {
       MIR_reg_t base = get_array (vars, ctx, func, n->var, 0, 0, 0);
+      ensure_array_dim (vars, ctx, func, n->var, base, 0, n->index2 != NULL);
       MIR_reg_t idxd1 = gen_expr (ctx, func, vars, n->index);
       char buf[32];
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
@@ -4974,6 +5008,8 @@ static void gen_stmt (Stmt *s) {
     }
     if (s->u.let.var->index != NULL) {
       MIR_reg_t base = get_array (&g_vars, g_ctx, g_func, s->u.let.var->var, 0, 0, s->u.let.is_str);
+      ensure_array_dim (&g_vars, g_ctx, g_func, s->u.let.var->var, base, s->u.let.is_str,
+                        s->u.let.var->index2 != NULL);
       MIR_reg_t idxd1 = gen_expr (g_ctx, g_func, &g_vars, s->u.let.var->index);
       char buf[32];
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
