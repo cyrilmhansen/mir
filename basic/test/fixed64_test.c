@@ -3,6 +3,10 @@
 #include <stdio.h>
 
 #include "fixed64/fixed64.h"
+#ifndef _WIN32
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
 
 int main (void) {
   fixed64_t half = {.hi = 0, .lo = 1ULL << 63};
@@ -43,6 +47,23 @@ int main (void) {
   assert (fabs (fixed64_to_double (fixed64_sin (pi))) < 1e-6);
   assert (fabs (fixed64_to_double (fixed64_cos (pi)) + 1.0) < 1e-6);
   assert (fabs (fixed64_to_double (fixed64_tan (quarter_pi)) - 1.0) < 1e-6);
+  fixed64_t four = fixed64_from_int (4);
+  res = fixed64_sqrt (four);
+  assert (res.hi == 2 && res.lo == 0);
+  fixed64_t three = fixed64_from_int (3);
+  res = fixed64_pow (two, three);
+  assert (res.hi == 8 && res.lo == 0);
+#ifndef _WIN32
+  pid_t pid = fork ();
+  if (pid == 0) {
+    fixed64_stub_unary (two);
+    _exit (0);
+  } else {
+    int status;
+    waitpid (pid, &status, 0);
+    assert (!(WIFEXITED (status) && WEXITSTATUS (status) == 0));
+  }
+#endif
   (void) zero;
   (void) half_pi;
   (void) pi;

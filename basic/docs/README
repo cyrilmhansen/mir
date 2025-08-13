@@ -184,6 +184,14 @@ For targets lacking floating-point support, the runtime can be built with
 I/O rely on helper functions such as `basic_num_add`, `basic_num_lt`, and
 `basic_num_scan` which wrap the underlying `fixed64` routines.
 
+Unsupported Operations
+----------------------
+The fixed-point math helpers implement the standard BASIC numeric
+functions, including trigonometric, inverse, hyperbolic, logarithmic,
+power, and square-root operations.  If a math function is invoked that
+does not yet have an implementation, the runtime reports a dedicated
+error.
+
 The `basicc-fix` executable is built with the same compiler source but
 compiled with `-DBASIC_USE_FIXED64`. Build it with `make basic/basicc-fix`
 and invoke it just like the floating-point `basicc` variants.
