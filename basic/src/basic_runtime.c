@@ -51,7 +51,7 @@ static int seeded = 0;
 static int basic_pos_val = 1;
 static int basic_error_handler = 0;
 static int basic_line = 0;
-static basic_num_t last_hplot_x = 0.0, last_hplot_y = 0.0;
+static basic_num_t last_hplot_x = BASIC_ZERO, last_hplot_y = BASIC_ZERO;
 static uint32_t basic_palette[8] = {
   0x000000, 0xFF0000, 0x00FF00, 0xFFFF00, 0x0000FF, 0xFF00FF, 0x00FFFF, 0xFFFFFF,
 };
@@ -191,11 +191,13 @@ void basic_profile_dump (void) {
   }
 }
 
-void basic_enable_line_tracking (basic_num_t on) { basic_line_tracking_enabled = on != 0; }
+void basic_enable_line_tracking (basic_num_t on) {
+  basic_line_tracking_enabled = BASIC_NE (on, BASIC_ZERO);
+}
 
-void basic_set_error_handler (basic_num_t line) { basic_error_handler = (int) line; }
+void basic_set_error_handler (basic_num_t line) { basic_error_handler = BASIC_TO_INT (line); }
 
-basic_num_t basic_get_error_handler (void) { return (basic_num_t) basic_error_handler; }
+basic_num_t basic_get_error_handler (void) { return BASIC_FROM_INT (basic_error_handler); }
 
 void basic_set_line (basic_num_t line) {
   if (basic_line_tracking_enabled) basic_line = (int) line;
@@ -221,8 +223,8 @@ char *basic_strdup (const char *s) {
 }
 
 basic_num_t basic_input (void) {
-  basic_num_t x = 0.0;
-  if (scanf (BASIC_NUM_SCANF, &x) != 1) return 0.0;
+  basic_num_t x = BASIC_ZERO;
+  if (!BASIC_NUM_SCAN (stdin, &x)) return BASIC_ZERO;
   return x;
 }
 
@@ -238,7 +240,7 @@ void basic_print_str (const char *s) {
   fputs (s, stdout);
 }
 
-basic_num_t basic_pos (void) { return (basic_num_t) basic_pos_val; }
+basic_num_t basic_pos (void) { return BASIC_FROM_INT (basic_pos_val); }
 
 /* Allocate a new string containing input from stdin.
    Caller must free the returned buffer with basic_free. */
@@ -326,7 +328,7 @@ void basic_close (basic_num_t n) {
 }
 
 void basic_print_hash (basic_num_t n, basic_num_t x) {
-  int idx = (int) n;
+  int idx = BASIC_TO_INT (n);
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return;
   char buf[128];
   basic_num_to_chars (x, buf, sizeof (buf));
@@ -334,23 +336,23 @@ void basic_print_hash (basic_num_t n, basic_num_t x) {
 }
 
 void basic_print_hash_str (basic_num_t n, const char *s) {
-  int idx = (int) n;
+  int idx = BASIC_TO_INT (n);
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return;
   fputs (s, basic_files[idx]);
 }
 
 basic_num_t basic_input_hash (basic_num_t n) {
-  int idx = (int) n;
-  if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return 0.0;
-  basic_num_t x = 0.0;
-  if (fscanf (basic_files[idx], BASIC_NUM_SCANF, &x) != 1) return 0.0;
+  int idx = BASIC_TO_INT (n);
+  if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return BASIC_ZERO;
+  basic_num_t x = BASIC_ZERO;
+  if (!BASIC_NUM_SCAN (basic_files[idx], &x)) return BASIC_ZERO;
   return x;
 }
 
 /* Read a line from an open file and return a newly allocated string.
    Caller must free the result with basic_free. */
 char *basic_input_hash_str (basic_num_t n) {
-  int idx = (int) n;
+  int idx = BASIC_TO_INT (n);
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) {
     char *res = basic_alloc_string (0);
     if (res == NULL) return NULL;
