@@ -24,6 +24,16 @@ static void add128 (uint64_t *hi, uint64_t *lo, uint64_t ah, uint64_t al) {
   *lo = l;
 }
 
+static void sub128 (uint64_t *hi, uint64_t *lo, uint64_t bh, uint64_t bl) {
+  uint64_t l = *lo - bl;
+  *hi = *hi - bh - (*lo < bl);
+  *lo = l;
+}
+
+static int ge128 (uint64_t ah, uint64_t al, uint64_t bh, uint64_t bl) {
+  return ah > bh || (ah == bh && al >= bl);
+}
+
 fixed64_t fixed64_mul (fixed64_t a, fixed64_t b) {
   int neg = (a.hi < 0) ^ (b.hi < 0);
   fixed64_t aa = fixed64_abs (a);
@@ -46,10 +56,44 @@ fixed64_t fixed64_mul (fixed64_t a, fixed64_t b) {
 }
 
 fixed64_t fixed64_div (fixed64_t a, fixed64_t b) {
-  (void) a;
-  (void) b;
-  /* TODO: implement 128-bit division using 64-bit parts */
-  return fixed64_from_int (0);
+  if (b.hi == 0 && b.lo == 0) return fixed64_from_int (0);
+  int neg = (a.hi < 0) ^ (b.hi < 0);
+  fixed64_t aa = fixed64_abs (a);
+  fixed64_t bb = fixed64_abs (b);
+
+  uint64_t n2 = (uint64_t) aa.hi; /* highest */
+  uint64_t n1 = aa.lo;            /* middle */
+  uint64_t n0 = 0;                /* lowest */
+  uint64_t d1 = (uint64_t) bb.hi;
+  uint64_t d0 = bb.lo;
+
+  uint64_t q1 = 0, q0 = 0; /* quotient */
+  uint64_t r1 = 0, r0 = 0; /* remainder */
+
+  for (int i = 0; i < 192; i++) {
+    uint64_t bit = n2 >> 63;
+    n2 = (n2 << 1) | (n1 >> 63);
+    n1 = (n1 << 1) | (n0 >> 63);
+    n0 <<= 1;
+
+    uint64_t carry = r0 >> 63;
+    r0 = (r0 << 1) | bit;
+    r1 = (r1 << 1) | carry;
+
+    carry = q0 >> 63;
+    q0 <<= 1;
+    q1 = (q1 << 1) | carry;
+
+    if (ge128 (r1, r0, d1, d0)) {
+      sub128 (&r1, &r0, d1, d0);
+      q0 |= 1;
+    }
+  }
+
+  fixed64_t r;
+  r.hi = (int64_t) q1;
+  r.lo = q0;
+  return neg ? fixed64_neg (r) : r;
 }
 
 #define FIX64_FRAC 18446744073709551616.0 /* 2^64 */
