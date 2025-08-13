@@ -1,7 +1,7 @@
+#include "basic_num.h"
 #include "mir.h"
 #include "mir-gen.h"
 #include "basic_runtime.h"
-#include "basic_num.h"
 #include "arena.h"
 #include "basic_pool.h"
 
