@@ -19,6 +19,8 @@ typedef long double basic_num_t;
 #define BASIC_TAN tanl
 #define BASIC_ATAN atanl
 #define BASIC_LOG logl
+#define BASIC_LOG2 log2l
+#define BASIC_LOG10 log10l
 #define BASIC_EXP expl
 #define BASIC_FLOOR floorl
 static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
@@ -68,6 +70,8 @@ typedef double basic_num_t;
 #define BASIC_TAN tan
 #define BASIC_ATAN atan
 #define BASIC_LOG log
+#define BASIC_LOG2 log2
+#define BASIC_LOG10 log10
 #define BASIC_EXP exp
 #define BASIC_FLOOR floor
 static inline int basic_num_to_chars (basic_num_t x, char *buf, size_t size) {
