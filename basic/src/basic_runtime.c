@@ -208,7 +208,7 @@ basic_num_t basic_get_line (void) {
     fprintf (stderr, "line tracking disabled\n");
     exit (1);
   }
-  return (basic_num_t) basic_line;
+  return basic_num_from_int (basic_line);
 }
 
 /* Release a string allocated by BASIC runtime helpers. */
@@ -429,8 +429,8 @@ void basic_put_hash (basic_num_t n, const char *s) {
 
 basic_num_t basic_eof (basic_num_t n) {
   int idx = basic_num_to_int (n);
-  if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return -1.0;
-  return feof (basic_files[idx]) ? -1.0 : 0.0;
+  if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return basic_num_from_int (-1);
+  return feof (basic_files[idx]) ? basic_num_from_int (-1) : BASIC_ZERO;
 }
 
 typedef struct BasicData {
@@ -444,7 +444,8 @@ size_t basic_data_len = 0;
 size_t basic_data_pos = 0;
 
 basic_num_t basic_read (void) {
-  if (basic_data_pos >= basic_data_len || basic_data_items[basic_data_pos].is_str) return 0.0;
+  if (basic_data_pos >= basic_data_len || basic_data_items[basic_data_pos].is_str)
+    return BASIC_ZERO;
   return basic_data_items[basic_data_pos++].num;
 }
 
@@ -464,16 +465,16 @@ void *basic_dim_alloc (void *base, basic_num_t len, basic_num_t is_str) {
      any existing storage via basic_clear_array; the old base pointer is
      ignored here and a new block is always allocated. */
   (void) base;
-  size_t n = (size_t) len;
-  size_t elem_size = is_str != 0.0 ? sizeof (char *) : sizeof (basic_num_t);
+  size_t n = (size_t) basic_num_to_int (len);
+  size_t elem_size = basic_num_ne (is_str, BASIC_ZERO) ? sizeof (char *) : sizeof (basic_num_t);
   void *res = basic_alloc_array (n, elem_size, 1);
   if (res == NULL) return NULL;
   return res;
 }
 
 void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str) {
-  size_t n = (size_t) len;
-  int str_p = is_str != 0.0;
+  size_t n = (size_t) basic_num_to_int (len);
+  int str_p = basic_num_ne (is_str, BASIC_ZERO);
   if (base == NULL || n == 0) return;
   if (str_p) {
     char **sp = (char **) base;
@@ -515,8 +516,8 @@ void basic_tab (basic_num_t n) { printf ("\x1b[%ldG", basic_num_to_int (n)); }
 void basic_htab (basic_num_t n) { basic_tab (n); }
 
 void basic_randomize (basic_num_t n, basic_num_t has_seed) {
-  if (has_seed != 0.0) {
-    srand ((unsigned) n);
+  if (basic_num_ne (has_seed, BASIC_ZERO)) {
+    srand ((unsigned) basic_num_to_int (n));
   } else {
     srand ((unsigned) time (NULL));
   }
@@ -530,12 +531,18 @@ basic_num_t basic_rnd (basic_num_t n) {
   }
   /* rand () can return RAND_MAX, which would make the result equal to n.
      Scale by RAND_MAX + 1.0 to keep the value in [0, n). */
-  return ((basic_num_t) rand () / ((basic_num_t) RAND_MAX + 1.0)) * n;
+  return basic_num_mul (basic_num_div (basic_num_from_int (rand ()),
+                                       basic_num_add (basic_num_from_int (RAND_MAX), BASIC_ONE)),
+                        n);
 }
 
 basic_num_t basic_abs (basic_num_t x) { return BASIC_FABS (x); }
 
-basic_num_t basic_sgn (basic_num_t x) { return x > 0 ? 1.0 : x < 0 ? -1.0 : 0.0; }
+basic_num_t basic_sgn (basic_num_t x) {
+  return basic_num_gt (x, BASIC_ZERO)   ? basic_num_from_int (1)
+         : basic_num_lt (x, BASIC_ZERO) ? basic_num_from_int (-1)
+                                        : BASIC_ZERO;
+}
 
 basic_num_t basic_sqr (basic_num_t x) { return BASIC_SQRT (x); }
 
@@ -572,16 +579,22 @@ basic_num_t basic_log10 (basic_num_t x) { return BASIC_LOG10 (x); }
 basic_num_t basic_exp (basic_num_t x) { return BASIC_EXP (x); }
 
 basic_num_t basic_fact (basic_num_t x) {
-  if (x < 0) return 0;
-  long n = (long) x;
-  basic_num_t res = 1;
-  for (long i = 2; i <= n; i++) res *= (basic_num_t) i;
+  if (basic_num_lt (x, BASIC_ZERO)) return BASIC_ZERO;
+  long n = basic_num_to_int (x);
+  basic_num_t res = basic_num_from_int (1);
+  for (long i = 2; i <= n; i++) res = basic_num_mul (res, basic_num_from_int (i));
   return res;
 }
 
 basic_num_t basic_pow (basic_num_t x, basic_num_t y) { return BASIC_POW (x, y); }
 
-basic_num_t basic_pi (void) { return M_PI; }
+basic_num_t basic_pi (void) {
+#if defined(BASIC_USE_FIXED64)
+  return fixed64_from_double (M_PI);
+#else
+  return M_PI;
+#endif
+}
 
 /* Allocate a one-character string. Caller must free with basic_free. */
 char *basic_chr (basic_num_t n) {
@@ -639,7 +652,7 @@ char *basic_lower (const char *s) {
    Caller must free the result with basic_free. */
 char *basic_left (const char *s, basic_num_t n) {
   size_t len = s != NULL ? strlen (s) : 0;
-  size_t cnt = (size_t) n;
+  size_t cnt = (size_t) basic_num_to_int (n);
   if (cnt > len) cnt = len;
   char *res = basic_alloc_string (cnt);
   if (res != NULL) memcpy (res, s, cnt);
@@ -650,7 +663,7 @@ char *basic_left (const char *s, basic_num_t n) {
    Caller must free the result with basic_free. */
 char *basic_right (const char *s, basic_num_t n) {
   size_t len = s != NULL ? strlen (s) : 0;
-  size_t cnt = (size_t) n;
+  size_t cnt = (size_t) basic_num_to_int (n);
   if (cnt > len) cnt = len;
   char *res = basic_alloc_string (cnt);
   if (res != NULL) memcpy (res, s + len - cnt, cnt);
@@ -661,7 +674,7 @@ char *basic_right (const char *s, basic_num_t n) {
    Caller must free the result with basic_free. */
 char *basic_mid (const char *s, basic_num_t start_d, basic_num_t len_d) {
   size_t len = s != NULL ? strlen (s) : 0;
-  size_t start = (size_t) start_d;
+  size_t start = (size_t) basic_num_to_int (start_d);
   if (start < 1) start = 1;
   start--;
   if (start >= len) {
@@ -669,7 +682,7 @@ char *basic_mid (const char *s, basic_num_t start_d, basic_num_t len_d) {
     if (res == NULL) return NULL;
     return res;
   }
-  size_t cnt = len_d < 0 ? len - start : (size_t) len_d;
+  size_t cnt = basic_num_lt (len_d, BASIC_ZERO) ? len - start : (size_t) basic_num_to_int (len_d);
   if (start + cnt > len) cnt = len - start;
   char *res = basic_alloc_string (cnt);
   if (res != NULL) memcpy (res, s + start, cnt);
@@ -688,12 +701,14 @@ char *basic_mirror (const char *s) {
 }
 
 basic_num_t basic_instr (const char *s, const char *sub) {
-  if (s == NULL || sub == NULL || *sub == '\0') return 0.0;
+  if (s == NULL || sub == NULL || *sub == '\0') return BASIC_ZERO;
   const char *p = strstr (s, sub);
-  return p == NULL ? 0.0 : (basic_num_t) (p - s + 1);
+  return p == NULL ? BASIC_ZERO : basic_num_from_int ((int) (p - s + 1));
 }
 
-basic_num_t basic_len (const char *s) { return (basic_num_t) (s != NULL ? strlen (s) : 0); }
+basic_num_t basic_len (const char *s) {
+  return basic_num_from_int (s != NULL ? (int) strlen (s) : 0);
+}
 
 basic_num_t basic_val (const char *s) { return BASIC_STRTOF (s, NULL); }
 
@@ -709,17 +724,19 @@ char *basic_str (basic_num_t n) {
 }
 
 basic_num_t basic_asc (const char *s) {
-  return s == NULL || s[0] == '\0' ? 0.0 : (basic_num_t) (unsigned char) s[0];
+  return s == NULL || s[0] == '\0' ? BASIC_ZERO : basic_num_from_int ((unsigned char) s[0]);
 }
 
 basic_num_t basic_int (basic_num_t x) { return BASIC_FLOOR (x); }
 
-basic_num_t basic_timer (void) { return (basic_num_t) clock () / CLOCKS_PER_SEC; }
+basic_num_t basic_timer (void) {
+  return basic_num_div (basic_num_from_int (clock ()), basic_num_from_int (CLOCKS_PER_SEC));
+}
 
 basic_num_t basic_time (void) {
   time_t t = time (NULL);
   struct tm *tm_info = localtime (&t);
-  return (basic_num_t) (tm_info->tm_hour * 3600 + tm_info->tm_min * 60 + tm_info->tm_sec);
+  return basic_num_from_int (tm_info->tm_hour * 3600 + tm_info->tm_min * 60 + tm_info->tm_sec);
 }
 
 /* Return current time formatted as HH:MM:SS in a newly allocated string.
@@ -737,7 +754,7 @@ char *basic_time_str (void) {
 
 basic_num_t basic_date (void) {
   time_t t = time (NULL);
-  return (basic_num_t) (t / 86400);
+  return basic_num_from_int (t / 86400);
 }
 
 char *basic_date_str (void) {
@@ -795,8 +812,8 @@ static void basic_ensure_palette (void);
 void basic_hgr2 (void) {
   printf ("\x1b[2J\x1b[H");
   basic_ensure_palette ();
-  last_hplot_x = 0.0;
-  last_hplot_y = 0.0;
+  last_hplot_x = BASIC_ZERO;
+  last_hplot_y = BASIC_ZERO;
   current_hcolor = basic_palette[7];
 }
 void basic_set_palette (const uint32_t *colors, size_t n) {
@@ -872,12 +889,14 @@ static void basic_kitty_plot (basic_num_t x, basic_num_t y) {
 }
 
 static void basic_kitty_line (basic_num_t x0, basic_num_t y0, basic_num_t x1, basic_num_t y1) {
-  basic_num_t dx = x1 - x0, dy = y1 - y0;
-  int steps = BASIC_FABS (dx) > BASIC_FABS (dy) ? BASIC_FABS (dx) : BASIC_FABS (dy);
-  basic_num_t xi = steps ? dx / steps : 0.0;
-  basic_num_t yi = steps ? dy / steps : 0.0;
+  basic_num_t dx = basic_num_sub (x1, x0), dy = basic_num_sub (y1, y0);
+  basic_num_t adx = BASIC_FABS (dx), ady = BASIC_FABS (dy);
+  int steps = basic_num_gt (adx, ady) ? basic_num_to_int (adx) : basic_num_to_int (ady);
+  basic_num_t xi = steps ? basic_num_div (dx, basic_num_from_int (steps)) : BASIC_ZERO;
+  basic_num_t yi = steps ? basic_num_div (dy, basic_num_from_int (steps)) : BASIC_ZERO;
   for (int i = 0; i <= steps; i++) {
-    basic_kitty_plot (x0 + xi * i, y0 + yi * i);
+    basic_kitty_plot (basic_num_add (x0, basic_num_mul (xi, basic_num_from_int (i))),
+                      basic_num_add (y0, basic_num_mul (yi, basic_num_from_int (i))));
   }
 }
 
@@ -945,18 +964,18 @@ void basic_rect (basic_num_t x0, basic_num_t y0, basic_num_t x1, basic_num_t y1)
 }
 
 void basic_fill (basic_num_t x0, basic_num_t y0, basic_num_t x1, basic_num_t y1) {
-  if (x0 > x1) {
+  if (basic_num_gt (x0, x1)) {
     basic_num_t t = x0;
     x0 = x1;
     x1 = t;
   }
-  if (y0 > y1) {
+  if (basic_num_gt (y0, y1)) {
     basic_num_t t = y0;
     y0 = y1;
     y1 = t;
   }
-  for (int y = (int) y0; y <= (int) y1; y++) {
-    basic_kitty_line (x0, y, x1, y);
+  for (int y = basic_num_to_int (y0); y <= basic_num_to_int (y1); y++) {
+    basic_kitty_line (x0, basic_num_from_int (y), x1, basic_num_from_int (y));
   }
   last_hplot_x = x1;
   last_hplot_y = y1;
@@ -1060,12 +1079,13 @@ void basic_runtime_fini (void) {
 static basic_num_t new_handle (HandleKind kind, MIR_context_t ctx, void *ptr) {
   handle_tab = realloc (handle_tab, (handle_len + 1) * sizeof (Handle));
   handle_tab[handle_len] = (Handle) {kind, ctx, ptr};
-  return (basic_num_t) ++handle_len;
+  return basic_num_from_int (++handle_len);
 }
 
 static Handle *get_handle (basic_num_t h) {
-  size_t idx = (size_t) h;
-  if (idx == 0 || (basic_num_t) idx != h || idx > handle_len) return NULL;
+  size_t idx = (size_t) basic_num_to_int (h);
+  if (idx == 0 || !basic_num_eq (basic_num_from_int ((long) idx), h) || idx > handle_len)
+    return NULL;
   return &handle_tab[idx - 1];
 }
 
@@ -1076,8 +1096,8 @@ typedef struct {
 } FuncHandle;
 
 static basic_num_t basic_mir_ctx_impl (void) {
-  static basic_num_t ctx_handle = 0;
-  if (ctx_handle != 0) return ctx_handle;
+  static basic_num_t ctx_handle = BASIC_ZERO;
+  if (basic_num_ne (ctx_handle, BASIC_ZERO)) return ctx_handle;
   MIR_context_t ctx = MIR_init ();
   ctx_handle = new_handle (H_CTX, ctx, ctx);
   return ctx_handle;
@@ -1087,7 +1107,7 @@ basic_num_t basic_mir_ctx (void) { return basic_mir_ctx_impl (); }
 
 basic_num_t basic_mir_mod (basic_num_t ctx_h, const char *name) {
   Handle *h = get_handle (ctx_h);
-  if (h == NULL || h->kind != H_CTX) return 0.0;
+  if (h == NULL || h->kind != H_CTX) return BASIC_ZERO;
   MIR_context_t ctx = h->ctx;
   MIR_module_t mod = MIR_new_module (ctx, name);
   return new_handle (H_MOD, ctx, mod);
@@ -1095,9 +1115,9 @@ basic_num_t basic_mir_mod (basic_num_t ctx_h, const char *name) {
 
 basic_num_t basic_mir_func (basic_num_t mod_h, const char *name, basic_num_t nargs_d) {
   Handle *h = get_handle (mod_h);
-  if (h == NULL || h->kind != H_MOD) return 0.0;
+  if (h == NULL || h->kind != H_MOD) return BASIC_ZERO;
   MIR_context_t ctx = h->ctx;
-  size_t nargs = (size_t) nargs_d;
+  size_t nargs = (size_t) basic_num_to_int (nargs_d);
   MIR_type_t res = MIR_T_D;
   MIR_var_t *vars = nargs ? basic_pool_alloc (nargs * sizeof (MIR_var_t)) : NULL;
   for (size_t i = 0; i < nargs; i++) {
@@ -1117,7 +1137,7 @@ basic_num_t basic_mir_func (basic_num_t mod_h, const char *name, basic_num_t nar
 
 basic_num_t basic_mir_reg (basic_num_t func_h) {
   Handle *h = get_handle (func_h);
-  if (h == NULL || h->kind != H_FUNC) return 0.0;
+  if (h == NULL || h->kind != H_FUNC) return BASIC_ZERO;
   FuncHandle *fh = h->ptr;
   MIR_context_t ctx = h->ctx;
   MIR_reg_t r;
@@ -1134,7 +1154,7 @@ basic_num_t basic_mir_reg (basic_num_t func_h) {
 
 basic_num_t basic_mir_label (basic_num_t func_h) {
   Handle *h = get_handle (func_h);
-  if (h == NULL || h->kind != H_FUNC) return 0.0;
+  if (h == NULL || h->kind != H_FUNC) return BASIC_ZERO;
   MIR_context_t ctx = h->ctx;
   MIR_label_t lab = MIR_new_label (ctx);
   return new_handle (H_LABEL, ctx, (void *) lab);
@@ -1143,7 +1163,7 @@ basic_num_t basic_mir_label (basic_num_t func_h) {
 basic_num_t basic_mir_emit (basic_num_t func_h, const char *op, basic_num_t a, basic_num_t b,
                             basic_num_t c) {
   Handle *h = get_handle (func_h);
-  if (h == NULL || h->kind != H_FUNC) return 0.0;
+  if (h == NULL || h->kind != H_FUNC) return BASIC_ZERO;
   FuncHandle *fh = h->ptr;
   MIR_context_t ctx = h->ctx;
 #if defined(BASIC_USE_LONG_DOUBLE)
@@ -1156,7 +1176,7 @@ basic_num_t basic_mir_emit (basic_num_t func_h, const char *op, basic_num_t a, b
   MIR_insn_code_t code;
   for (code = 0; code < MIR_INSN_BOUND; code++)
     if (strcasecmp (op, MIR_insn_name (ctx, code)) == 0) break;
-  if (code >= MIR_INSN_BOUND) return 0.0;
+  if (code >= MIR_INSN_BOUND) return BASIC_ZERO;
   basic_num_t vals[3] = {a, b, c};
   MIR_op_t ops[3];
   size_t nops = 0;
@@ -1172,50 +1192,50 @@ basic_num_t basic_mir_emit (basic_num_t func_h, const char *op, basic_num_t a, b
       ops[i] = MIR_new_double_op (ctx, vals[i]);
   }
   MIR_append_insn (ctx, fh->item, MIR_new_insn_arr (ctx, code, nops, ops));
-  return 0.0;
+  return BASIC_ZERO;
 }
 
 basic_num_t basic_mir_emitlbl (basic_num_t func_h, basic_num_t lab_h) {
   Handle *fh = get_handle (func_h);
   Handle *lh = get_handle (lab_h);
-  if (fh == NULL || lh == NULL || fh->kind != H_FUNC || lh->kind != H_LABEL) return 0.0;
+  if (fh == NULL || lh == NULL || fh->kind != H_FUNC || lh->kind != H_LABEL) return BASIC_ZERO;
   FuncHandle *f = fh->ptr;
   MIR_append_insn (fh->ctx, f->item, (MIR_insn_t) lh->ptr);
-  return 0.0;
+  return BASIC_ZERO;
 }
 
 basic_num_t basic_mir_ret (basic_num_t func_h, basic_num_t reg_h) {
   Handle *fh = get_handle (func_h);
   Handle *rh = get_handle (reg_h);
-  if (fh == NULL || rh == NULL || fh->kind != H_FUNC || rh->kind != H_REG) return 0.0;
+  if (fh == NULL || rh == NULL || fh->kind != H_FUNC || rh->kind != H_REG) return BASIC_ZERO;
   FuncHandle *f = fh->ptr;
   MIR_context_t ctx = fh->ctx;
   MIR_reg_t r = (MIR_reg_t) (uintptr_t) rh->ptr;
   MIR_append_insn (ctx, f->item, MIR_new_ret_insn (ctx, 1, MIR_new_reg_op (ctx, r)));
   MIR_finish_func (ctx);
-  return 0.0;
+  return BASIC_ZERO;
 }
 
 basic_num_t basic_mir_finish (basic_num_t mod_h) {
   Handle *mh = get_handle (mod_h);
-  if (mh == NULL || mh->kind != H_MOD) return 0.0;
+  if (mh == NULL || mh->kind != H_MOD) return BASIC_ZERO;
   MIR_context_t ctx = mh->ctx;
   MIR_module_t mod = mh->ptr;
   MIR_finish_module (ctx);
   MIR_load_module (ctx, mod);
   MIR_link (ctx, MIR_set_interp_interface, NULL);
-  return 0.0;
+  return BASIC_ZERO;
 }
 
 basic_num_t basic_mir_run (basic_num_t func_h, basic_num_t a1, basic_num_t a2, basic_num_t a3,
                            basic_num_t a4) {
   Handle *fh = get_handle (func_h);
-  if (fh == NULL || fh->kind != H_FUNC) return 0.0;
+  if (fh == NULL || fh->kind != H_FUNC) return BASIC_ZERO;
   FuncHandle *f = fh->ptr;
   MIR_context_t ctx = fh->ctx;
   (void) ctx;
   void *addr = f->item->addr;
-  basic_num_t res = 0.0;
+  basic_num_t res = BASIC_ZERO;
   switch (f->nargs) {
   case 0: res = ((basic_num_t (*) (void)) addr) (); break;
   case 1: res = ((basic_num_t (*) (basic_num_t)) addr) (a1); break;
@@ -1234,8 +1254,8 @@ basic_num_t basic_mir_run (basic_num_t func_h, basic_num_t a1, basic_num_t a2, b
 
 basic_num_t basic_mir_dump (basic_num_t func_h) {
   Handle *fh = get_handle (func_h);
-  if (fh == NULL || fh->kind != H_FUNC) return 0.0;
+  if (fh == NULL || fh->kind != H_FUNC) return BASIC_ZERO;
   FuncHandle *f = fh->ptr;
   MIR_output_item (fh->ctx, stdout, f->item);
-  return 0.0;
+  return BASIC_ZERO;
 }
