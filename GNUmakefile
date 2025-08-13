@@ -398,7 +398,7 @@ clean-mir-utility-tests:
 	$(RM) $(BUILD_DIR)/scan-test$(EXE) $(BUILD_DIR)/io-test$(EXE)
 
 # ------------------ BASIC compiler example -------------------
-.PHONY: basic-test clean-basic basic-bench
+.PHONY: basic-test clean-basic basic-bench run-basic-tests
 
 ifeq ($(OS),Windows_NT)
   BASIC_RUNTIME_LIB=basic_runtime.dll
@@ -532,16 +532,16 @@ $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_FIX): \
 basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/hcolor_test$(EXE) $(BUILD_DIR)/basic/dfp_test$(EXE) $(BUILD_DIR)/basic/fixed64_test$(EXE) $(BUILD_DIR)/basic/basic_num_scan_test$(EXE) $(BUILD_DIR)/basic/basic_input_hash_test$(EXE) $(BUILD_DIR)/basic/basic_num_fixed64_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/mir-bin-run$(EXE) run-basic-tests
 
 run-basic-tests:
-$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
-$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
-$(SRC_DIR)/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
-$(SRC_DIR)/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
-$(BUILD_DIR)/basic/dfp_test$(EXE) > $(BUILD_DIR)/basic/dfp_test.out
-diff $(SRC_DIR)/basic/test/dfp_test.out $(BUILD_DIR)/basic/dfp_test.out
-$(BUILD_DIR)/basic/fixed64_test$(EXE)
-$(BUILD_DIR)/basic/basic_num_scan_test$(EXE)
-$(BUILD_DIR)/basic/basic_input_hash_test$(EXE)
-$(BUILD_DIR)/basic/basic_num_fixed64_test$(EXE)
+	$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
+	$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
+	$(SRC_DIR)/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
+	$(SRC_DIR)/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
+	$(BUILD_DIR)/basic/dfp_test$(EXE) > $(BUILD_DIR)/basic/dfp_test.out
+	diff $(SRC_DIR)/basic/test/dfp_test.out $(BUILD_DIR)/basic/dfp_test.out
+	$(BUILD_DIR)/basic/fixed64_test$(EXE)
+	$(BUILD_DIR)/basic/basic_num_scan_test$(EXE)
+	$(BUILD_DIR)/basic/basic_input_hash_test$(EXE)
+	$(BUILD_DIR)/basic/basic_num_fixed64_test$(EXE)
 
 # ------------------ MIR interp tests --------------------------
 .PHONY: clean-mir-interp-tests
