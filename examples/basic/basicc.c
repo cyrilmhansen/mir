@@ -106,6 +106,12 @@ extern basic_num_t basic_sin (basic_num_t);
 extern basic_num_t basic_cos (basic_num_t);
 extern basic_num_t basic_tan (basic_num_t);
 extern basic_num_t basic_atn (basic_num_t);
+extern basic_num_t basic_sinh (basic_num_t);
+extern basic_num_t basic_cosh (basic_num_t);
+extern basic_num_t basic_tanh (basic_num_t);
+extern basic_num_t basic_asinh (basic_num_t);
+extern basic_num_t basic_acosh (basic_num_t);
+extern basic_num_t basic_atanh (basic_num_t);
 extern basic_num_t basic_asin (basic_num_t);
 extern basic_num_t basic_acos (basic_num_t);
 extern basic_num_t basic_log (basic_num_t);
@@ -271,6 +277,12 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_cos")) return basic_cos;
   if (!strcmp (name, "basic_tan")) return basic_tan;
   if (!strcmp (name, "basic_atn")) return basic_atn;
+  if (!strcmp (name, "basic_sinh")) return basic_sinh;
+  if (!strcmp (name, "basic_cosh")) return basic_cosh;
+  if (!strcmp (name, "basic_tanh")) return basic_tanh;
+  if (!strcmp (name, "basic_asinh")) return basic_asinh;
+  if (!strcmp (name, "basic_acosh")) return basic_acosh;
+  if (!strcmp (name, "basic_atanh")) return basic_atanh;
   if (!strcmp (name, "basic_asin")) return basic_asin;
   if (!strcmp (name, "basic_acos")) return basic_acos;
   if (!strcmp (name, "basic_log")) return basic_log;
@@ -372,7 +384,8 @@ static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, st
   date_str_import, input_chr_proto, input_chr_import, peek_proto, peek_import, eof_proto,
   eof_import, abs_proto, abs_import, sgn_proto, sgn_import, inkey_proto, inkey_import, sqr_proto,
   sqr_import, sin_proto, sin_import, cos_proto, cos_import, tan_proto, tan_import, atn_proto,
-  atn_import, asin_proto, asin_import, acos_proto, acos_import, log_proto, log_import, log2_proto, log2_import, log10_proto, log10_import, exp_proto,
+  atn_import, asin_proto, asin_import, acos_proto, acos_import, sinh_proto, sinh_import, cosh_proto, cosh_import, tanh_proto, tanh_import,
+  asinh_proto, asinh_import, acosh_proto, acosh_import, atanh_proto, atanh_import, log_proto, log_import, log2_proto, log2_import, log10_proto, log10_import, exp_proto,
   exp_import, fact_proto, fact_import, pow_proto, pow_import, pi_proto, pi_import, left_proto, left_import, right_proto, right_import, mid_proto, mid_import,
   mirror_proto, mirror_import, len_proto, len_import, val_proto, val_import, str_proto, str_import,
   asc_proto, asc_import, pos_proto, pos_import, instr_proto, instr_import, strdup_proto,
@@ -381,6 +394,7 @@ static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, st
   mir_emit_import, mir_emitlbl_proto, mir_emitlbl_import, mir_ret_proto, mir_ret_import,
   mir_finish_proto, mir_finish_import, mir_run_proto, mir_run_import, mir_dump_proto,
   mir_dump_import;
+
 
 /* Runtime call prototypes for statements */
 static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_proto, input_import,
@@ -1484,6 +1498,8 @@ static const Builtin builtins[]
   = {{"RND", 0},     {"INT", 0},       {"TIMER", 0},    {"TIME", 0},    {"DATE", 0},
      {"PEEK", 0},    {"EOF", 0},       {"POS", 0},      {"ABS", 0},     {"SGN", 0},
      {"SQR", 0},     {"SIN", 0},       {"COS", 0},      {"TAN", 0},     {"ATN", 0}, {"ASIN", 0},    {"ACOS", 0},
+     {"SINH", 0},       {"COSH", 0},    {"TANH", 0},      {"ASINH", 0},    {"ACOSH", 0},
+     {"ATANH", 0}, 
      {"LOG", 0},     {"LOG2", 0},      {"LOG10", 0},    {"EXP", 0},    {"FACT", 0}, {"PI", 0},   {"LEN", 0},
      {"VAL", 0},     {"ASC", 0},       {"INSTR", 0},    {"MIRCTX", 0},  {"MIRMOD", 0},
      {"MIRFUNC", 0}, {"MIRREG", 0},    {"MIRLABEL", 0}, {"MIREMIT", 0}, {"MIREMITLBL", 0},
@@ -3548,6 +3564,41 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                        MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, atn_proto),
                                           MIR_new_ref_op (ctx, atn_import),
                                           MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "SINH") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, sinh_proto),
+                                          MIR_new_ref_op (ctx, sinh_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "COSH") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, cosh_proto),
+                                          MIR_new_ref_op (ctx, cosh_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "TANH") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, tanh_proto),
+                                          MIR_new_ref_op (ctx, tanh_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "ASINH") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, asinh_proto),
+                                          MIR_new_ref_op (ctx, asinh_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "ACOSH") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, acosh_proto),
+                                          MIR_new_ref_op (ctx, acosh_import),
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "ATANH") == 0) {
+      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, atanh_proto),
+                                          MIR_new_ref_op (ctx, atanh_import),
     } else if (strcasecmp (n->var, "ASIN") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
       MIR_append_insn (ctx, func,
@@ -5718,6 +5769,18 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   tan_import = MIR_new_import (ctx, "basic_tan");
   atn_proto = MIR_new_proto (ctx, "basic_atn_p", 1, &d, 1, MIR_T_D, "x");
   atn_import = MIR_new_import (ctx, "basic_atn");
+  sinh_proto = MIR_new_proto (ctx, "basic_sinh_p", 1, &d, 1, MIR_T_D, "x");
+  sinh_import = MIR_new_import (ctx, "basic_sinh");
+  cosh_proto = MIR_new_proto (ctx, "basic_cosh_p", 1, &d, 1, MIR_T_D, "x");
+  cosh_import = MIR_new_import (ctx, "basic_cosh");
+  tanh_proto = MIR_new_proto (ctx, "basic_tanh_p", 1, &d, 1, MIR_T_D, "x");
+  tanh_import = MIR_new_import (ctx, "basic_tanh");
+  asinh_proto = MIR_new_proto (ctx, "basic_asinh_p", 1, &d, 1, MIR_T_D, "x");
+  asinh_import = MIR_new_import (ctx, "basic_asinh");
+  acosh_proto = MIR_new_proto (ctx, "basic_acosh_p", 1, &d, 1, MIR_T_D, "x");
+  acosh_import = MIR_new_import (ctx, "basic_acosh");
+  atanh_proto = MIR_new_proto (ctx, "basic_atanh_p", 1, &d, 1, MIR_T_D, "x");
+  atanh_import = MIR_new_import (ctx, "basic_atanh");
   asin_proto = MIR_new_proto (ctx, "basic_asin_p", 1, &d, 1, MIR_T_D, "x");
   asin_import = MIR_new_import (ctx, "basic_asin");
   acos_proto = MIR_new_proto (ctx, "basic_acos_p", 1, &d, 1, MIR_T_D, "x");

@@ -512,6 +512,18 @@ basic_num_t basic_tan (basic_num_t x) { return BASIC_TAN (x); }
 
 basic_num_t basic_atn (basic_num_t x) { return BASIC_ATAN (x); }
 
+basic_num_t basic_sinh (basic_num_t x) { return BASIC_SINH (x); }
+
+basic_num_t basic_cosh (basic_num_t x) { return BASIC_COSH (x); }
+
+basic_num_t basic_tanh (basic_num_t x) { return BASIC_TANH (x); }
+
+basic_num_t basic_asinh (basic_num_t x) { return BASIC_ASINH (x); }
+
+basic_num_t basic_acosh (basic_num_t x) { return BASIC_ACOSH (x); }
+
+basic_num_t basic_atanh (basic_num_t x) { return BASIC_ATANH (x); }
+
 basic_num_t basic_asin (basic_num_t x) { return BASIC_ASIN (x); }
 
 basic_num_t basic_acos (basic_num_t x) { return BASIC_ACOS (x); }
