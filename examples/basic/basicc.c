@@ -112,6 +112,7 @@ extern basic_num_t basic_log (basic_num_t);
 extern basic_num_t basic_log2 (basic_num_t);
 extern basic_num_t basic_log10 (basic_num_t);
 extern basic_num_t basic_exp (basic_num_t);
+extern basic_num_t basic_pi (void);
 
 extern void basic_screen (basic_num_t);
 extern void basic_cls (void);
@@ -274,6 +275,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_log2")) return basic_log2;
   if (!strcmp (name, "basic_log10")) return basic_log10;
   if (!strcmp (name, "basic_exp")) return basic_exp;
+  if (!strcmp (name, "basic_pi")) return basic_pi;
   if (!strcmp (name, "basic_instr")) return basic_instr;
 
   if (!strcmp (name, "basic_screen")) return basic_screen;
@@ -367,7 +369,7 @@ static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, st
   eof_import, abs_proto, abs_import, sgn_proto, sgn_import, inkey_proto, inkey_import, sqr_proto,
   sqr_import, sin_proto, sin_import, cos_proto, cos_import, tan_proto, tan_import, atn_proto,
   atn_import, asin_proto, asin_import, acos_proto, acos_import, log_proto, log_import, log2_proto, log2_import, log10_proto, log10_import, exp_proto,
-  exp_import, left_proto, left_import, right_proto, right_import, mid_proto, mid_import,
+  exp_import, , pi_proto, pi_import, left_proto, left_import, right_proto, right_import, mid_proto, mid_import,
   mirror_proto, mirror_import, len_proto, len_import, val_proto, val_import, str_proto, str_import,
   asc_proto, asc_import, pos_proto, pos_import, instr_proto, instr_import, strdup_proto,
   strdup_import, mir_ctx_proto, mir_ctx_import, mir_mod_proto, mir_mod_import, mir_func_proto,
@@ -1474,7 +1476,7 @@ static const Builtin builtins[]
   = {{"RND", 0},     {"INT", 0},       {"TIMER", 0},    {"TIME", 0},    {"DATE", 0},
      {"PEEK", 0},    {"EOF", 0},       {"POS", 0},      {"ABS", 0},     {"SGN", 0},
      {"SQR", 0},     {"SIN", 0},       {"COS", 0},      {"TAN", 0},     {"ATN", 0}, {"ASIN", 0},    {"ACOS", 0},
-     {"LOG", 0},     {"LOG2", 0},      {"LOG10", 0},    {"EXP", 0},     {"LEN", 0},
+     {"LOG", 0},     {"LOG2", 0},      {"LOG10", 0},    {"EXP", 0},  {"PI", 0},   {"LEN", 0},
      {"VAL", 0},     {"ASC", 0},       {"INSTR", 0},    {"MIRCTX", 0},  {"MIRMOD", 0},
      {"MIRFUNC", 0}, {"MIRREG", 0},    {"MIRLABEL", 0}, {"MIREMIT", 0}, {"MIREMITLBL", 0},
      {"MIRRET", 0},  {"MIRFINISH", 0}, {"MIRRUN", 0},   {"MIRDUMP", 0}, {"CHR$", 1},
@@ -3559,6 +3561,11 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                        MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, exp_proto),
                                           MIR_new_ref_op (ctx, exp_import),
                                           MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+    } else if (strcasecmp (n->var, "PI") == 0) {
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, pi_proto),
+                                          MIR_new_ref_op (ctx, pi_import),
+                                          MIR_new_reg_op (ctx, res)));
     } else if (strcasecmp (n->var, "LEN") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
       MIR_append_insn (ctx, func,
@@ -5688,6 +5695,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   log10_import = MIR_new_import (ctx, "basic_log10");
   exp_proto = MIR_new_proto (ctx, "basic_exp_p", 1, &d, 1, MIR_T_D, "x");
   exp_import = MIR_new_import (ctx, "basic_exp");
+  pi_proto = MIR_new_proto (ctx, "basic_pi_p", 1, &d, 0);
+  pi_import = MIR_new_import (ctx, "basic_pi");
 
   left_proto = MIR_new_proto (ctx, "basic_left_p", 1, &p, 2, MIR_T_P, "s", MIR_T_D, "n");
   left_import = MIR_new_import (ctx, "basic_left");

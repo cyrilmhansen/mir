@@ -4,6 +4,9 @@
 #include <strings.h>
 #include <time.h>
 #include <math.h>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 #include <stdint.h>
 #include <sys/select.h>
 #include <unistd.h>
@@ -520,6 +523,8 @@ basic_num_t basic_log2 (basic_num_t x) { return BASIC_LOG2 (x); }
 basic_num_t basic_log10 (basic_num_t x) { return BASIC_LOG10 (x); }
 
 basic_num_t basic_exp (basic_num_t x) { return BASIC_EXP (x); }
+
+basic_num_t basic_pi (void) { return M_PI; }
 
 /* Allocate a one-character string. Caller must free with basic_free. */
 char *basic_chr (basic_num_t n) {
