@@ -1,4 +1,5 @@
 #include "basic_pool.h"
+#include "basic_num.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -19,10 +20,11 @@ typedef struct FreeBlock {
 static PoolBlock *pool = NULL;
 static FreeBlock *free_list = NULL;
 
-static size_t align_up (size_t n) {
-  size_t align = _Alignof (max_align_t);
-  return (n + align - 1) & ~(align - 1);
-}
+static const size_t alignment = _Alignof (max_align_t) > _Alignof (basic_num_t)
+                                  ? _Alignof (max_align_t)
+                                  : _Alignof (basic_num_t);
+
+static size_t align_up (size_t n) { return (n + alignment - 1) & ~(alignment - 1); }
 
 void basic_pool_init (size_t size) {
   if (pool != NULL) basic_pool_destroy ();
