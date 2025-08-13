@@ -202,6 +202,21 @@ extern char *basic_get_hash (basic_num_t);
 extern void basic_put_hash (basic_num_t, const char *);
 extern basic_num_t basic_eof (basic_num_t);
 
+#if defined(BASIC_USE_FIXED64)
+extern basic_num_t fixed64_add (basic_num_t, basic_num_t);
+extern basic_num_t fixed64_sub (basic_num_t, basic_num_t);
+extern basic_num_t fixed64_mul (basic_num_t, basic_num_t);
+extern basic_num_t fixed64_div (basic_num_t, basic_num_t);
+extern int fixed64_eq (basic_num_t, basic_num_t);
+extern int fixed64_ne (basic_num_t, basic_num_t);
+extern int fixed64_lt (basic_num_t, basic_num_t);
+extern int fixed64_le (basic_num_t, basic_num_t);
+extern int fixed64_gt (basic_num_t, basic_num_t);
+extern int fixed64_ge (basic_num_t, basic_num_t);
+extern basic_num_t fixed64_from_int (long);
+extern basic_num_t fixed64_from_string (const char *, char **);
+#endif
+
 extern void basic_stop (void);
 
 extern void basic_set_error_handler (basic_num_t);
@@ -262,6 +277,21 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_get_hash")) return basic_get_hash;
   if (!strcmp (name, "basic_put_hash")) return basic_put_hash;
   if (!strcmp (name, "basic_eof")) return basic_eof;
+
+#if defined(BASIC_USE_FIXED64)
+  if (!strcmp (name, "fixed64_add")) return fixed64_add;
+  if (!strcmp (name, "fixed64_sub")) return fixed64_sub;
+  if (!strcmp (name, "fixed64_mul")) return fixed64_mul;
+  if (!strcmp (name, "fixed64_div")) return fixed64_div;
+  if (!strcmp (name, "fixed64_eq")) return fixed64_eq;
+  if (!strcmp (name, "fixed64_ne")) return fixed64_ne;
+  if (!strcmp (name, "fixed64_lt")) return fixed64_lt;
+  if (!strcmp (name, "fixed64_le")) return fixed64_le;
+  if (!strcmp (name, "fixed64_gt")) return fixed64_gt;
+  if (!strcmp (name, "fixed64_ge")) return fixed64_ge;
+  if (!strcmp (name, "fixed64_from_int")) return fixed64_from_int;
+  if (!strcmp (name, "fixed64_from_string")) return fixed64_from_string;
+#endif
 
   if (!strcmp (name, "basic_read")) return basic_read;
   if (!strcmp (name, "basic_read_str")) return basic_read_str;
@@ -401,6 +431,15 @@ static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, st
   mir_label_proto, mir_label_import, mir_emit_proto, mir_emit_import, mir_emitlbl_proto,
   mir_emitlbl_import, mir_ret_proto, mir_ret_import, mir_finish_proto, mir_finish_import,
   mir_run_proto, mir_run_import, mir_dump_proto, mir_dump_import;
+
+#if defined(BASIC_USE_FIXED64)
+static MIR_item_t fixed64_add_proto, fixed64_add_import, fixed64_sub_proto, fixed64_sub_import,
+  fixed64_mul_proto, fixed64_mul_import, fixed64_div_proto, fixed64_div_import, fixed64_eq_proto,
+  fixed64_eq_import, fixed64_ne_proto, fixed64_ne_import, fixed64_lt_proto, fixed64_lt_import,
+  fixed64_le_proto, fixed64_le_import, fixed64_gt_proto, fixed64_gt_import, fixed64_ge_proto,
+  fixed64_ge_import, fixed64_from_int_proto, fixed64_from_int_import, fixed64_from_string_proto,
+  fixed64_from_string_import;
+#endif
 
 /* Runtime call prototypes for statements */
 static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_proto, input_import,
@@ -5811,6 +5850,60 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   get_import = MIR_new_import (ctx, "basic_get");
   put_proto = MIR_new_proto (ctx, "basic_put_p", 0, NULL, 1, MIR_T_P, "s");
   put_import = MIR_new_import (ctx, "basic_put");
+#if defined(BASIC_USE_FIXED64)
+  MIR_type_t blk = MIR_T_BLK;
+  MIR_type_t i64 = MIR_T_I64;
+  MIR_var_t bin_vars[2];
+  bin_vars[0].name = "a";
+  bin_vars[0].type = MIR_T_BLK;
+  bin_vars[0].size = sizeof (basic_num_t);
+  bin_vars[1].name = "b";
+  bin_vars[1].type = MIR_T_BLK;
+  bin_vars[1].size = sizeof (basic_num_t);
+  fixed64_add_proto = MIR_new_proto_arr (ctx, "fixed64_add_p", 1, &blk, 2, bin_vars);
+  fixed64_add_import = MIR_new_import (ctx, "fixed64_add");
+  fixed64_sub_proto = MIR_new_proto_arr (ctx, "fixed64_sub_p", 1, &blk, 2, bin_vars);
+  fixed64_sub_import = MIR_new_import (ctx, "fixed64_sub");
+  fixed64_mul_proto = MIR_new_proto_arr (ctx, "fixed64_mul_p", 1, &blk, 2, bin_vars);
+  fixed64_mul_import = MIR_new_import (ctx, "fixed64_mul");
+  fixed64_div_proto = MIR_new_proto_arr (ctx, "fixed64_div_p", 1, &blk, 2, bin_vars);
+  fixed64_div_import = MIR_new_import (ctx, "fixed64_div");
+
+  MIR_var_t cmp_vars[2];
+  cmp_vars[0].name = "a";
+  cmp_vars[0].type = MIR_T_BLK;
+  cmp_vars[0].size = sizeof (basic_num_t);
+  cmp_vars[1].name = "b";
+  cmp_vars[1].type = MIR_T_BLK;
+  cmp_vars[1].size = sizeof (basic_num_t);
+  fixed64_eq_proto = MIR_new_proto_arr (ctx, "fixed64_eq_p", 1, &i64, 2, cmp_vars);
+  fixed64_eq_import = MIR_new_import (ctx, "fixed64_eq");
+  fixed64_ne_proto = MIR_new_proto_arr (ctx, "fixed64_ne_p", 1, &i64, 2, cmp_vars);
+  fixed64_ne_import = MIR_new_import (ctx, "fixed64_ne");
+  fixed64_lt_proto = MIR_new_proto_arr (ctx, "fixed64_lt_p", 1, &i64, 2, cmp_vars);
+  fixed64_lt_import = MIR_new_import (ctx, "fixed64_lt");
+  fixed64_le_proto = MIR_new_proto_arr (ctx, "fixed64_le_p", 1, &i64, 2, cmp_vars);
+  fixed64_le_import = MIR_new_import (ctx, "fixed64_le");
+  fixed64_gt_proto = MIR_new_proto_arr (ctx, "fixed64_gt_p", 1, &i64, 2, cmp_vars);
+  fixed64_gt_import = MIR_new_import (ctx, "fixed64_gt");
+  fixed64_ge_proto = MIR_new_proto_arr (ctx, "fixed64_ge_p", 1, &i64, 2, cmp_vars);
+  fixed64_ge_import = MIR_new_import (ctx, "fixed64_ge");
+
+  MIR_var_t int_vars[1];
+  int_vars[0].name = "i";
+  int_vars[0].type = MIR_T_I64;
+  fixed64_from_int_proto = MIR_new_proto_arr (ctx, "fixed64_from_int_p", 1, &blk, 1, int_vars);
+  fixed64_from_int_import = MIR_new_import (ctx, "fixed64_from_int");
+
+  MIR_var_t str_vars[2];
+  str_vars[0].name = "s";
+  str_vars[0].type = MIR_T_P;
+  str_vars[1].name = "end";
+  str_vars[1].type = MIR_T_P;
+  fixed64_from_string_proto
+    = MIR_new_proto_arr (ctx, "fixed64_from_string_p", 1, &blk, 2, str_vars);
+  fixed64_from_string_import = MIR_new_import (ctx, "fixed64_from_string");
+#endif
   open_proto = MIR_new_proto (ctx, "basic_open_p", 0, NULL, 2, MIR_T_D, "n", MIR_T_P, "path");
   open_import = MIR_new_import (ctx, "basic_open");
   close_proto = MIR_new_proto (ctx, "basic_close_p", 0, NULL, 1, MIR_T_D, "n");
