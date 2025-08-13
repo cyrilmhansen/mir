@@ -140,6 +140,7 @@ extern char *basic_concat (const char *, const char *);
 extern char *basic_left (const char *, basic_num_t);
 extern char *basic_right (const char *, basic_num_t);
 extern char *basic_mid (const char *, basic_num_t, basic_num_t);
+extern char *basic_mirror (const char *);
 extern basic_num_t basic_len (const char *);
 extern basic_num_t basic_val (const char *);
 extern char *basic_str (basic_num_t);
@@ -304,6 +305,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_left")) return basic_left;
   if (!strcmp (name, "basic_right")) return basic_right;
   if (!strcmp (name, "basic_mid")) return basic_mid;
+  if (!strcmp (name, "basic_mirror")) return basic_mirror;
   if (!strcmp (name, "basic_len")) return basic_len;
   if (!strcmp (name, "basic_val")) return basic_val;
   if (!strcmp (name, "basic_str")) return basic_str;
@@ -361,13 +363,14 @@ static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, st
   eof_import, abs_proto, abs_import, sgn_proto, sgn_import, inkey_proto, inkey_import, sqr_proto,
   sqr_import, sin_proto, sin_import, cos_proto, cos_import, tan_proto, tan_import, atn_proto,
   atn_import, log_proto, log_import, log2_proto, log2_import, log10_proto, log10_import, exp_proto,
-  exp_import, left_proto, left_import, right_proto, right_import, mid_proto, mid_import, len_proto,
-  len_import, val_proto, val_import, str_proto, str_import, asc_proto, asc_import, pos_proto,
-  pos_import, instr_proto, instr_import, strdup_proto, strdup_import, mir_ctx_proto, mir_ctx_import,
-  mir_mod_proto, mir_mod_import, mir_func_proto, mir_func_import, mir_reg_proto, mir_reg_import,
-  mir_label_proto, mir_label_import, mir_emit_proto, mir_emit_import, mir_emitlbl_proto,
-  mir_emitlbl_import, mir_ret_proto, mir_ret_import, mir_finish_proto, mir_finish_import,
-  mir_run_proto, mir_run_import, mir_dump_proto, mir_dump_import;
+  exp_import, left_proto, left_import, right_proto, right_import, mid_proto, mid_import,
+  mirror_proto, mirror_import, len_proto, len_import, val_proto, val_import, str_proto, str_import,
+  asc_proto, asc_import, pos_proto, pos_import, instr_proto, instr_import, strdup_proto,
+  strdup_import, mir_ctx_proto, mir_ctx_import, mir_mod_proto, mir_mod_import, mir_func_proto,
+  mir_func_import, mir_reg_proto, mir_reg_import, mir_label_proto, mir_label_import, mir_emit_proto,
+  mir_emit_import, mir_emitlbl_proto, mir_emitlbl_import, mir_ret_proto, mir_ret_import,
+  mir_finish_proto, mir_finish_import, mir_run_proto, mir_run_import, mir_dump_proto,
+  mir_dump_import;
 
 /* Runtime call prototypes for statements */
 static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_proto, input_import,
@@ -1390,7 +1393,7 @@ static const Builtin builtins[]
      {"MIRRET", 0},  {"MIRFINISH", 0}, {"MIRRUN", 0},   {"MIRDUMP", 0}, {"CHR$", 1},
      {"STRING$", 1}, {"TIME$", 1},     {"DATE$", 1},    {"INPUT$", 1},  {"SPC", 1},
      {"TAB", 0},     {"LEFT$", 1},     {"RIGHT$", 1},   {"MID$", 1},    {"STR$", 1},
-     {"INKEY$", 1},  {NULL, 0}};
+     {"INKEY$", 1},  {"MIRROR$", 1},   {NULL, 0}};
 
 static const Builtin *lookup_builtin (const char *id) {
   for (int i = 0; builtins[i].name != NULL; i++)
@@ -3075,6 +3078,12 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                             MIR_new_ref_op (ctx, mid_import),
                                             MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, s),
                                             MIR_new_reg_op (ctx, start), len_op));
+      } else if (strcasecmp (n->var, "MIRROR$") == 0) {
+        MIR_reg_t s = gen_expr (ctx, func, vars, n->left);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, mirror_proto),
+                                            MIR_new_ref_op (ctx, mirror_import),
+                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, s)));
       } else if (strcasecmp (n->var, "STR$") == 0) {
         MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
         MIR_append_insn (ctx, func,
@@ -5187,6 +5196,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   mid_proto
     = MIR_new_proto (ctx, "basic_mid_p", 1, &p, 3, MIR_T_P, "s", MIR_T_D, "start", MIR_T_D, "len");
   mid_import = MIR_new_import (ctx, "basic_mid");
+  mirror_proto = MIR_new_proto (ctx, "basic_mirror_p", 1, &p, 1, MIR_T_P, "s");
+  mirror_import = MIR_new_import (ctx, "basic_mirror");
   len_proto = MIR_new_proto (ctx, "basic_len_p", 1, &d, 1, MIR_T_P, "s");
   len_import = MIR_new_import (ctx, "basic_len");
   val_proto = MIR_new_proto (ctx, "basic_val_p", 1, &d, 1, MIR_T_P, "s");
