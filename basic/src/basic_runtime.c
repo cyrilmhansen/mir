@@ -137,9 +137,9 @@ void basic_profile_line (basic_num_t line_no) {
     LineProfile *lp = get_line_profile (last_profile_line);
     lp->ns += diff_ns (last_time, now);
   }
-  LineProfile *curr = get_line_profile ((int) line_no);
+  LineProfile *curr = get_line_profile (basic_num_to_int (line_no));
   curr->count++;
-  last_profile_line = (int) line_no;
+  last_profile_line = basic_num_to_int (line_no);
   last_time = now;
 }
 
@@ -884,12 +884,19 @@ static void basic_kitty_plot (basic_num_t x, basic_num_t y) {
 }
 
 static void basic_kitty_line (basic_num_t x0, basic_num_t y0, basic_num_t x1, basic_num_t y1) {
-  basic_num_t dx = x1 - x0, dy = y1 - y0;
-  int steps = BASIC_FABS (dx) > BASIC_FABS (dy) ? BASIC_FABS (dx) : BASIC_FABS (dy);
-  basic_num_t xi = steps ? dx / steps : BASIC_ZERO;
-  basic_num_t yi = steps ? dy / steps : BASIC_ZERO;
+  basic_num_t dx = basic_num_sub (x1, x0), dy = basic_num_sub (y1, y0);
+  basic_num_t abs_dx = BASIC_FABS (dx);
+  basic_num_t abs_dy = BASIC_FABS (dy);
+  basic_num_t max = basic_num_gt (abs_dx, abs_dy) ? abs_dx : abs_dy;
+  int steps = basic_num_to_int (max);
+  basic_num_t step_num = basic_num_from_int (steps);
+  basic_num_t xi = basic_num_eq (step_num, BASIC_ZERO) ? BASIC_ZERO : basic_num_div (dx, step_num);
+  basic_num_t yi = basic_num_eq (step_num, BASIC_ZERO) ? BASIC_ZERO : basic_num_div (dy, step_num);
+
   for (int i = 0; i <= steps; i++) {
-    basic_kitty_plot (x0 + xi * i, y0 + yi * i);
+    basic_num_t idx = basic_num_from_int (i);
+    basic_kitty_plot (basic_num_add (x0, basic_num_mul (xi, idx)),
+                      basic_num_add (y0, basic_num_mul (yi, idx)));
   }
 }
 
@@ -929,12 +936,14 @@ void basic_draw_line (basic_num_t x0, basic_num_t y0, basic_num_t x1, basic_num_
 }
 
 static void basic_kitty_circle (basic_num_t x, basic_num_t y, basic_num_t r) {
-  basic_num_t prev_x = x + r, prev_y = y;
+  basic_num_t prev_x = basic_num_add (x, r), prev_y = y;
   int steps = 360;
+  basic_num_t two_pi = basic_num_from_string ("6.28318530717958647692", NULL);
+  basic_num_t steps_num = basic_num_from_int (steps);
   for (int i = 1; i <= steps; i++) {
-    basic_num_t ang = 2 * 3.14159265358979323846 * i / steps;
-    basic_num_t nx = x + r * BASIC_COS (ang);
-    basic_num_t ny = y + r * BASIC_SIN (ang);
+    basic_num_t ang = basic_num_div (basic_num_mul (two_pi, basic_num_from_int (i)), steps_num);
+    basic_num_t nx = basic_num_add (x, basic_num_mul (r, basic_num_cos (ang)));
+    basic_num_t ny = basic_num_add (y, basic_num_mul (r, basic_num_sin (ang)));
     basic_kitty_line (prev_x, prev_y, nx, ny);
     prev_x = nx;
     prev_y = ny;
@@ -943,7 +952,7 @@ static void basic_kitty_circle (basic_num_t x, basic_num_t y, basic_num_t r) {
 
 void basic_circle (basic_num_t x, basic_num_t y, basic_num_t r) {
   basic_kitty_circle (x, y, r);
-  last_hplot_x = x + r;
+  last_hplot_x = basic_num_add (x, r);
   last_hplot_y = y;
 }
 
@@ -957,18 +966,21 @@ void basic_rect (basic_num_t x0, basic_num_t y0, basic_num_t x1, basic_num_t y1)
 }
 
 void basic_fill (basic_num_t x0, basic_num_t y0, basic_num_t x1, basic_num_t y1) {
-  if (x0 > x1) {
+  if (basic_num_gt (x0, x1)) {
     basic_num_t t = x0;
     x0 = x1;
     x1 = t;
   }
-  if (y0 > y1) {
+  if (basic_num_gt (y0, y1)) {
     basic_num_t t = y0;
     y0 = y1;
     y1 = t;
   }
-  for (int y = (int) y0; y <= (int) y1; y++) {
-    basic_kitty_line (x0, y, x1, y);
+  int y_start = basic_num_to_int (y0);
+  int y_end = basic_num_to_int (y1);
+  for (int y = y_start; y <= y_end; y++) {
+    basic_num_t yn = basic_num_from_int (y);
+    basic_kitty_line (x0, yn, x1, yn);
   }
   last_hplot_x = x1;
   last_hplot_y = y1;
@@ -978,9 +990,10 @@ void basic_mode (basic_num_t m) { basic_screen (m); }
 
 void basic_delay (basic_num_t ms) {
 #if defined(_WIN32)
-  Sleep ((DWORD) ms);
+  Sleep ((DWORD) basic_num_to_int (ms));
 #else
-  usleep ((useconds_t) (ms * 1000));
+  useconds_t usec = (useconds_t) basic_num_to_int (basic_num_mul (ms, basic_num_from_int (1000)));
+  usleep (usec);
 #endif
 }
 
@@ -1109,7 +1122,7 @@ basic_num_t basic_mir_func (basic_num_t mod_h, const char *name, basic_num_t nar
   Handle *h = get_handle (mod_h);
   if (h == NULL || h->kind != H_MOD) return BASIC_ZERO;
   MIR_context_t ctx = h->ctx;
-  size_t nargs = (size_t) nargs_d;
+  size_t nargs = (size_t) basic_num_to_int (nargs_d);
   MIR_type_t res = MIR_T_D;
   MIR_var_t *vars = nargs ? basic_pool_alloc (nargs * sizeof (MIR_var_t)) : NULL;
   for (size_t i = 0; i < nargs; i++) {

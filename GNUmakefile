@@ -398,7 +398,7 @@ clean-mir-utility-tests:
 	$(RM) $(BUILD_DIR)/scan-test$(EXE) $(BUILD_DIR)/io-test$(EXE)
 
 # ------------------ BASIC compiler example -------------------
-.PHONY: basic-test clean-basic basic-bench
+.PHONY: basic-test clean-basic basic-bench run-basic-tests
 
 ifeq ($(OS),Windows_NT)
   BASIC_RUNTIME_LIB=basic_runtime.dll
@@ -494,8 +494,8 @@ BASIC_NUM_SRCS = \
         $(SRC_DIR)/basic/src/vendor/fixed64/fixed64.c
 
 $(BUILD_DIR)/basic/basic_num_scan_test$(EXE): \
-        $(SRC_DIR)/basic/test/basic_num_scan_test.c $(BASIC_NUM_SRCS) ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $^ -lm $(EXEO)$@
-
+	$(SRC_DIR)/basic/test/basic_num_scan_test.c $(BASIC_NUM_SRCS) ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $^ -lm $(EXEO)$@
+	
 $(BUILD_DIR)/basic/basic_num_fixed64_test$(EXE): \
         $(SRC_DIR)/basic/test/basic_num_fixed64_test.c $(BASIC_NUM_SRCS) ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $^ -lm $(EXEO)$@
 
@@ -503,6 +503,15 @@ $(BUILD_DIR)/basic/basic_num_mode_switch_test$(EXE): \
         $(SRC_DIR)/basic/test/basic_num_mode_switch_test.c \
         $(SRC_DIR)/basic/src/basic_num_ops.c \
         $(SRC_DIR)/basic/src/vendor/fixed64/fixed64.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $^ -lm $(EXEO)$@
+
+$(BUILD_DIR)/basic/basic_handle_fixed64_test$(EXE): \
+        $(SRC_DIR)/basic/test/basic_handle_fixed64_test.c \
+        $(SRC_DIR)/basic/src/basic_runtime.c $(SRC_DIR)/basic/src/basic_pool.c \
+        $(BASIC_NUM_SRCS) \
+        $(SRC_DIR)/basic/src/vendor/ryu/f2s.c \
+        $(SRC_DIR)/basic/src/vendor/kitty/kitty.c \
+        $(SRC_DIR)/basic/src/vendor/kitty/lodepng.c \
+        $(BUILD_DIR)/libmir.$(LIBSUFF) ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $^ -lm $(EXEO)$@
 
 $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB): \
         $(SRC_DIR)/basic/src/basic_runtime.c $(SRC_DIR)/basic/src/basic_pool.c \
@@ -529,7 +538,7 @@ $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_FIX): \
         $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic ; $(CC) $(CPPFLAGS) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $(CFLAGS) $(LDFLAGS) $(BASIC_RUNTIME_FLAGS) $^ -lm $(EXEO)$@
 
 
-basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/hcolor_test$(EXE) $(BUILD_DIR)/basic/dfp_test$(EXE) $(BUILD_DIR)/basic/fixed64_test$(EXE) $(BUILD_DIR)/basic/basic_num_scan_test$(EXE) $(BUILD_DIR)/basic/basic_input_hash_test$(EXE) $(BUILD_DIR)/basic/basic_num_fixed64_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/mir-bin-run$(EXE) run-basic-tests
+basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/hcolor_test$(EXE) $(BUILD_DIR)/basic/dfp_test$(EXE) $(BUILD_DIR)/basic/fixed64_test$(EXE) $(BUILD_DIR)/basic/basic_num_scan_test$(EXE) $(BUILD_DIR)/basic/basic_input_hash_test$(EXE) $(BUILD_DIR)/basic/basic_num_fixed64_test$(EXE) $(BUILD_DIR)/basic/basic_handle_fixed64_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/mir-bin-run$(EXE) run-basic-tests
 
 run-basic-tests:
 	$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
@@ -542,6 +551,7 @@ run-basic-tests:
 	$(BUILD_DIR)/basic/basic_num_scan_test$(EXE)
 	$(BUILD_DIR)/basic/basic_input_hash_test$(EXE)
 	$(BUILD_DIR)/basic/basic_num_fixed64_test$(EXE)
+	$(BUILD_DIR)/basic/basic_handle_fixed64_test$(EXE)
 
 # ------------------ MIR interp tests --------------------------
 .PHONY: clean-mir-interp-tests
