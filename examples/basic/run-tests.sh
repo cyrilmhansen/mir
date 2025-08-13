@@ -177,6 +177,17 @@ for t in hello relop delay adder string strfuncs instr gosub on funcproc vtab re
                 echo "$t OK"
         done
 
+
+echo "Running P019"
+"$BASICC" "$ROOT/examples/basic/test/mbasic-nbs/P019.BAS" > "$ROOT/basic/P019.out" 2> "$ROOT/basic/P019.err"
+if [ -s "$ROOT/basic/P019.err" ]; then
+echo "Unexpected stderr for P019"
+cat "$ROOT/basic/P019.err"
+exit 1
+fi
+rm -f "$ROOT/basic/P019.err"
+diff "$ROOT/examples/basic/test/mbasic-nbs/P019.out" "$ROOT/basic/P019.out"
+echo "P019 OK"
         echo "Running base0_cli"
         "$BASICC" --option-base 0 "$ROOT/examples/basic/base0_cli.bas" > "$ROOT/basic/base0_cli.out" 2> "$ROOT/basic/base0_cli.err"
         if [ -s "$ROOT/basic/base0_cli.err" ]; then

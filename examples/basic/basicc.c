@@ -116,7 +116,7 @@ extern void basic_cls (void);
 extern void basic_color (basic_num_t);
 extern void basic_key_off (void);
 extern void basic_locate (basic_num_t, basic_num_t);
-extern void basic_htab (basic_num_t);
+extern void basic_tab (basic_num_t);
 extern basic_num_t basic_pos (void);
 extern void basic_text (void);
 extern void basic_inverse (void);
@@ -276,8 +276,8 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_color")) return basic_color;
   if (!strcmp (name, "basic_key_off")) return basic_key_off;
   if (!strcmp (name, "basic_locate")) return basic_locate;
-  if (!strcmp (name, "basic_htab")) return basic_htab;
-  if (!strcmp (name, "basic_tab")) return basic_htab;
+  if (!strcmp (name, "basic_tab")) return basic_tab;
+  if (!strcmp (name, "basic_htab")) return basic_tab;
   if (!strcmp (name, "basic_pos")) return basic_pos;
   if (!strcmp (name, "basic_text")) return basic_text;
   if (!strcmp (name, "basic_inverse")) return basic_inverse;
@@ -374,7 +374,7 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   input_str_proto, input_str_import, get_proto, get_import, put_proto, put_import, read_proto,
   read_import, read_str_proto, read_str_import, restore_proto, restore_import, screen_proto,
   screen_import, cls_proto, cls_import, color_proto, color_import, keyoff_proto, keyoff_import,
-  locate_proto, locate_import, htab_proto, htab_import, home_proto, poke_proto, poke_import,
+  locate_proto, locate_import, tab_proto, tab_import, home_proto, poke_proto, poke_import,
   home_import, vtab_proto, vtab_import, text_proto, text_import, inverse_proto, inverse_import,
   normal_proto, normal_import, hgr2_proto, hgr2_import, hcolor_proto, hcolor_import, hplot_proto,
   hplot_import, hplotto_proto, hplotto_import, hplottocur_proto, hplottocur_import, move_proto,
@@ -393,7 +393,7 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   pool_reset_import, free_proto, free_import, chain_proto, chain_import;
 
 /* AST for expressions */
-typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL } NodeKind;
+typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL, N_TAB } NodeKind;
 typedef struct Node Node;
 /* Operator codes for Node.op */
 #define OP_NONE 0
@@ -1389,8 +1389,8 @@ static const Builtin builtins[]
      {"MIRFUNC", 0}, {"MIRREG", 0},    {"MIRLABEL", 0}, {"MIREMIT", 0}, {"MIREMITLBL", 0},
      {"MIRRET", 0},  {"MIRFINISH", 0}, {"MIRRUN", 0},   {"MIRDUMP", 0}, {"CHR$", 1},
      {"STRING$", 1}, {"TIME$", 1},     {"DATE$", 1},    {"INPUT$", 1},  {"SPC", 1},
-     {"LEFT$", 1},   {"RIGHT$", 1},    {"MID$", 1},     {"STR$", 1},    {"INKEY$", 1},
-     {NULL, 0}};
+     {"TAB", 0},     {"LEFT$", 1},     {"RIGHT$", 1},   {"MID$", 1},    {"STR$", 1},
+     {"INKEY$", 1},  {NULL, 0}};
 
 static const Builtin *lookup_builtin (const char *id) {
   for (int i = 0; builtins[i].name != NULL; i++)
@@ -1427,6 +1427,11 @@ static Node *parse_literal (Parser *p) {
 static Node *parse_builtin_call (char *id, CallArgs *a) {
   const Builtin *b = lookup_builtin (id);
   if (b == NULL) return NULL;
+  if (!strcasecmp (id, "TAB")) {
+    Node *n = new_node (N_TAB);
+    n->left = a->a[0];
+    return n;
+  }
   if (!strcasecmp (id, "RND") && a->a[0] == NULL) {
     a->a[0] = new_node (N_NUM);
     a->a[0]->num = 1;
@@ -3759,6 +3764,14 @@ static void print_str (MIR_str_t str) {
 }
 
 static void print_item (Node *e, Node *next) {
+  if (e->kind == N_TAB) {
+    MIR_reg_t n = gen_expr (g_ctx, g_func, &g_vars, e->left);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, tab_proto),
+                                        MIR_new_ref_op (g_ctx, tab_import),
+                                        MIR_new_reg_op (g_ctx, n)));
+    return;
+  }
   MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, e);
   call1 (e->is_str ? prints_proto : print_proto, e->is_str ? prints_import : print_import,
          MIR_new_reg_op (g_ctx, r));
@@ -4068,8 +4081,8 @@ static void gen_stmt (Stmt *s) {
   case ST_HTAB: {
     MIR_reg_t n = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
     MIR_append_insn (g_ctx, g_func,
-                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, htab_proto),
-                                        MIR_new_ref_op (g_ctx, htab_import),
+                     MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, tab_proto),
+                                        MIR_new_ref_op (g_ctx, tab_import),
                                         MIR_new_reg_op (g_ctx, n)));
     break;
   }
@@ -4914,8 +4927,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   keyoff_import = MIR_new_import (ctx, "basic_key_off");
   locate_proto = MIR_new_proto (ctx, "basic_locate_p", 0, NULL, 2, MIR_T_D, "r", MIR_T_D, "c");
   locate_import = MIR_new_import (ctx, "basic_locate");
-  htab_proto = MIR_new_proto (ctx, "basic_htab_p", 0, NULL, 1, MIR_T_D, "n");
-  htab_import = MIR_new_import (ctx, "basic_htab");
+  tab_proto = MIR_new_proto (ctx, "basic_tab_p", 0, NULL, 1, MIR_T_D, "n");
+  tab_import = MIR_new_import (ctx, "basic_tab");
   poke_proto = MIR_new_proto (ctx, "basic_poke_p", 0, NULL, 2, MIR_T_D, "addr", MIR_T_D, "value");
   poke_import = MIR_new_import (ctx, "basic_poke");
   text_proto = MIR_new_proto (ctx, "basic_text_p", 0, NULL, 0);

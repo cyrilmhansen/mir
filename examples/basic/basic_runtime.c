@@ -473,8 +473,8 @@ void basic_key_off (void) {
 
 void basic_locate (basic_num_t r, basic_num_t c) { printf ("\x1b[%d;%dH", (int) r, (int) c); }
 
-void basic_htab (basic_num_t n) { printf ("\x1b[%dG", (int) n); }
-void basic_tab (basic_num_t n) { basic_htab (n); }
+void basic_tab (basic_num_t n) { printf ("\x1b[%dG", (int) n); }
+void basic_htab (basic_num_t n) { basic_tab (n); }
 
 void basic_randomize (basic_num_t n, basic_num_t has_seed) {
   if (has_seed != 0.0) {
