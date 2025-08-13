@@ -203,6 +203,8 @@ extern double basic_system (const char *);
 extern char *basic_system_out (void);
 
 static int array_base = 0;
+static int use_decimal_floats = 0;
+static int decimal_locked = 0;
 static int line_tracking = 1;
 arena_t ast_arena;
 
@@ -526,6 +528,7 @@ typedef enum {
   ST_ON_GOSUB,
   ST_ON_ERROR,
   ST_RESUME,
+  ST_MAT,
   ST_CHAIN,
   ST_EXTERN,
   ST_CALL,
@@ -535,6 +538,13 @@ typedef struct {
   Stmt *data;
   size_t len, cap;
 } StmtVec;
+
+typedef struct {
+  Node *dest;
+  Node *src1;
+  Node *src2;
+  int op_type;
+} MatStmt;
 
 static const char *stmt_kind_name (StmtKind kind) {
   static const char *names[] = {
@@ -597,6 +607,7 @@ static const char *stmt_kind_name (StmtKind kind) {
     [ST_ON_GOSUB] = "ST_ON_GOSUB",
     [ST_ON_ERROR] = "ST_ON_ERROR",
     [ST_RESUME] = "ST_RESUME",
+    [ST_MAT] = "ST_MAT",
     [ST_CHAIN] = "ST_CHAIN",
     [ST_EXTERN] = "ST_EXTERN",
     [ST_CALL] = "ST_CALL",
@@ -749,6 +760,7 @@ struct Stmt {
       int line;
       int has_line;
     } resume;
+    MatStmt mat;
     struct {
       Node *path;
     } chain;
@@ -756,6 +768,12 @@ struct Stmt {
       char *name;
       Node *arg1, *arg2, *arg3, *arg4, *arg5;
     } call;
+    struct {
+      size_t idx;
+      int is_proc;
+      int is_str_ret;
+      size_t n_params;
+    } ext;
   } u;
 };
 
@@ -957,6 +975,7 @@ typedef enum {
   TOK_NOT,
   TOK_MOD,
   TOK_BASE,
+  TOK_DECIMAL,
   TOK_FN,
   TOK_FUNCTION,
   TOK_SUB,
@@ -975,6 +994,7 @@ typedef enum {
   TOK_CODE,
   TOK_PROFILE,
   TOK_CHAIN,
+  TOK_MAT,
   /* Punctuation */
   TOK_COMMA,
   TOK_COLON,
@@ -1133,6 +1153,7 @@ static Token read_token (Parser *p) {
                     {"NOT", TOK_NOT},
                     {"MOD", TOK_MOD},
                     {"BASE", TOK_BASE},
+                    {"DECIMAL", TOK_DECIMAL},
                     {"FUNCTION", TOK_FUNCTION},
                     {"SUB", TOK_SUB},
                     {"TRUE", TOK_TRUE},
@@ -1150,6 +1171,7 @@ static Token read_token (Parser *p) {
                     {"CODE", TOK_CODE},
                     {"PROFILE", TOK_PROFILE},
                     {"PROFILING", TOK_PROFILE},
+                    {"MAT", TOK_MAT},
                     {"CHAIN", TOK_CHAIN},
                     {NULL, TOK_EOF}};
     for (int j = 0; keywords[j].kw != NULL; j++)
@@ -1161,11 +1183,14 @@ static Token read_token (Parser *p) {
     if (strncmp (buf, "FN", 2) == 0 && buf[2] != '\0') {
       t.type = TOK_FN;
       t.str = arena_strdup (&ast_arena, buf);
+      decimal_locked = 1;
       p->cur = cur;
       return t;
     }
     t.type = TOK_IDENTIFIER;
     t.str = arena_strdup (&ast_arena, buf);
+    size_t len = strlen (buf);
+    if (buf[len - 1] != '$' && buf[len - 1] != '%') decimal_locked = 1;
     p->cur = cur;
     return t;
   }
@@ -1184,6 +1209,7 @@ static Token read_token (Parser *p) {
         cur = end;
         t.type = TOK_NUMBER;
         t.num = (basic_num_t) v;
+        decimal_locked = 1;
         p->cur = cur;
         return t;
       }
@@ -1195,6 +1221,7 @@ static Token read_token (Parser *p) {
     t.num = BASIC_STRTOF (cur, &cur);
     (void) start;
     t.type = TOK_NUMBER;
+    decimal_locked = 1;
     p->cur = cur;
     return t;
   }
@@ -1619,6 +1646,14 @@ static int parse_stmt (Parser *p, Stmt *out) {
     array_base = base;
     out->kind = ST_REM;
     return 1;
+  case TOK_DECIMAL:
+    if (decimal_locked) {
+      safe_fprintf (stderr, "DECIMAL must appear before numeric variables or literals\n");
+      return 0;
+    }
+    use_decimal_floats = 1;
+    out->kind = ST_REM;
+    return 1;
   case TOK_DIM:
     out->kind = ST_DIM;
     out->u.dim.names = NULL;
@@ -1871,6 +1906,10 @@ static int parse_stmt (Parser *p, Stmt *out) {
                   NULL,  NULL,         NULL,         0, 0};
     func_vec_push (&func_defs, fd);
     out->kind = ST_EXTERN;
+    out->u.ext.idx = func_defs.len - 1;
+    out->u.ext.is_proc = is_proc;
+    out->u.ext.is_str_ret = f_is_str;
+    out->u.ext.n_params = n;
     return 1;
   }
   case TOK_DEF: {
@@ -3827,9 +3866,30 @@ static void gen_stmt (Stmt *s) {
   case ST_DEF:
     /* no code generation needed */
     break;
-  case ST_EXTERN:
-    /* extern declarations are handled during parsing */
+  case ST_EXTERN: {
+    FuncDef *fd = &func_defs.data[s->u.ext.idx];
+    if (fd->item == NULL) {
+      MIR_type_t rtype = fd->is_str_ret ? MIR_T_P : MIR_T_D;
+      MIR_var_t *vars = NULL;
+      if (fd->n != 0) {
+        vars = basic_pool_alloc (sizeof (MIR_var_t) * fd->n);
+        for (size_t j = 0; j < fd->n; j++) {
+          vars[j].type = fd->is_str[j] ? MIR_T_P : MIR_T_D;
+          vars[j].name = fd->params[j];
+        }
+      }
+      char proto_name[128];
+      safe_snprintf (proto_name, sizeof (proto_name), "%s_p", fd->name);
+      if (fd->is_proc) {
+        fd->proto = MIR_new_proto_arr (g_ctx, proto_name, 0, NULL, fd->n, vars);
+      } else {
+        fd->proto = MIR_new_proto_arr (g_ctx, proto_name, 1, &rtype, fd->n, vars);
+      }
+      fd->item = MIR_new_import (g_ctx, fd->name);
+      basic_pool_free (vars);
+    }
     break;
+  }
   case ST_PRINT: gen_print (s); break;
   case ST_PRINT_HASH: gen_print_hash (s); break;
   case ST_INPUT: gen_input (s); break;
@@ -5070,6 +5130,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   g_ctx = ctx;
   for (size_t i = 0; i < func_defs.len; i++) {
     FuncDef *fd = &func_defs.data[i];
+    if (fd->is_extern) continue;
     MIR_type_t rtype = fd->is_str_ret ? MIR_T_P : MIR_T_D;
     MIR_var_t *vars = NULL;
     if (fd->n != 0) {
@@ -5081,16 +5142,6 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     }
     char proto_name[128];
     safe_snprintf (proto_name, sizeof (proto_name), "%s_p", fd->name);
-    if (fd->is_extern) {
-      if (fd->is_proc) {
-        fd->proto = MIR_new_proto_arr (ctx, proto_name, 0, NULL, fd->n, vars);
-      } else {
-        fd->proto = MIR_new_proto_arr (ctx, proto_name, 1, &rtype, fd->n, vars);
-      }
-      fd->item = MIR_new_import (ctx, fd->name);
-      basic_pool_free (vars);
-      continue;
-    }
     if (fd->is_proc) {
       fd->proto = MIR_new_proto_arr (ctx, proto_name, 0, NULL, fd->n, vars);
       fd->item = MIR_new_func_arr (ctx, fd->name, 0, NULL, fd->n, vars);
@@ -5593,6 +5644,14 @@ int main (int argc, char **argv) {
       reduce_libs = 1;
     } else if (strcmp (argv[i], "--no-line-tracking") == 0) {
       line_tracking = 0;
+    } else if (strcmp (argv[i], "--option-base") == 0 && i + 1 < argc) {
+      char *end;
+      long b = strtol (argv[++i], &end, 10);
+      if (*end != '\0' || (b != 0 && b != 1)) {
+        safe_fprintf (stderr, "OPTION BASE must be 0 or 1\n");
+        return 1;
+      }
+      array_base = (int) b;
     } else if (strcmp (argv[i], "-o") == 0 && i + 1 < argc) {
       out_name = argv[++i];
     } else {
