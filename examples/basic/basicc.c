@@ -522,6 +522,10 @@ typedef enum {
   ST_NEXT,
   ST_WHILE,
   ST_WEND,
+  ST_DO,
+  ST_LOOP,
+  ST_REPEAT,
+  ST_UNTIL,
   ST_GOSUB,
   ST_RETURN,
   ST_ON_GOTO,
@@ -601,6 +605,10 @@ static const char *stmt_kind_name (StmtKind kind) {
     [ST_NEXT] = "ST_NEXT",
     [ST_WHILE] = "ST_WHILE",
     [ST_WEND] = "ST_WEND",
+    [ST_DO] = "ST_DO",
+    [ST_LOOP] = "ST_LOOP",
+    [ST_REPEAT] = "ST_REPEAT",
+    [ST_UNTIL] = "ST_UNTIL",
     [ST_GOSUB] = "ST_GOSUB",
     [ST_RETURN] = "ST_RETURN",
     [ST_ON_GOTO] = "ST_ON_GOTO",
@@ -619,7 +627,7 @@ static const char *stmt_kind_name (StmtKind kind) {
 struct Stmt {
   StmtKind kind;
   union {
-    Node *expr; /* PRINT/VTAB/HTAB/SCREEN/COLOR/WHILE/HCOLOR/RANDOMIZE/MODE/DELAY */
+    Node *expr; /* PRINT/VTAB/HTAB/SCREEN/COLOR/WHILE/UNTIL/HCOLOR/RANDOMIZE/MODE/DELAY */
     struct {
       Node **items;
       size_t n;
@@ -835,10 +843,12 @@ typedef struct {
   size_t len, cap;
 } LineVec;
 
+typedef enum { LOOP_FOR, LOOP_WHILE, LOOP_DO, LOOP_REPEAT } LoopType;
+
 typedef struct {
   MIR_reg_t var, end, step;
   MIR_label_t start_label, end_label;
-  int is_while;
+  LoopType type;
 } LoopInfo;
 
 static void stmt_vec_push (StmtVec *v, Stmt s) {
@@ -963,6 +973,10 @@ typedef enum {
   TOK_NEXT,
   TOK_WHILE,
   TOK_WEND,
+  TOK_DO,
+  TOK_LOOP,
+  TOK_REPEAT,
+  TOK_UNTIL,
   TOK_GOSUB,
   TOK_RETURN,
   TOK_ON,
@@ -1140,6 +1154,10 @@ static Token read_token (Parser *p) {
                     {"NEXT", TOK_NEXT},
                     {"WHILE", TOK_WHILE},
                     {"WEND", TOK_WEND},
+                    {"DO", TOK_DO},
+                    {"LOOP", TOK_LOOP},
+                    {"REPEAT", TOK_REPEAT},
+                    {"UNTIL", TOK_UNTIL},
                     {"GOSUB", TOK_GOSUB},
                     {"RETURN", TOK_RETURN},
                     {"ON", TOK_ON},
@@ -1863,6 +1881,13 @@ static int parse_stmt (Parser *p, Stmt *out) {
     PARSE_EXPR_OR_ERROR (out->u.expr);
     return 1;
   case TOK_WEND: out->kind = ST_WEND; return 1;
+  case TOK_DO: out->kind = ST_DO; return 1;
+  case TOK_LOOP: out->kind = ST_LOOP; return 1;
+  case TOK_REPEAT: out->kind = ST_REPEAT; return 1;
+  case TOK_UNTIL:
+    out->kind = ST_UNTIL;
+    PARSE_EXPR_OR_ERROR (out->u.expr);
+    return 1;
   case TOK_RETURN: out->kind = ST_RETURN; return 1;
   case TOK_END: out->kind = ST_END; return 1;
   case TOK_STOP: out->kind = ST_STOP; return 1;
@@ -4181,7 +4206,7 @@ static void gen_stmt (Stmt *s) {
       g_loop_stack = tmp;
       g_loop_cap = new_cap;
     }
-    g_loop_stack[g_loop_len++] = (LoopInfo) {var, end, step, start_label, end_label, 0};
+    g_loop_stack[g_loop_len++] = (LoopInfo) {var, end, step, start_label, end_label, LOOP_FOR};
     MIR_append_insn (g_ctx, g_func, start_label);
     MIR_label_t neg_step = MIR_new_label (g_ctx);
     MIR_label_t after_cmp = MIR_new_label (g_ctx);
@@ -4203,7 +4228,7 @@ static void gen_stmt (Stmt *s) {
   case ST_NEXT: {
     if (g_loop_len == 0) break;
     LoopInfo info = g_loop_stack[--g_loop_len];
-    if (info.is_while) break;
+    if (info.type != LOOP_FOR) break;
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_insn (g_ctx, MIR_DADD, MIR_new_reg_op (g_ctx, info.var),
                                    MIR_new_reg_op (g_ctx, info.var),
@@ -4224,7 +4249,7 @@ static void gen_stmt (Stmt *s) {
       g_loop_stack = tmp;
       g_loop_cap = new_cap;
     }
-    g_loop_stack[g_loop_len++] = (LoopInfo) {0, 0, 0, start_label, end_label, 1};
+    g_loop_stack[g_loop_len++] = (LoopInfo) {0, 0, 0, start_label, end_label, LOOP_WHILE};
     MIR_append_insn (g_ctx, g_func, start_label);
     MIR_reg_t cond = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
     MIR_append_insn (g_ctx, g_func,
@@ -4235,8 +4260,59 @@ static void gen_stmt (Stmt *s) {
   case ST_WEND: {
     if (g_loop_len == 0) break;
     LoopInfo info = g_loop_stack[--g_loop_len];
+    if (info.type != LOOP_WHILE) break;
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, info.start_label)));
+    MIR_append_insn (g_ctx, g_func, info.end_label);
+    break;
+  }
+  case ST_DO: {
+    MIR_label_t start_label = MIR_new_label (g_ctx);
+    MIR_label_t end_label = MIR_new_label (g_ctx);
+    if (g_loop_len == g_loop_cap) {
+      size_t new_cap = g_loop_cap ? 2 * g_loop_cap : 16;
+      LoopInfo *tmp
+        = pool_realloc (g_loop_stack, g_loop_cap * sizeof (LoopInfo), new_cap * sizeof (LoopInfo));
+      if (tmp == NULL) return;
+      g_loop_stack = tmp;
+      g_loop_cap = new_cap;
+    }
+    g_loop_stack[g_loop_len++] = (LoopInfo) {0, 0, 0, start_label, end_label, LOOP_DO};
+    MIR_append_insn (g_ctx, g_func, start_label);
+    break;
+  }
+  case ST_LOOP: {
+    if (g_loop_len == 0) break;
+    LoopInfo info = g_loop_stack[--g_loop_len];
+    if (info.type != LOOP_DO) break;
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, info.start_label)));
+    MIR_append_insn (g_ctx, g_func, info.end_label);
+    break;
+  }
+  case ST_REPEAT: {
+    MIR_label_t start_label = MIR_new_label (g_ctx);
+    MIR_label_t end_label = MIR_new_label (g_ctx);
+    if (g_loop_len == g_loop_cap) {
+      size_t new_cap = g_loop_cap ? 2 * g_loop_cap : 16;
+      LoopInfo *tmp
+        = pool_realloc (g_loop_stack, g_loop_cap * sizeof (LoopInfo), new_cap * sizeof (LoopInfo));
+      if (tmp == NULL) return;
+      g_loop_stack = tmp;
+      g_loop_cap = new_cap;
+    }
+    g_loop_stack[g_loop_len++] = (LoopInfo) {0, 0, 0, start_label, end_label, LOOP_REPEAT};
+    MIR_append_insn (g_ctx, g_func, start_label);
+    break;
+  }
+  case ST_UNTIL: {
+    if (g_loop_len == 0) break;
+    LoopInfo info = g_loop_stack[--g_loop_len];
+    if (info.type != LOOP_REPEAT) break;
+    MIR_reg_t cond = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_insn (g_ctx, MIR_DBEQ, MIR_new_label_op (g_ctx, info.start_label),
+                                   MIR_new_reg_op (g_ctx, cond), MIR_new_double_op (g_ctx, 0.0)));
     MIR_append_insn (g_ctx, g_func, info.end_label);
     break;
   }
