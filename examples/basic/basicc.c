@@ -200,6 +200,8 @@ extern double basic_system (const char *);
 extern char *basic_system_out (void);
 
 static int array_base = 0;
+static int use_decimal_floats = 0;
+static int decimal_locked = 0;
 static int line_tracking = 1;
 arena_t ast_arena;
 
@@ -948,6 +950,7 @@ typedef enum {
   TOK_NOT,
   TOK_MOD,
   TOK_BASE,
+  TOK_DECIMAL,
   TOK_FN,
   TOK_FUNCTION,
   TOK_SUB,
@@ -1123,6 +1126,7 @@ static Token read_token (Parser *p) {
                     {"NOT", TOK_NOT},
                     {"MOD", TOK_MOD},
                     {"BASE", TOK_BASE},
+                    {"DECIMAL", TOK_DECIMAL},
                     {"FUNCTION", TOK_FUNCTION},
                     {"SUB", TOK_SUB},
                     {"TRUE", TOK_TRUE},
@@ -1151,11 +1155,14 @@ static Token read_token (Parser *p) {
     if (strncmp (buf, "FN", 2) == 0 && buf[2] != '\0') {
       t.type = TOK_FN;
       t.str = arena_strdup (&ast_arena, buf);
+      decimal_locked = 1;
       p->cur = cur;
       return t;
     }
     t.type = TOK_IDENTIFIER;
     t.str = arena_strdup (&ast_arena, buf);
+    size_t len = strlen (buf);
+    if (buf[len - 1] != '$' && buf[len - 1] != '%') decimal_locked = 1;
     p->cur = cur;
     return t;
   }
@@ -1174,6 +1181,7 @@ static Token read_token (Parser *p) {
         cur = end;
         t.type = TOK_NUMBER;
         t.num = (basic_num_t) v;
+        decimal_locked = 1;
         p->cur = cur;
         return t;
       }
@@ -1185,6 +1193,7 @@ static Token read_token (Parser *p) {
     t.num = BASIC_STRTOF (cur, &cur);
     (void) start;
     t.type = TOK_NUMBER;
+    decimal_locked = 1;
     p->cur = cur;
     return t;
   }
@@ -1601,6 +1610,14 @@ static int parse_stmt (Parser *p, Stmt *out) {
     int base = (int) tok.num;
     if (base != 0 && base != 1) return 0;
     array_base = base;
+    out->kind = ST_REM;
+    return 1;
+  case TOK_DECIMAL:
+    if (decimal_locked) {
+      safe_fprintf (stderr, "DECIMAL must appear before numeric variables or literals\n");
+      return 0;
+    }
+    use_decimal_floats = 1;
     out->kind = ST_REM;
     return 1;
   case TOK_DIM:
