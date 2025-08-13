@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run BASIC compiler example tests.
 set -eu
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 # Determine BASIC compiler binaries to test. If none are supplied as arguments,
 # test the double and long double variants built by the makefile.
@@ -28,15 +28,9 @@ run_tests() {
 
         run_test() {
                 local name="$1"
-                local base
-                if [[ "$name" == test/* ]]; then
-                        base="$ROOT/basic/test/${name#test/}"
-                else
-                        base="$ROOT/basic/samples/$name"
-                fi
-                local in_file="$base.in"
-                local src="$base.bas"
-                local exp="$base.out"
+                local src="$ROOT/basic/tests/programs/$name.bas"
+                local in_file="$ROOT/basic/tests/inputs/$name.in"
+                local exp="$ROOT/basic/tests/expected/$name.out"
                 local out="$ROOT/basic/$name.out"
                 local err="$ROOT/basic/$name.err"
                 mkdir -p "$(dirname "$out")"
@@ -167,7 +161,7 @@ PY
                         "$ROOT/basic/test/extlib.c" -o "$ROOT/basic/libextlib.so"
         fi
         echo "Running extern"
-        LD_PRELOAD="$ROOT/basic/libextlib.so" "$BASICC" "$ROOT/basic/samples/extern.bas" \
+        LD_PRELOAD="$ROOT/basic/libextlib.so" "$BASICC" "$ROOT/basic/tests/programs/extern.bas" \
                 > "$ROOT/basic/extern.out" 2> "$ROOT/basic/extern.err"
         if [ -s "$ROOT/basic/extern.err" ]; then
                 echo "Unexpected stderr for extern"
@@ -175,55 +169,49 @@ PY
                 exit 1
         fi
         rm -f "$ROOT/basic/extern.err"
-        diff "$ROOT/basic/samples/extern.out" "$ROOT/basic/extern.out"
+        diff "$ROOT/basic/tests/expected/extern.out" "$ROOT/basic/extern.out"
         echo "extern OK"
 
-for t in hello relop delay adder string strfuncs instr gosub on funcproc vtab restore data_read data_multi clear circle box sudoku array_oob_read array_oob_write dim_expr pi pi_builtin baseconv mir_demo datediff date random rnd_noarg hexoct def_fn let mat swap chain log test/do_loop test/repeat_until bitops ifendif asin_acos pow fact hamurabi test/hyperbolic; do
-                echo "Running $t"
-                run_test "$t"
-                echo "$t OK"
+        for src in "$ROOT/basic/tests/programs/"*.bas; do
+                name=$(basename "$src" .bas)
+                case "$name" in
+                        base0_cli|base1_cli|extern|resume|dim_expr_error|line_number_float|print_expr_error|incdec)
+                                continue
+                                ;;
+                esac
+                echo "Running $name"
+                run_test "$name"
+                echo "$name OK"
         done
-
-
-echo "Running P019"
-"$BASICC" "$ROOT/basic/test/mbasic-nbs/P019.BAS" > "$ROOT/basic/P019.out" 2> "$ROOT/basic/P019.err"
-if [ -s "$ROOT/basic/P019.err" ]; then
-echo "Unexpected stderr for P019"
-cat "$ROOT/basic/P019.err"
-exit 1
-fi
-rm -f "$ROOT/basic/P019.err"
-diff "$ROOT/basic/test/mbasic-nbs/P019.out" "$ROOT/basic/P019.out"
-echo "P019 OK"
         echo "Running base0_cli"
-        "$BASICC" --option-base 0 "$ROOT/basic/samples/base0_cli.bas" > "$ROOT/basic/base0_cli.out" 2> "$ROOT/basic/base0_cli.err"
+        "$BASICC" --option-base 0 "$ROOT/basic/tests/programs/base0_cli.bas" > "$ROOT/basic/base0_cli.out" 2> "$ROOT/basic/base0_cli.err"
         if [ -s "$ROOT/basic/base0_cli.err" ]; then
                 echo "Unexpected stderr for base0_cli"
                 cat "$ROOT/basic/base0_cli.err"
                 exit 1
         fi
         rm -f "$ROOT/basic/base0_cli.err"
-        diff "$ROOT/basic/samples/base0_cli.out" "$ROOT/basic/base0_cli.out"
+        diff "$ROOT/basic/tests/expected/base0_cli.out" "$ROOT/basic/base0_cli.out"
         echo "base0_cli OK"
 
         echo "Running base1_cli"
-        "$BASICC" --option-base 1 "$ROOT/basic/samples/base1_cli.bas" > "$ROOT/basic/base1_cli.out" 2> "$ROOT/basic/base1_cli.err"
+        "$BASICC" --option-base 1 "$ROOT/basic/tests/programs/base1_cli.bas" > "$ROOT/basic/base1_cli.out" 2> "$ROOT/basic/base1_cli.err"
         if [ -s "$ROOT/basic/base1_cli.err" ]; then
                 echo "Unexpected stderr for base1_cli"
                 cat "$ROOT/basic/base1_cli.err"
                 exit 1
         fi
         rm -f "$ROOT/basic/base1_cli.err"
-        diff "$ROOT/basic/samples/base1_cli.out" "$ROOT/basic/base1_cli.out"
+        diff "$ROOT/basic/tests/expected/base1_cli.out" "$ROOT/basic/base1_cli.out"
         echo "base1_cli OK"
 
         echo "Running hello (no line tracking)"
-        "$BASICC" --no-line-tracking "$ROOT/basic/samples/hello.bas" > "$ROOT/basic/hello-no-line.out"
-        diff "$ROOT/basic/samples/hello.out" "$ROOT/basic/hello-no-line.out"
+        "$BASICC" --no-line-tracking "$ROOT/basic/tests/programs/hello.bas" > "$ROOT/basic/hello-no-line.out"
+        diff "$ROOT/basic/tests/expected/hello.out" "$ROOT/basic/hello-no-line.out"
         echo "hello (no line tracking) OK"
 
         echo "Running resume (expect error)"
-        if "$BASICC" --no-line-tracking "$ROOT/basic/samples/resume.bas" >/dev/null 2> "$ROOT/basic/resume.err"; then
+        if "$BASICC" --no-line-tracking "$ROOT/basic/tests/programs/resume.bas" >/dev/null 2> "$ROOT/basic/resume.err"; then
                 echo "resume should have failed"
                 exit 1
         fi
@@ -231,7 +219,7 @@ echo "P019 OK"
         echo "resume error OK"
 
 echo "Running dim expression (expect error)"
-if "$BASICC" "$ROOT/basic/samples/dim_expr_error.bas" >/dev/null 2> "$ROOT/basic/dim_expr_error.err"; then
+if "$BASICC" "$ROOT/basic/tests/programs/dim_expr_error.bas" >/dev/null 2> "$ROOT/basic/dim_expr_error.err"; then
 echo "dim expression should have failed"
 exit 1
 fi
@@ -239,7 +227,7 @@ grep -q "expected integer" "$ROOT/basic/dim_expr_error.err"
 echo "dim expression error OK"
 
 echo "Running line number float (expect error)"
-if "$BASICC" "$ROOT/basic/samples/line_number_float.bas" >/dev/null 2> "$ROOT/basic/line_number_float.err"; then
+if "$BASICC" "$ROOT/basic/tests/programs/line_number_float.bas" >/dev/null 2> "$ROOT/basic/line_number_float.err"; then
 echo "line number float should have failed"
 exit 1
 fi
@@ -247,7 +235,7 @@ grep -q "expected integer" "$ROOT/basic/line_number_float.err"
 echo "line number float error OK"
 
 echo "Running print expression (expect error)"
-"$BASICC" "$ROOT/basic/samples/print_expr_error.bas" >/dev/null \
+"$BASICC" "$ROOT/basic/tests/programs/print_expr_error.bas" >/dev/null \
         2> "$ROOT/basic/print_expr_error.err" || true
 if ! grep -q "parse error at line 10" "$ROOT/basic/print_expr_error.err"; then
         echo "print expression should have failed"
@@ -256,18 +244,18 @@ fi
 echo "print expression error OK"
 
         echo "Running repl LOAD"
-        printf 'LOAD %s\nRUN\nQUIT\n' "$ROOT/basic/samples/hello.bas" | "$BASICC" > "$ROOT/basic/repl-load.out"
-        diff "$ROOT/basic/samples/repl-load.out" "$ROOT/basic/repl-load.out"
+        printf 'LOAD %s\nRUN\nQUIT\n' "$ROOT/basic/tests/programs/hello.bas" | "$BASICC" > "$ROOT/basic/repl-load.out"
+        diff "$ROOT/basic/tests/expected/repl-load.out" "$ROOT/basic/repl-load.out"
         echo "repl LOAD done"
 
         echo "Running repl LIST"
-        printf 'LOAD %s\nLIST\nQUIT\n' "$ROOT/basic/samples/funcproc.bas" | "$BASICC" > "$ROOT/basic/repl-list.out"
-        diff "$ROOT/basic/samples/repl-list.out" "$ROOT/basic/repl-list.out"
+        printf 'LOAD %s\nLIST\nQUIT\n' "$ROOT/basic/tests/programs/funcproc.bas" | "$BASICC" > "$ROOT/basic/repl-list.out"
+        diff "$ROOT/basic/tests/expected/repl-list.out" "$ROOT/basic/repl-list.out"
         echo "repl LIST done"
 
         echo "Running repl CODE"
         printf '10 PRINT "HI"\nCOMPILE CODE repl-code.bin\nQUIT\n' | "$BASICC" > "$ROOT/basic/repl-code.out"
-        diff "$ROOT/basic/samples/repl-code.out" "$ROOT/basic/repl-code.out"
+        diff "$ROOT/basic/tests/expected/repl-code.out" "$ROOT/basic/repl-code.out"
         test -s repl-code.bin
         rm -f repl-code.bin
         echo "repl CODE done"
@@ -279,7 +267,7 @@ echo "print expression error OK"
         echo "repl PROFILING done"
 
         echo "Running repl PROFILING funcproc"
-        printf 'LOAD %s\nRUN PROFILING\nQUIT\n' "$ROOT/basic/samples/funcproc.bas" | "$BASICC" > "$ROOT/basic/repl-prof-funcproc.out"
+        printf 'LOAD %s\nRUN PROFILING\nQUIT\n' "$ROOT/basic/tests/programs/funcproc.bas" | "$BASICC" > "$ROOT/basic/repl-prof-funcproc.out"
         grep -q 'func ADD: count 1' "$ROOT/basic/repl-prof-funcproc.out"
         grep -q 'func HELLO: count 2' "$ROOT/basic/repl-prof-funcproc.out"
         echo "repl PROFILING funcproc done"
