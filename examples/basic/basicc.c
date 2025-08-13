@@ -519,6 +519,7 @@ typedef enum {
   ST_ON_GOSUB,
   ST_ON_ERROR,
   ST_RESUME,
+  ST_MAT,
   ST_CHAIN,
   ST_EXTERN,
   ST_CALL,
@@ -528,6 +529,13 @@ typedef struct {
   Stmt *data;
   size_t len, cap;
 } StmtVec;
+
+typedef struct {
+  Node *dest;
+  Node *src1;
+  Node *src2;
+  int op_type;
+} MatStmt;
 
 static const char *stmt_kind_name (StmtKind kind) {
   static const char *names[] = {
@@ -589,6 +597,7 @@ static const char *stmt_kind_name (StmtKind kind) {
     [ST_ON_GOSUB] = "ST_ON_GOSUB",
     [ST_ON_ERROR] = "ST_ON_ERROR",
     [ST_RESUME] = "ST_RESUME",
+    [ST_MAT] = "ST_MAT",
     [ST_CHAIN] = "ST_CHAIN",
     [ST_EXTERN] = "ST_EXTERN",
     [ST_CALL] = "ST_CALL",
@@ -741,6 +750,7 @@ struct Stmt {
       int line;
       int has_line;
     } resume;
+    MatStmt mat;
     struct {
       Node *path;
     } chain;
@@ -966,6 +976,7 @@ typedef enum {
   TOK_CODE,
   TOK_PROFILE,
   TOK_CHAIN,
+  TOK_MAT,
   /* Punctuation */
   TOK_COMMA,
   TOK_COLON,
@@ -1140,6 +1151,7 @@ static Token read_token (Parser *p) {
                     {"CODE", TOK_CODE},
                     {"PROFILE", TOK_PROFILE},
                     {"PROFILING", TOK_PROFILE},
+                    {"MAT", TOK_MAT},
                     {"CHAIN", TOK_CHAIN},
                     {NULL, TOK_EOF}};
     for (int j = 0; keywords[j].kw != NULL; j++)
