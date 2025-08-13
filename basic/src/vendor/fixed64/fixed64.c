@@ -4,11 +4,45 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static void mul64 (uint64_t a, uint64_t b, uint64_t *hi, uint64_t *lo) {
+  uint64_t a0 = (uint32_t) a, a1 = a >> 32;
+  uint64_t b0 = (uint32_t) b, b1 = b >> 32;
+  uint64_t p0 = a0 * b0;
+  uint64_t p1 = a0 * b1;
+  uint64_t p2 = a1 * b0;
+  uint64_t p3 = a1 * b1;
+  uint64_t mid = (p0 >> 32) + (uint32_t) p1 + (uint32_t) p2;
+  uint64_t mid_lo = mid & 0xffffffffu;
+  uint64_t mid_hi = mid >> 32;
+  *lo = (p0 & 0xffffffffu) | (mid_lo << 32);
+  *hi = p3 + (p1 >> 32) + (p2 >> 32) + mid_hi;
+}
+
+static void add128 (uint64_t *hi, uint64_t *lo, uint64_t ah, uint64_t al) {
+  uint64_t l = *lo + al;
+  *hi = *hi + ah + (l < *lo);
+  *lo = l;
+}
+
 fixed64_t fixed64_mul (fixed64_t a, fixed64_t b) {
-  (void) a;
-  (void) b;
-  /* TODO: implement 128-bit multiplication using 64-bit parts */
-  return fixed64_from_int (0);
+  int neg = (a.hi < 0) ^ (b.hi < 0);
+  fixed64_t aa = fixed64_abs (a);
+  fixed64_t bb = fixed64_abs (b);
+  uint64_t alo = aa.lo, ahi = (uint64_t) aa.hi;
+  uint64_t blo = bb.lo, bhi = (uint64_t) bb.hi;
+  uint64_t p0_hi, p0_lo, p1_hi, p1_lo, p2_hi, p2_lo, p3_hi, p3_lo;
+  mul64 (alo, blo, &p0_hi, &p0_lo);
+  mul64 (ahi, blo, &p1_hi, &p1_lo);
+  mul64 (alo, bhi, &p2_hi, &p2_lo);
+  mul64 (ahi, bhi, &p3_hi, &p3_lo);
+  uint64_t res_hi = p3_lo, res_lo = 0;
+  add128 (&res_hi, &res_lo, p1_hi, p1_lo);
+  add128 (&res_hi, &res_lo, p2_hi, p2_lo);
+  add128 (&res_hi, &res_lo, 0, p0_hi);
+  fixed64_t r;
+  r.hi = (int64_t) res_hi;
+  r.lo = res_lo;
+  return neg ? fixed64_neg (r) : r;
 }
 
 fixed64_t fixed64_div (fixed64_t a, fixed64_t b) {

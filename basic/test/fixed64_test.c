@@ -13,10 +13,14 @@ int main (void) {
   res = fixed64_sub (two, half);
   assert (res.hi == 1 && res.lo == (1ULL << 63));
 
-#if 0
   res = fixed64_mul (two, half);
   assert (res.hi == 1 && res.lo == 0);
 
+  fixed64_t neg_two = fixed64_neg (two);
+  res = fixed64_mul (neg_two, half);
+  assert (res.hi == -1 && res.lo == 0);
+
+#if 0
   res = fixed64_div (two, half);
   assert (res.hi == 4 && res.lo == 0);
 #endif
