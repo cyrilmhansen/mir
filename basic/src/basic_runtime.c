@@ -55,26 +55,124 @@ static inline MIR_op_t BASIC_MIR_new_num_op (MIR_context_t ctx, basic_num_t v) {
   *p = v;
   return MIR_new_ref_op (ctx, p);
 }
-#define BASIC_MIR_D2I MIR_D2I
-#define BASIC_MIR_I2D MIR_I2D
-#define BASIC_MIR_DMOV MIR_DMOV
-#define BASIC_MIR_DNEG MIR_DNEG
-#define BASIC_MIR_DEQ MIR_DEQ
-#define BASIC_MIR_DNE MIR_DNE
-#define BASIC_MIR_DLT MIR_DLT
-#define BASIC_MIR_DLE MIR_DLE
-#define BASIC_MIR_DGT MIR_DGT
-#define BASIC_MIR_DGE MIR_DGE
-#define BASIC_MIR_DADD MIR_DADD
-#define BASIC_MIR_DSUB MIR_DSUB
-#define BASIC_MIR_DMUL MIR_DMUL
-#define BASIC_MIR_DDIV MIR_DDIV
-#define BASIC_MIR_DBEQ MIR_DBEQ
-#define BASIC_MIR_DBNE MIR_DBNE
-#define BASIC_MIR_DBLT MIR_DBLT
-#define BASIC_MIR_DBLE MIR_DBLE
-#define BASIC_MIR_DBGT MIR_DBGT
-#define BASIC_MIR_DBGE MIR_DBGE
+
+static MIR_item_t fixed64_add_proto, fixed64_add_import, fixed64_sub_proto, fixed64_sub_import,
+  fixed64_mul_proto, fixed64_mul_import, fixed64_div_proto, fixed64_div_import, fixed64_eq_proto,
+  fixed64_eq_import, fixed64_ne_proto, fixed64_ne_import, fixed64_lt_proto, fixed64_lt_import,
+  fixed64_le_proto, fixed64_le_import, fixed64_gt_proto, fixed64_gt_import, fixed64_ge_proto,
+  fixed64_ge_import, fixed64_from_int_proto, fixed64_from_int_import, fixed64_to_int_proto,
+  fixed64_to_int_import, fixed64_neg_proto, fixed64_neg_import;
+
+static MIR_insn_t basic_mir_binop (MIR_context_t ctx, MIR_insn_code_t code, MIR_op_t dst,
+                                   MIR_op_t src1, MIR_op_t src2) {
+  MIR_item_t proto = NULL, import = NULL;
+  switch (code) {
+  case MIR_DADD:
+    proto = fixed64_add_proto;
+    import = fixed64_add_import;
+    break;
+  case MIR_DSUB:
+    proto = fixed64_sub_proto;
+    import = fixed64_sub_import;
+    break;
+  case MIR_DMUL:
+    proto = fixed64_mul_proto;
+    import = fixed64_mul_import;
+    break;
+  case MIR_DDIV:
+    proto = fixed64_div_proto;
+    import = fixed64_div_import;
+    break;
+  case MIR_DEQ:
+    proto = fixed64_eq_proto;
+    import = fixed64_eq_import;
+    break;
+  case MIR_DNE:
+    proto = fixed64_ne_proto;
+    import = fixed64_ne_import;
+    break;
+  case MIR_DLT:
+    proto = fixed64_lt_proto;
+    import = fixed64_lt_import;
+    break;
+  case MIR_DLE:
+    proto = fixed64_le_proto;
+    import = fixed64_le_import;
+    break;
+  case MIR_DGT:
+    proto = fixed64_gt_proto;
+    import = fixed64_gt_import;
+    break;
+  case MIR_DGE:
+    proto = fixed64_ge_proto;
+    import = fixed64_ge_import;
+    break;
+  default: return MIR_new_insn (ctx, code, dst, src1, src2);
+  }
+  return MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, proto), MIR_new_ref_op (ctx, import), dst,
+                            src1, src2);
+}
+
+static MIR_insn_t basic_mir_unop (MIR_context_t ctx, MIR_insn_code_t code, MIR_op_t dst,
+                                  MIR_op_t src) {
+  if (code == MIR_DNEG)
+    return MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, fixed64_neg_proto),
+                              MIR_new_ref_op (ctx, fixed64_neg_import), dst, src);
+  return MIR_new_insn (ctx, code, dst, src);
+}
+
+static MIR_insn_t basic_mir_i2n (MIR_context_t ctx, MIR_op_t dst, MIR_op_t src) {
+  return MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, fixed64_from_int_proto),
+                            MIR_new_ref_op (ctx, fixed64_from_int_import), dst, src);
+}
+
+static MIR_insn_t basic_mir_n2i (MIR_context_t ctx, MIR_op_t dst, MIR_op_t src) {
+  return MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, fixed64_to_int_proto),
+                            MIR_new_ref_op (ctx, fixed64_to_int_import), dst, src);
+}
+
+static void basic_mir_bcmp (MIR_context_t ctx, MIR_item_t func, MIR_insn_code_t code,
+                            MIR_op_t label, MIR_op_t src1, MIR_op_t src2) {
+  MIR_item_t proto = NULL, import = NULL;
+  switch (code) {
+  case MIR_DBEQ:
+    proto = fixed64_eq_proto;
+    import = fixed64_eq_import;
+    break;
+  case MIR_DBNE:
+    proto = fixed64_ne_proto;
+    import = fixed64_ne_import;
+    break;
+  case MIR_DBLT:
+    proto = fixed64_lt_proto;
+    import = fixed64_lt_import;
+    break;
+  case MIR_DBLE:
+    proto = fixed64_le_proto;
+    import = fixed64_le_import;
+    break;
+  case MIR_DBGT:
+    proto = fixed64_gt_proto;
+    import = fixed64_gt_import;
+    break;
+  case MIR_DBGE:
+    proto = fixed64_ge_proto;
+    import = fixed64_ge_import;
+    break;
+  default: MIR_append_insn (ctx, func, MIR_new_insn (ctx, code, label, src1, src2)); return;
+  }
+  char buf[32];
+  static int btmp_id = 0;
+  snprintf (buf, sizeof (buf), "$bcmp%d", btmp_id++);
+  MIR_reg_t tmp = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+  MIR_append_insn (ctx, func,
+                   MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, proto),
+                                      MIR_new_ref_op (ctx, import), MIR_new_reg_op (ctx, tmp), src1,
+                                      src2));
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_BNE, label, MIR_new_reg_op (ctx, tmp),
+                                 MIR_new_int_op (ctx, 0)));
+}
 #else
 #define BASIC_MIR_NUM_T MIR_T_D
 static inline MIR_op_t BASIC_MIR_new_num_op (MIR_context_t ctx, basic_num_t v) {
@@ -1324,6 +1422,61 @@ basic_num_t basic_mir_mod (basic_num_t ctx_h, const char *name) {
   if (h == NULL || h->kind != H_CTX) return BASIC_ZERO;
   MIR_context_t ctx = h->ctx;
   MIR_module_t mod = MIR_new_module (ctx, name);
+#if defined(BASIC_USE_FIXED64)
+  MIR_type_t blk = MIR_T_BLK;
+  MIR_type_t i64 = MIR_T_I64;
+  MIR_var_t bin_vars[2];
+  bin_vars[0].name = "a";
+  bin_vars[0].type = MIR_T_BLK;
+  bin_vars[0].size = sizeof (basic_num_t);
+  bin_vars[1].name = "b";
+  bin_vars[1].type = MIR_T_BLK;
+  bin_vars[1].size = sizeof (basic_num_t);
+  fixed64_add_proto = MIR_new_proto_arr (ctx, "fixed64_add_p", 1, &blk, 2, bin_vars);
+  fixed64_add_import = MIR_new_import (ctx, "fixed64_add");
+  fixed64_sub_proto = MIR_new_proto_arr (ctx, "fixed64_sub_p", 1, &blk, 2, bin_vars);
+  fixed64_sub_import = MIR_new_import (ctx, "fixed64_sub");
+  fixed64_mul_proto = MIR_new_proto_arr (ctx, "fixed64_mul_p", 1, &blk, 2, bin_vars);
+  fixed64_mul_import = MIR_new_import (ctx, "fixed64_mul");
+  fixed64_div_proto = MIR_new_proto_arr (ctx, "fixed64_div_p", 1, &blk, 2, bin_vars);
+  fixed64_div_import = MIR_new_import (ctx, "fixed64_div");
+  MIR_var_t un_vars[1];
+  un_vars[0].name = "a";
+  un_vars[0].type = MIR_T_BLK;
+  un_vars[0].size = sizeof (basic_num_t);
+  fixed64_neg_proto = MIR_new_proto_arr (ctx, "fixed64_neg_p", 1, &blk, 1, un_vars);
+  fixed64_neg_import = MIR_new_import (ctx, "fixed64_neg");
+  MIR_var_t cmp_vars[2];
+  cmp_vars[0].name = "a";
+  cmp_vars[0].type = MIR_T_BLK;
+  cmp_vars[0].size = sizeof (basic_num_t);
+  cmp_vars[1].name = "b";
+  cmp_vars[1].type = MIR_T_BLK;
+  cmp_vars[1].size = sizeof (basic_num_t);
+  fixed64_eq_proto = MIR_new_proto_arr (ctx, "fixed64_eq_p", 1, &i64, 2, cmp_vars);
+  fixed64_eq_import = MIR_new_import (ctx, "fixed64_eq");
+  fixed64_ne_proto = MIR_new_proto_arr (ctx, "fixed64_ne_p", 1, &i64, 2, cmp_vars);
+  fixed64_ne_import = MIR_new_import (ctx, "fixed64_ne");
+  fixed64_lt_proto = MIR_new_proto_arr (ctx, "fixed64_lt_p", 1, &i64, 2, cmp_vars);
+  fixed64_lt_import = MIR_new_import (ctx, "fixed64_lt");
+  fixed64_le_proto = MIR_new_proto_arr (ctx, "fixed64_le_p", 1, &i64, 2, cmp_vars);
+  fixed64_le_import = MIR_new_import (ctx, "fixed64_le");
+  fixed64_gt_proto = MIR_new_proto_arr (ctx, "fixed64_gt_p", 1, &i64, 2, cmp_vars);
+  fixed64_gt_import = MIR_new_import (ctx, "fixed64_gt");
+  fixed64_ge_proto = MIR_new_proto_arr (ctx, "fixed64_ge_p", 1, &i64, 2, cmp_vars);
+  fixed64_ge_import = MIR_new_import (ctx, "fixed64_ge");
+  MIR_var_t int_vars[1];
+  int_vars[0].name = "i";
+  int_vars[0].type = MIR_T_I64;
+  fixed64_from_int_proto = MIR_new_proto_arr (ctx, "fixed64_from_int_p", 1, &blk, 1, int_vars);
+  fixed64_from_int_import = MIR_new_import (ctx, "fixed64_from_int");
+  MIR_var_t to_int_vars[1];
+  to_int_vars[0].name = "a";
+  to_int_vars[0].type = MIR_T_BLK;
+  to_int_vars[0].size = sizeof (basic_num_t);
+  fixed64_to_int_proto = MIR_new_proto_arr (ctx, "fixed64_to_int_p", 1, &i64, 1, to_int_vars);
+  fixed64_to_int_import = MIR_new_import (ctx, "fixed64_to_int");
+#endif
   return new_handle (H_MOD, ctx, mod);
 }
 
@@ -1405,7 +1558,34 @@ basic_num_t basic_mir_emit (basic_num_t func_h, const char *op, basic_num_t a, b
     else
       ops[i] = BASIC_MIR_new_num_op (ctx, vals[i]);
   }
+#if defined(BASIC_USE_FIXED64)
+  MIR_insn_t insn;
+  switch (code) {
+  case MIR_DADD:
+  case MIR_DSUB:
+  case MIR_DMUL:
+  case MIR_DDIV:
+  case MIR_DEQ:
+  case MIR_DNE:
+  case MIR_DLT:
+  case MIR_DLE:
+  case MIR_DGT:
+  case MIR_DGE: insn = basic_mir_binop (ctx, code, ops[0], ops[1], ops[2]); break;
+  case MIR_DNEG: insn = basic_mir_unop (ctx, code, ops[0], ops[1]); break;
+  case MIR_I2D: insn = basic_mir_i2n (ctx, ops[0], ops[1]); break;
+  case MIR_D2I: insn = basic_mir_n2i (ctx, ops[0], ops[1]); break;
+  case MIR_DBEQ:
+  case MIR_DBNE:
+  case MIR_DBLT:
+  case MIR_DBLE:
+  case MIR_DBGT:
+  case MIR_DBGE: basic_mir_bcmp (ctx, fh->item, code, ops[0], ops[1], ops[2]); return BASIC_ZERO;
+  default: insn = MIR_new_insn_arr (ctx, code, nops, ops); break;
+  }
+  MIR_append_insn (ctx, fh->item, insn);
+#else
   MIR_append_insn (ctx, fh->item, MIR_new_insn_arr (ctx, code, nops, ops));
+#endif
   return BASIC_ZERO;
 }
 
