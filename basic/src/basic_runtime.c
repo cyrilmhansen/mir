@@ -22,29 +22,76 @@
 #include "kitty/kitty.h"
 #include "basic_runtime.h"
 #include "basic_pool.h"
+
 #if defined(BASIC_USE_LONG_DOUBLE)
-#define MIR_T_D MIR_T_LD
-#define MIR_new_double_op MIR_new_ldouble_op
-#define MIR_D2I MIR_LD2I
-#define MIR_I2D MIR_I2LD
-#define MIR_DMOV MIR_LDMOV
-#define MIR_DNEG MIR_LDNEG
-#define MIR_DEQ MIR_LDEQ
-#define MIR_DNE MIR_LDNE
-#define MIR_DLT MIR_LDLT
-#define MIR_DLE MIR_LDLE
-#define MIR_DGT MIR_LDGT
-#define MIR_DGE MIR_LDGE
-#define MIR_DADD MIR_LDADD
-#define MIR_DSUB MIR_LDSUB
-#define MIR_DMUL MIR_LDMUL
-#define MIR_DDIV MIR_LDDIV
-#define MIR_DBEQ MIR_LDBEQ
-#define MIR_DBNE MIR_LDBNE
-#define MIR_DBLT MIR_LDBLT
-#define MIR_DBLE MIR_LDBLE
-#define MIR_DBGT MIR_LDBGT
-#define MIR_DBGE MIR_LDBGE
+#define BASIC_MIR_NUM_T MIR_T_LD
+#define BASIC_MIR_new_num_op MIR_new_ldouble_op
+#define BASIC_MIR_D2I MIR_LD2I
+#define BASIC_MIR_I2D MIR_I2LD
+#define BASIC_MIR_DMOV MIR_LDMOV
+#define BASIC_MIR_DNEG MIR_LDNEG
+#define BASIC_MIR_DEQ MIR_LDEQ
+#define BASIC_MIR_DNE MIR_LDNE
+#define BASIC_MIR_DLT MIR_LDLT
+#define BASIC_MIR_DLE MIR_LDLE
+#define BASIC_MIR_DGT MIR_LDGT
+#define BASIC_MIR_DGE MIR_LDGE
+#define BASIC_MIR_DADD MIR_LDADD
+#define BASIC_MIR_DSUB MIR_LDSUB
+#define BASIC_MIR_DMUL MIR_LDMUL
+#define BASIC_MIR_DDIV MIR_LDDIV
+#define BASIC_MIR_DBEQ MIR_LDBEQ
+#define BASIC_MIR_DBNE MIR_LDBNE
+#define BASIC_MIR_DBLT MIR_LDBLT
+#define BASIC_MIR_DBLE MIR_LDBLE
+#define BASIC_MIR_DBGT MIR_LDBGT
+#define BASIC_MIR_DBGE MIR_LDBGE
+#elif defined(BASIC_USE_FIXED64)
+#define BASIC_MIR_NUM_T MIR_T_BLK
+#define BASIC_MIR_new_num_op(ctx, v) MIR_new_int_op (ctx, 0)
+#define BASIC_MIR_D2I MIR_D2I
+#define BASIC_MIR_I2D MIR_I2D
+#define BASIC_MIR_DMOV MIR_DMOV
+#define BASIC_MIR_DNEG MIR_DNEG
+#define BASIC_MIR_DEQ MIR_DEQ
+#define BASIC_MIR_DNE MIR_DNE
+#define BASIC_MIR_DLT MIR_DLT
+#define BASIC_MIR_DLE MIR_DLE
+#define BASIC_MIR_DGT MIR_DGT
+#define BASIC_MIR_DGE MIR_DGE
+#define BASIC_MIR_DADD MIR_DADD
+#define BASIC_MIR_DSUB MIR_DSUB
+#define BASIC_MIR_DMUL MIR_DMUL
+#define BASIC_MIR_DDIV MIR_DDIV
+#define BASIC_MIR_DBEQ MIR_DBEQ
+#define BASIC_MIR_DBNE MIR_DBNE
+#define BASIC_MIR_DBLT MIR_DBLT
+#define BASIC_MIR_DBLE MIR_DBLE
+#define BASIC_MIR_DBGT MIR_DBGT
+#define BASIC_MIR_DBGE MIR_DBGE
+#else
+#define BASIC_MIR_NUM_T MIR_T_D
+#define BASIC_MIR_new_num_op MIR_new_double_op
+#define BASIC_MIR_D2I MIR_D2I
+#define BASIC_MIR_I2D MIR_I2D
+#define BASIC_MIR_DMOV MIR_DMOV
+#define BASIC_MIR_DNEG MIR_DNEG
+#define BASIC_MIR_DEQ MIR_DEQ
+#define BASIC_MIR_DNE MIR_DNE
+#define BASIC_MIR_DLT MIR_DLT
+#define BASIC_MIR_DLE MIR_DLE
+#define BASIC_MIR_DGT MIR_DGT
+#define BASIC_MIR_DGE MIR_DGE
+#define BASIC_MIR_DADD MIR_DADD
+#define BASIC_MIR_DSUB MIR_DSUB
+#define BASIC_MIR_DMUL MIR_DMUL
+#define BASIC_MIR_DDIV MIR_DDIV
+#define BASIC_MIR_DBEQ MIR_DBEQ
+#define BASIC_MIR_DBNE MIR_DBNE
+#define BASIC_MIR_DBLT MIR_DBLT
+#define BASIC_MIR_DBLE MIR_DBLE
+#define BASIC_MIR_DBGT MIR_DBGT
+#define BASIC_MIR_DBGE MIR_DBGE
 #endif
 
 static int seeded = 0;
@@ -1231,13 +1278,13 @@ basic_num_t basic_mir_func (basic_num_t mod_h, const char *name, basic_num_t nar
   if (h == NULL || h->kind != H_MOD) return BASIC_ZERO;
   MIR_context_t ctx = h->ctx;
   size_t nargs = (size_t) basic_num_to_int (nargs_d);
-  MIR_type_t res = MIR_T_D;
+  MIR_type_t res = BASIC_MIR_NUM_T;
   MIR_var_t *vars = nargs ? basic_pool_alloc (nargs * sizeof (MIR_var_t)) : NULL;
   for (size_t i = 0; i < nargs; i++) {
     size_t len = snprintf (NULL, 0, "a%zu", i);
     char *arg_name = basic_alloc_string (len);
     snprintf (arg_name, len + 1, "a%zu", i);
-    vars[i].type = MIR_T_D;
+    vars[i].type = BASIC_MIR_NUM_T;
     vars[i].name = arg_name;
   }
   MIR_item_t func = MIR_new_func_arr (ctx, name, 1, &res, nargs, vars);
@@ -1260,7 +1307,7 @@ basic_num_t basic_mir_reg (basic_num_t func_h) {
     snprintf (name, len + 1, "a%zu", fh->next_arg++);
     r = MIR_reg (ctx, name, fh->item->u.func);
   } else {
-    r = MIR_new_func_reg (ctx, fh->item->u.func, MIR_T_D, NULL);
+    r = MIR_new_func_reg (ctx, fh->item->u.func, BASIC_MIR_NUM_T, NULL);
   }
   return new_handle (H_REG, ctx, (void *) (uintptr_t) r);
 }
@@ -1302,7 +1349,7 @@ basic_num_t basic_mir_emit (basic_num_t func_h, const char *op, basic_num_t a, b
     else if (oh != NULL && oh->kind == H_LABEL)
       ops[i] = MIR_new_label_op (ctx, (MIR_label_t) oh->ptr);
     else
-      ops[i] = MIR_new_double_op (ctx, vals[i]);
+      ops[i] = BASIC_MIR_new_num_op (ctx, vals[i]);
   }
   MIR_append_insn (ctx, fh->item, MIR_new_insn_arr (ctx, code, nops, ops));
   return BASIC_ZERO;
