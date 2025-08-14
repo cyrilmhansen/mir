@@ -4481,7 +4481,7 @@ static void gen_stmt (Stmt *s) {
       MIR_type_t rtype = fd->is_str_ret ? MIR_T_P : MIR_T_D;
       MIR_var_t *vars = NULL;
       if (fd->n != 0) {
-        vars = basic_pool_alloc (sizeof (MIR_var_t) * fd->n);
+        vars = arena_alloc (&ast_arena, sizeof (MIR_var_t) * fd->n);
         for (size_t j = 0; j < fd->n; j++) {
           vars[j].type = fd->is_str[j] ? MIR_T_P : MIR_T_D;
           vars[j].name = fd->params[j];
@@ -4495,7 +4495,7 @@ static void gen_stmt (Stmt *s) {
         fd->proto = MIR_new_proto_arr (g_ctx, proto_name, 1, &rtype, fd->n, vars);
       }
       fd->item = MIR_new_import (g_ctx, fd->name);
-      basic_pool_free (vars);
+      /* Do not free vars here; the MIR prototype references this array. */
     }
     break;
   }
@@ -6190,7 +6190,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     MIR_type_t rtype = fd->is_str_ret ? MIR_T_P : MIR_T_D;
     MIR_var_t *vars = NULL;
     if (fd->n != 0) {
-      vars = basic_pool_alloc (sizeof (MIR_var_t) * fd->n);
+      vars = arena_alloc (&ast_arena, sizeof (MIR_var_t) * fd->n);
       for (size_t j = 0; j < fd->n; j++) {
         vars[j].type = fd->is_str[j] ? MIR_T_P : MIR_T_D;
         vars[j].name = fd->params[j];
@@ -6203,7 +6203,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     else
       fd->proto = MIR_new_proto_arr (ctx, proto_name, 1, &rtype, fd->n, vars);
     fd->item = MIR_new_forward (ctx, fd->name);
-    basic_pool_free (vars);
+    /* Keep vars allocated; the MIR prototype retains pointers to it. */
   }
 
   /* Pass 2: generate bodies and finalize functions. */
@@ -6213,7 +6213,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     MIR_type_t rtype = fd->is_str_ret ? MIR_T_P : MIR_T_D;
     MIR_var_t *vars = NULL;
     if (fd->n != 0) {
-      vars = basic_pool_alloc (sizeof (MIR_var_t) * fd->n);
+      vars = arena_alloc (&ast_arena, sizeof (MIR_var_t) * fd->n);
       for (size_t j = 0; j < fd->n; j++) {
         vars[j].type = fd->is_str[j] ? MIR_T_P : MIR_T_D;
         vars[j].name = fd->params[j];
@@ -6294,9 +6294,10 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       g_loop_len = saved_loop_len;
     }
     MIR_finish_func (ctx);
-    for (size_t j = 0; j < fvars.len; j++) basic_pool_free (fvars.data[j].name);
-    basic_pool_free (fvars.data);
-    basic_pool_free (vars);
+    /* Do not free any of the allocated arrays here.  The MIR function keeps
+       pointers to the parameter descriptors and their names, and returning them
+       to the pool may result in reuse that overlaps with active allocations
+       causing crashes.  */
   }
   MIR_type_t res_t = MIR_T_I64;
   MIR_item_t func = MIR_new_func (ctx, "main", 1, &res_t, 0);
