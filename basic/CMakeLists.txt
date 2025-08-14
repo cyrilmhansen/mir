@@ -6,18 +6,17 @@ set_property(CACHE BASIC_NUM_MODE PROPERTY STRINGS double long-double fixed64 ms
 
 set(BASIC_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-set(BASIC_BASE_SRC
+set(BASIC_SRCS
     src/basicc.c
     src/basic_runtime.c
     src/basic_pool.c
     src/arena.c
 )
 
-set(VENDOR_SRC)
 set(BASICC_NAME "basicc")
 
 if(BASIC_NUM_MODE STREQUAL "long-double")
-  list(APPEND VENDOR_SRC
+  list(APPEND BASIC_SRCS
        src/vendor/libdfp/decContext.c
        src/vendor/libdfp/decNumber.c
        src/vendor/libdfp/decQuad.c
@@ -30,11 +29,11 @@ if(BASIC_NUM_MODE STREQUAL "long-double")
   set(BASICC_NAME "basicc-ld")
   add_compile_definitions(BASIC_USE_LONG_DOUBLE)
 elseif(BASIC_NUM_MODE STREQUAL "fixed64")
-  list(APPEND VENDOR_SRC src/vendor/fixed64/fixed64.c)
+  list(APPEND BASIC_SRCS src/vendor/fixed64/fixed64.c)
   set(BASICC_NAME "basicc-fix")
   add_compile_definitions(BASIC_USE_FIXED64)
 elseif(BASIC_NUM_MODE STREQUAL "msfp")
-  list(APPEND VENDOR_SRC
+  list(APPEND BASIC_SRCS
        src/vendor/libdfp/decContext.c
        src/vendor/libdfp/decNumber.c
        src/vendor/libdfp/decQuad.c
@@ -45,7 +44,7 @@ elseif(BASIC_NUM_MODE STREQUAL "msfp")
   set(BASICC_NAME "basicc-msfp")
   add_compile_definitions(BASIC_USE_MSFP)
 else()
-  list(APPEND VENDOR_SRC
+  list(APPEND BASIC_SRCS
        src/vendor/libdfp/decContext.c
        src/vendor/libdfp/decNumber.c
        src/vendor/libdfp/decQuad.c
@@ -57,7 +56,7 @@ else()
   add_compile_definitions(BASIC_USE_DOUBLE)
 endif()
 
-add_executable(${BASICC_NAME} ${BASIC_BASE_SRC} ${VENDOR_SRC})
+add_executable(${BASICC_NAME} ${BASIC_SRCS})
 
 target_include_directories(${BASICC_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}
