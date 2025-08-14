@@ -1058,11 +1058,20 @@ static FuncDef *find_func (const char *name) {
   return NULL;
 }
 
-/* Program line containing multiple statements */
+typedef enum {
+  LINE_NONE,
+  LINE_ELSE,
+  LINE_ELSEIF,
+  LINE_ENDIF,
+} LineType;
+
+/* Program line containing multiple statements or structural markers */
 typedef struct {
   int line;
   StmtVec stmts;
   char *src;
+  LineType marker;
+  Node *cond; /* for ELSEIF */
 } Line;
 
 typedef struct {
@@ -2993,6 +3002,31 @@ static int parse_line (Parser *p, char *line, Line *out) {
   p->line_no = line_no;
   out->line = line_no;
   out->stmts = (StmtVec) {0};
+  out->marker = LINE_NONE;
+  out->cond = NULL;
+  t = peek_token (p);
+  if (t.type == TOK_ELSE) {
+    next_token (p);
+    out->marker = LINE_ELSE;
+    if (!parse_if_part (p, &out->stmts, 0)) return parse_error (p);
+    return 1;
+  } else if (t.type == TOK_ELSEIF) {
+    next_token (p);
+    PARSE_EXPR_OR_ERROR (out->cond);
+    if (next_token (p).type != TOK_THEN) return parse_error (p);
+    if (!parse_if_part (p, &out->stmts, 1)) return parse_error (p);
+    return 1;
+  } else if (t.type == TOK_END) {
+    Parser tmp = *p;
+    next_token (&tmp);
+    Token t2 = next_token (&tmp);
+    if (t2.type == TOK_IF) {
+      next_token (p);
+      next_token (p);
+      out->marker = LINE_ENDIF;
+      return 1;
+    }
+  }
   while (1) {
     t = peek_token (p);
     while (t.type == TOK_COLON) {
@@ -3073,6 +3107,62 @@ static int parse_line (Parser *p, char *line, Line *out) {
     break;
   }
   return 1;
+}
+
+static void stmt_vec_append_from_line (StmtVec *dst, LineVec *prog, size_t *idx, Line *ln);
+
+/* Consume lines after an IF ... THEN without inline statements */
+static void parse_block (LineVec *prog, size_t *idx, Stmt *s) {
+  size_t j = *idx;
+  StmtVec *dest = &s->u.iff.then_stmts;
+  j++;
+  while (j < prog->len) {
+    Line *ln = &prog->data[j];
+    if (ln->marker == LINE_ENDIF) {
+      ln->stmts.len = 0;
+      ln->marker = LINE_NONE;
+      break;
+    } else if (ln->marker == LINE_ELSEIF) {
+      ElseIf ei;
+      ei.cond = ln->cond;
+      ei.stmts = (StmtVec) {0};
+      stmt_vec_append_from_line (&ei.stmts, prog, &j, ln);
+      ln->marker = LINE_NONE;
+      elseif_vec_push (&s->u.iff.elseifs, ei);
+      dest = &s->u.iff.elseifs.data[s->u.iff.elseifs.len - 1].stmts;
+    } else if (ln->marker == LINE_ELSE) {
+      stmt_vec_append_from_line (&s->u.iff.else_stmts, prog, &j, ln);
+      ln->marker = LINE_NONE;
+      dest = &s->u.iff.else_stmts;
+    } else {
+      stmt_vec_append_from_line (dest, prog, &j, ln);
+      ln->marker = LINE_NONE;
+    }
+    j++;
+  }
+  *idx = j;
+}
+
+static void stmt_vec_append_from_line (StmtVec *dst, LineVec *prog, size_t *idx, Line *ln) {
+  size_t old = dst->len;
+  for (size_t i = 0; i < ln->stmts.len; i++) stmt_vec_push (dst, ln->stmts.data[i]);
+  ln->stmts.len = 0;
+  for (size_t i = old; i < dst->len; i++) {
+    Stmt *st = &dst->data[i];
+    if (st->kind == ST_IF && st->u.iff.then_stmts.len == 0) parse_block (prog, idx, st);
+  }
+}
+
+static void resolve_if_blocks (LineVec *prog) {
+  for (size_t i = 0; i < prog->len; i++) {
+    Line *ln = &prog->data[i];
+    for (size_t j = 0; j < ln->stmts.len; j++) {
+      Stmt *s = &ln->stmts.data[j];
+      if (s->kind == ST_IF && s->u.iff.then_stmts.len == 0) {
+        parse_block (prog, &i, s);
+      }
+    }
+  }
 }
 
 static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
@@ -5982,6 +6072,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       current_dir = basic_alloc_string (0);
     }
   }
+  resolve_if_blocks (prog);
   MIR_context_t ctx = MIR_init ();
   MIR_module_t module = MIR_new_module (ctx, "BASIC");
   print_proto = MIR_new_proto (ctx, "basic_print_p", 0, NULL, 1, BASIC_MIR_NUM_T, "x");
