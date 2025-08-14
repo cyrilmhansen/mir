@@ -1173,14 +1173,29 @@ void basic_sound (basic_num_t f, basic_num_t d, basic_num_t v, basic_num_t async
   if (freq <= 0 || dur <= 0) return;
   if (vol < 0) vol = 0;
   if (vol > 100) vol = 100;
-  fprintf (stdout, "\033[10;%ld]\033[11;%ld]\033[12;%ld]\a", freq, dur, vol);
+#if defined(_WIN32)
+  Beep ((DWORD) freq, (DWORD) dur);
+  if (!non_block) Sleep ((DWORD) dur);
+#else
+  const char *term = getenv ("TERM");
+  if (term != NULL && strcmp (term, "linux") == 0) {
+    fprintf (stdout, "\033[10;%ld]\033[11;%ld]\033[12;%ld]\a", freq, dur, vol);
+  } else {
+    fputc ('\a', stdout);
+  }
   fflush (stdout);
   if (!non_block) usleep ((useconds_t) (dur * 1000));
+#endif
 }
 
 void basic_sound_off (void) {
-  fputs ("\033[10;0]\033[11;0]", stdout);
-  fflush (stdout);
+#if !defined(_WIN32)
+  const char *term = getenv ("TERM");
+  if (term != NULL && strcmp (term, "linux") == 0) {
+    fputs ("\033[10;0]\033[11;0]", stdout);
+    fflush (stdout);
+  }
+#endif
 }
 
 basic_num_t basic_system (const char *cmd) {
