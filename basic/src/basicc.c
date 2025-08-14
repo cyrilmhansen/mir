@@ -38,7 +38,8 @@ static int safe_snprintf (char *buf, size_t size, const char *fmt, ...);
 static MIR_op_t emit_fixed64_const (MIR_context_t ctx, basic_num_t v) {
   basic_num_t *p = basic_pool_alloc (sizeof (basic_num_t));
   *p = v;
-  return MIR_new_ref_op (ctx, p);
+  MIR_item_t data_item = MIR_new_data (ctx, NULL, MIR_T_U8, sizeof (basic_num_t), p);
+  return MIR_new_ref_op (ctx, data_item);
 }
 #endif
 

@@ -53,7 +53,8 @@ static inline MIR_op_t BASIC_MIR_new_num_op (MIR_context_t ctx, basic_num_t v) {
 static inline MIR_op_t BASIC_MIR_new_num_op (MIR_context_t ctx, basic_num_t v) {
   basic_num_t *p = basic_pool_alloc (sizeof (basic_num_t));
   *p = v;
-  return MIR_new_ref_op (ctx, p);
+  MIR_item_t data_item = MIR_new_data (ctx, NULL, MIR_T_U8, sizeof (basic_num_t), p);
+  return MIR_new_ref_op (ctx, data_item);
 }
 #define BASIC_MIR_D2I MIR_D2I
 #define BASIC_MIR_I2D MIR_I2D
