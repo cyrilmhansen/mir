@@ -379,7 +379,10 @@ arena_t ast_arena;
 
 static void basic_chain (const char *path);
 
+void basic_eval (const char *cmd);
+
 static int contains_chain = 0;
+static int contains_eval = 0;
 
 /* Use safe_snprintf for any new string generation to detect truncation. */
 static int safe_snprintf (char *buf, size_t size, const char *fmt, ...) {
@@ -415,6 +418,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_input_hash_str")) return basic_input_hash_str;
   if (!strcmp (name, "basic_get_hash")) return basic_get_hash;
   if (!strcmp (name, "basic_put_hash")) return basic_put_hash;
+  if (!strcmp (name, "basic_eval")) return basic_eval;
   if (!strcmp (name, "basic_eof")) return basic_eof;
 
 #if defined(BASIC_USE_FIXED64)
@@ -629,7 +633,7 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   profile_func_exit_proto, profile_func_exit_import, delay_proto, delay_import, beep_proto,
   beep_import, sound_proto, sound_import, system_proto, system_import, system_out_proto,
   system_out_import, pool_reset_proto, pool_reset_import, free_proto, free_import, chain_proto,
-  chain_import;
+  chain_import, eval_proto, eval_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL, N_TAB } NodeKind;
@@ -785,6 +789,7 @@ typedef enum {
   ST_CHAIN,
   ST_EXTERN,
   ST_CALL,
+  ST_EVAL,
 } StmtKind;
 typedef struct Stmt Stmt;
 typedef struct {
@@ -881,6 +886,7 @@ static const char *stmt_kind_name (StmtKind kind) {
     [ST_CHAIN] = "ST_CHAIN",
     [ST_EXTERN] = "ST_EXTERN",
     [ST_CALL] = "ST_CALL",
+    [ST_EVAL] = "ST_EVAL",
   };
   size_t idx = (size_t) kind;
   if (idx >= sizeof (names) / sizeof (names[0]) || names[idx] == NULL) return "UNKNOWN";
@@ -1047,6 +1053,9 @@ struct Stmt {
       char *name;
       Node *arg1, *arg2, *arg3, *arg4, *arg5;
     } call;
+    struct {
+      char *cmd;
+    } eval;
     struct {
       size_t idx;
       int is_proc;
@@ -2140,6 +2149,11 @@ static int parse_stmt (Parser *p, Stmt *out) {
     out->kind = ST_CHAIN;
     contains_chain = 1;
     PARSE_EXPR_OR_ERROR (out->u.chain.path);
+    return 1;
+  case TOK_EVAL:
+    out->kind = ST_EVAL;
+    contains_eval = 1;
+    out->u.eval.cmd = parse_rest (p);
     return 1;
   case TOK_MAT: {
     out->kind = ST_MAT;
@@ -5889,6 +5903,11 @@ static void gen_stmt (Stmt *s) {
                                         MIR_new_reg_op (g_ctx, path)));
     break;
   }
+  case ST_EVAL: {
+    MIR_str_t str = {strlen (s->u.eval.cmd) + 1, s->u.eval.cmd};
+    call1 (eval_proto, eval_import, MIR_new_str_op (g_ctx, str));
+    break;
+  }
   case ST_RANDOMIZE: {
     MIR_op_t seed_op, has_seed_op;
     if (s->u.expr != NULL) {
@@ -6097,6 +6116,8 @@ static void preregister_defs (LineVec *prog) {
 static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p, int code_p,
                          int reduce_libs, int profile_p, int track_lines, const char *out_name,
                          const char *src_name) {
+  int eval_p = contains_eval;
+  contains_eval = 0;
   interp_mode = !jit && !asm_p && !obj_p && !bin_p && !code_p;
   if (!interp_mode && contains_chain) {
     safe_fprintf (stderr, "CHAIN only supported in interpreter mode\n");
@@ -6291,6 +6312,10 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   system_out_import = MIR_new_import (ctx, "basic_system_out");
   chain_proto = MIR_new_proto (ctx, "basic_chain_p", 0, NULL, 1, MIR_T_P, "path");
   chain_import = MIR_new_import (ctx, "basic_chain");
+  if (eval_p) {
+    eval_proto = MIR_new_proto (ctx, "basic_eval_p", 0, NULL, 1, MIR_T_P, "cmd");
+    eval_import = MIR_new_import (ctx, "basic_eval");
+  }
   pool_reset_proto = MIR_new_proto (ctx, "basic_pool_reset_p", 0, NULL, 0);
   pool_reset_import = MIR_new_import (ctx, "basic_pool_reset");
   randomize_proto = MIR_new_proto (ctx, "basic_randomize_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n",
@@ -6992,6 +7017,10 @@ static int repl_process_line (LineVec *prog, const char *line) {
   default: break;
   }
   return 0;
+}
+
+void basic_eval (const char *cmd) {
+  if (cmd && *cmd && g_prog != NULL) repl_process_line (g_prog, cmd);
 }
 
 static void repl (void) {

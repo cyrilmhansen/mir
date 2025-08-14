@@ -1437,3 +1437,5 @@ basic_num_t basic_mir_dump (basic_num_t func_h) {
   MIR_output_item (fh->ctx, stdout, f->item);
   return BASIC_ZERO;
 }
+
+void __attribute__ ((weak)) basic_eval (const char *cmd) { (void) cmd; }

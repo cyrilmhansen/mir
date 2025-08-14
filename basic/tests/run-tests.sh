@@ -349,6 +349,11 @@ echo "return without GOSUB error OK"
         diff "$exp_dir/repl-eval-print.out" "$ROOT/basic/repl-eval-print.out"
         echo "repl EVAL done"
 
+        echo "Running repl EVAL LIST statement"
+        printf '10 A=10\n20 EVAL LIST\nRUN\nQUIT\n' | "$BASICC" > "$ROOT/basic/repl-eval-list-stmt.out"
+        diff "$exp_dir/repl-eval-list-stmt.out" "$ROOT/basic/repl-eval-list-stmt.out"
+        echo "repl EVAL LIST statement done"
+
         echo "Running repl CODE"
         printf '10 PRINT "HI"\nCOMPILE CODE repl-code.bin\nQUIT\n' | "$BASICC" > "$ROOT/basic/repl-code.out"
         diff "$exp_dir/repl-code.out" "$ROOT/basic/repl-code.out"
