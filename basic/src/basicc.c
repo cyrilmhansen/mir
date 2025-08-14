@@ -32,6 +32,8 @@
 #define BASIC_MIR_MOV MIR_DMOV
 #endif
 
+static int safe_snprintf (char *buf, size_t size, const char *fmt, ...);
+
 #if defined(BASIC_USE_FIXED64)
 static MIR_op_t emit_fixed64_const (MIR_context_t ctx, basic_num_t v) {
   basic_num_t *p = basic_pool_alloc (sizeof (basic_num_t));
