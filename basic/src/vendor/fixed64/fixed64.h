@@ -75,8 +75,6 @@ fixed64_t fixed64_log (fixed64_t a);
 fixed64_t fixed64_log2 (fixed64_t a);
 fixed64_t fixed64_log10 (fixed64_t a);
 fixed64_t fixed64_exp (fixed64_t a);
-fixed64_t fixed64_stub_unary (fixed64_t a);
-fixed64_t fixed64_stub_binary (fixed64_t a, fixed64_t b);
 
 #ifdef __cplusplus
 }
