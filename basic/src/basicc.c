@@ -382,7 +382,6 @@ static void basic_chain (const char *path);
 void basic_eval (const char *cmd);
 
 static int contains_chain = 0;
-static int contains_eval = 0;
 
 /* Use safe_snprintf for any new string generation to detect truncation. */
 static int safe_snprintf (char *buf, size_t size, const char *fmt, ...) {
@@ -2152,7 +2151,6 @@ static int parse_stmt (Parser *p, Stmt *out) {
     return 1;
   case TOK_EVAL:
     out->kind = ST_EVAL;
-    contains_eval = 1;
     out->u.eval.cmd = parse_rest (p);
     return 1;
   case TOK_MAT: {
@@ -6116,8 +6114,7 @@ static void preregister_defs (LineVec *prog) {
 static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p, int code_p,
                          int reduce_libs, int profile_p, int track_lines, const char *out_name,
                          const char *src_name) {
-  int eval_p = contains_eval;
-  contains_eval = 0;
+  int eval_p = 0;
   interp_mode = !jit && !asm_p && !obj_p && !bin_p && !code_p;
   if (!interp_mode && contains_chain) {
     safe_fprintf (stderr, "CHAIN only supported in interpreter mode\n");
@@ -6135,6 +6132,15 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     }
   }
   resolve_if_blocks (prog);
+  for (size_t i = 0; i < prog->len && !eval_p; i++) {
+    StmtVec *sv = &prog->data[i].stmts;
+    for (size_t j = 0; j < sv->len; j++) {
+      if (sv->data[j].kind == ST_EVAL) {
+        eval_p = 1;
+        break;
+      }
+    }
+  }
   MIR_context_t ctx = MIR_init ();
   MIR_module_t module = MIR_new_module (ctx, "BASIC");
   print_proto = MIR_new_proto (ctx, "basic_print_p", 0, NULL, 1, BASIC_MIR_NUM_T, "x");
