@@ -48,6 +48,7 @@
 #endif
 
 static int seeded = 0;
+static uint64_t rng_state = 0;
 static int basic_pos_val = 1;
 static int basic_error_handler = 0;
 static int basic_line = 0;
@@ -516,25 +517,35 @@ void basic_locate (basic_num_t r, basic_num_t c) {
 void basic_tab (basic_num_t n) { printf ("\x1b[%ldG", basic_num_to_int (n)); }
 void basic_htab (basic_num_t n) { basic_tab (n); }
 
+static uint64_t basic_next_u64 (void) {
+  uint64_t x = rng_state;
+  x ^= x >> 12;
+  x ^= x << 25;
+  x ^= x >> 27;
+  rng_state = x;
+  return x * UINT64_C (2685821657736338717);
+}
+
 void basic_randomize (basic_num_t n, basic_num_t has_seed) {
   if (basic_num_ne (has_seed, BASIC_ZERO)) {
-    srand ((unsigned) basic_num_to_int (n));
+    rng_state = (uint64_t) basic_num_to_int (n);
   } else {
-    srand ((unsigned) time (NULL));
+    rng_state = (((uint64_t) time (NULL)) << 32) ^ (uint64_t) clock ();
   }
   seeded = 1;
 }
 
 basic_num_t basic_rnd (basic_num_t n) {
   if (!seeded) {
-    srand ((unsigned) time (NULL));
-    seeded = 1;
+    basic_randomize (BASIC_ZERO, BASIC_ZERO);
   }
-  /* rand () can return RAND_MAX, which would make the result equal to n.
-     Scale by RAND_MAX + 1.0 to keep the value in [0, n). */
-  basic_num_t r = basic_num_from_int (rand ());
-  basic_num_t denom = basic_num_add (basic_num_from_int (RAND_MAX), basic_num_from_int (1));
-  return basic_num_mul (basic_num_div (r, denom), n);
+  uint64_t r = basic_next_u64 ();
+  basic_num_t hi = basic_num_from_int ((long) (r >> 32));
+  basic_num_t lo = basic_num_from_int ((long) (r & UINT32_MAX));
+  basic_num_t base = basic_num_from_int ((long) (1ULL << 32));
+  basic_num_t frac = basic_num_add (hi, basic_num_div (lo, base));
+  frac = basic_num_div (frac, base);
+  return basic_num_mul (frac, n);
 }
 
 basic_num_t basic_abs (basic_num_t x) { return basic_num_fabs (x); }
