@@ -1171,11 +1171,11 @@ void basic_sound (basic_num_t f, basic_num_t d) {
   basic_beep ();
 }
 
-double basic_system (const char *cmd) {
+basic_num_t basic_system (const char *cmd) {
   free (system_output);
   system_output = NULL;
   FILE *fp = popen (cmd, "r");
-  if (fp == NULL) return -1.0;
+  if (fp == NULL) return basic_num_from_int (-1);
   size_t len = 0;
   char *out = NULL;
   char buf[256];
@@ -1195,8 +1195,8 @@ double basic_system (const char *cmd) {
   }
   int status = pclose (fp);
   system_output = out ? out : basic_strdup ("");
-  if (WIFEXITED (status)) return (double) WEXITSTATUS (status);
-  return -1.0;
+  if (WIFEXITED (status)) return basic_num_from_int (WEXITSTATUS (status));
+  return basic_num_from_int (-1);
 }
 
 char *basic_system_out (void) {
