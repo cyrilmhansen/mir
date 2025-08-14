@@ -176,29 +176,13 @@ PY
 
         echo "Building basic_num_array_align_test"
         if [[ "$BASICC" == *-ld ]]; then
-                cc -Wall -Wextra -DBASIC_USE_LONG_DOUBLE -I"$ROOT/basic/include" -I"$ROOT/basic/src" -I"$ROOT/basic/src/vendor" -I"$ROOT/basic/src/vendor/fixed64" \
+                cc -Wall -Wextra -DBASIC_USE_LONG_DOUBLE -I"$ROOT/basic/include" -I"$ROOT/basic/src" \
                         "$ROOT/basic/src/basic_pool.c" \
-                        "$ROOT/basic/src/basic_num.c" \
-                        "$ROOT/basic/src/basic_num_double.c" \
-                        "$ROOT/basic/src/basic_num_long_double.c" \
-                        "$ROOT/basic/src/basic_num_fixed64.c" \
-                        "$ROOT/basic/src/basic_num_mb5.c" \
-                        "$ROOT/basic/src/vendor/ryu/d2s.c" \
-                        "$ROOT/basic/src/vendor/ryu/ld2s.c" \
-                        "$ROOT/basic/src/vendor/fixed64/fixed64.c" \
                         "$ROOT/basic/test/basic_num_array_align_test.c" \
                         -lm -o "$ROOT/basic/basic_num_array_align_test"
         else
-                cc -Wall -Wextra -I"$ROOT/basic/include" -I"$ROOT/basic/src" -I"$ROOT/basic/src/vendor" -I"$ROOT/basic/src/vendor/fixed64" \
+                cc -Wall -Wextra -I"$ROOT/basic/include" -I"$ROOT/basic/src" \
                         "$ROOT/basic/src/basic_pool.c" \
-                        "$ROOT/basic/src/basic_num.c" \
-                        "$ROOT/basic/src/basic_num_double.c" \
-                        "$ROOT/basic/src/basic_num_long_double.c" \
-                        "$ROOT/basic/src/basic_num_fixed64.c" \
-                        "$ROOT/basic/src/basic_num_mb5.c" \
-                        "$ROOT/basic/src/vendor/ryu/d2s.c" \
-                        "$ROOT/basic/src/vendor/ryu/ld2s.c" \
-                        "$ROOT/basic/src/vendor/fixed64/fixed64.c" \
                         "$ROOT/basic/test/basic_num_array_align_test.c" \
                         -lm -o "$ROOT/basic/basic_num_array_align_test"
         fi

@@ -5,7 +5,6 @@
 #include "basic_runtime.h"
 
 int main (void) {
-  basic_num_init (BASIC_NUM_MODE_FIXED64);
   basic_num_t ctx = basic_mir_ctx ();
   assert (basic_num_ne (ctx, BASIC_ZERO));
   basic_num_t ctx2 = basic_mir_ctx ();
