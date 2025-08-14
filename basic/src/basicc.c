@@ -203,6 +203,7 @@ extern char *basic_get (void);
 extern char *basic_inkey (void);
 
 extern void basic_put (const char *);
+extern void basic_return_error (void);
 
 extern void basic_profile_reset (void);
 extern void basic_profile_dump (void);
@@ -517,6 +518,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_peek")) return basic_peek;
   if (!strcmp (name, "basic_poke")) return basic_poke;
   if (!strcmp (name, "basic_stop")) return basic_stop;
+  if (!strcmp (name, "basic_return_error")) return basic_return_error;
   if (!strcmp (name, "basic_chain")) return basic_chain;
 
   if (!strcmp (name, "basic_set_error_handler")) return basic_set_error_handler;
@@ -621,12 +623,13 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   close_import, printh_proto, printh_import, prinths_proto, prinths_import, input_hash_proto,
   input_hash_import, input_hash_str_proto, input_hash_str_import, get_hash_proto, get_hash_import,
   put_hash_proto, put_hash_import, randomize_proto, randomize_import, stop_proto, stop_import,
-  on_error_proto, on_error_import, set_line_proto, set_line_import, get_line_proto, get_line_import,
-  line_track_proto, line_track_import, profile_line_proto, profile_line_import,
-  profile_func_enter_proto, profile_func_enter_import, profile_func_exit_proto,
-  profile_func_exit_import, delay_proto, delay_import, beep_proto, beep_import, sound_proto,
-  sound_import, system_proto, system_import, system_out_proto, system_out_import, pool_reset_proto,
-  pool_reset_import, free_proto, free_import, chain_proto, chain_import;
+  return_err_proto, return_err_import, on_error_proto, on_error_import, set_line_proto,
+  set_line_import, get_line_proto, get_line_import, line_track_proto, line_track_import,
+  profile_line_proto, profile_line_import, profile_func_enter_proto, profile_func_enter_import,
+  profile_func_exit_proto, profile_func_exit_import, delay_proto, delay_import, beep_proto,
+  beep_import, sound_proto, sound_import, system_proto, system_import, system_out_proto,
+  system_out_import, pool_reset_proto, pool_reset_import, free_proto, free_import, chain_proto,
+  chain_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL, N_TAB } NodeKind;
@@ -5454,11 +5457,18 @@ static void gen_stmt (Stmt *s) {
     char buf[32];
     safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
     MIR_reg_t addr = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+    MIR_label_t ok = MIR_new_label (g_ctx);
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_insn (g_ctx, MIR_BNE, MIR_new_label_op (g_ctx, ok),
+                                   MIR_new_reg_op (g_ctx, g_ret_sp), MIR_new_int_op (g_ctx, 0)));
+    MIR_append_insn (g_ctx, g_func,
+                     MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, return_err_proto),
+                                        MIR_new_ref_op (g_ctx, return_err_import)));
+    MIR_append_insn (g_ctx, g_func, ok);
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, g_ret_sp),
                                    MIR_new_reg_op (g_ctx, g_ret_sp), MIR_new_int_op (g_ctx, 8)));
     MIR_append_insn (g_ctx, g_func,
-
                      MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, addr),
                                    MIR_new_mem_op (g_ctx, MIR_T_P, 0, g_ret_stack, g_ret_sp, 1)));
     MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMPI, MIR_new_reg_op (g_ctx, addr)));
@@ -6288,6 +6298,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   randomize_import = MIR_new_import (ctx, "basic_randomize");
   stop_proto = MIR_new_proto (ctx, "basic_stop_p", 0, NULL, 0);
   stop_import = MIR_new_import (ctx, "basic_stop");
+  return_err_proto = MIR_new_proto (ctx, "basic_return_error_p", 0, NULL, 0);
+  return_err_import = MIR_new_import (ctx, "basic_return_error");
   on_error_proto
     = MIR_new_proto (ctx, "basic_set_error_handler_p", 0, NULL, 1, BASIC_MIR_NUM_T, "line");
   on_error_import = MIR_new_import (ctx, "basic_set_error_handler");
