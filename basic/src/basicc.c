@@ -6150,7 +6150,7 @@ static void gen_stmt (Stmt *s) {
   }
 }
 
-static void preregister_defs (LineVec *prog) {
+static MIR_UNUSED void preregister_defs (LineVec *prog) {
   for (size_t i = 0; i < prog->len; i++) {
     Parser p;
     Line dummy;
@@ -6951,11 +6951,14 @@ static void load_repl_abbrevs (const char *argv0) {
     if (line[0] == '#' || line[0] == '\n') continue;
     char abbr[32], keyword[32];
     if (sscanf (line, "%31s %31s", abbr, keyword) == 2) {
-      strncpy (repl_abbrevs[repl_abbrev_cnt].abbr, abbr, sizeof (repl_abbrevs[0].abbr) - 1);
-      repl_abbrevs[repl_abbrev_cnt].abbr[sizeof (repl_abbrevs[0].abbr) - 1] = '\0';
-      strncpy (repl_abbrevs[repl_abbrev_cnt].keyword, keyword,
-               sizeof (repl_abbrevs[0].keyword) - 1);
-      repl_abbrevs[repl_abbrev_cnt].keyword[sizeof (repl_abbrevs[0].keyword) - 1] = '\0';
+      size_t len = strlen (abbr);
+      if (len >= sizeof (repl_abbrevs[0].abbr)) len = sizeof (repl_abbrevs[0].abbr) - 1;
+      memcpy (repl_abbrevs[repl_abbrev_cnt].abbr, abbr, len);
+      repl_abbrevs[repl_abbrev_cnt].abbr[len] = '\0';
+      len = strlen (keyword);
+      if (len >= sizeof (repl_abbrevs[0].keyword)) len = sizeof (repl_abbrevs[0].keyword) - 1;
+      memcpy (repl_abbrevs[repl_abbrev_cnt].keyword, keyword, len);
+      repl_abbrevs[repl_abbrev_cnt].keyword[len] = '\0';
       repl_abbrev_cnt++;
     }
   }
