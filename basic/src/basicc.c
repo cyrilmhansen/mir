@@ -1128,6 +1128,7 @@ typedef enum {
   TOK_SAVE,
   TOK_LOAD,
   TOK_LIST,
+  TOK_EVAL,
   TOK_NEW,
   TOK_QUIT,
   TOK_EXIT,
@@ -1321,6 +1322,7 @@ static Token read_token (Parser *p) {
                     {"SAVE", TOK_SAVE},
                     {"LOAD", TOK_LOAD},
                     {"LIST", TOK_LIST},
+                    {"EVAL", TOK_EVAL},
                     {"NEW", TOK_NEW},
                     {"QUIT", TOK_QUIT},
                     {"EXIT", TOK_EXIT},
@@ -6538,6 +6540,7 @@ typedef enum {
   REPL_TOK_SAVE,
   REPL_TOK_LOAD,
   REPL_TOK_LIST,
+  REPL_TOK_EVAL,
   REPL_TOK_NEW,
   REPL_TOK_QUIT,
   REPL_TOK_EXIT,
@@ -6556,6 +6559,7 @@ static ReplToken repl_next_token (Parser *p, Token *out) {
   case TOK_SAVE: tok = REPL_TOK_SAVE; break;
   case TOK_LOAD: tok = REPL_TOK_LOAD; break;
   case TOK_LIST: tok = REPL_TOK_LIST; break;
+  case TOK_EVAL: tok = REPL_TOK_EVAL; break;
   case TOK_NEW: tok = REPL_TOK_NEW; break;
   case TOK_QUIT: tok = REPL_TOK_QUIT; break;
   case TOK_EXIT: tok = REPL_TOK_EXIT; break;
@@ -6569,6 +6573,142 @@ static ReplToken repl_next_token (Parser *p, Token *out) {
   return tok;
 }
 
+static int repl_process_line (LineVec *prog, const char *line) {
+  Parser p_obj = {0};
+  Parser *p = &p_obj;
+  p->cur = (char *) line;
+  Token first = peek_token (p);
+  if (first.type == TOK_EOF) return 0;
+  if (first.type == TOK_NUMBER) {
+    Token num_tok = next_token (p);
+    long num = num_tok.num;
+    if (peek_token (p).type == TOK_EOF) {
+      delete_line (prog, num);
+    } else {
+      Line l;
+      Parser tmp;
+      if (parse_line (&tmp, (char *) line, &l))
+        insert_or_replace_line (prog, l);
+      else {
+        /* error already reported by parse_line */
+      }
+    }
+    return 0;
+  }
+  ReplToken tok = repl_next_token (p, NULL);
+  switch (tok) {
+  case REPL_TOK_RUN: {
+    int profile_p = 0;
+    if (peek_token (p).type != TOK_EOF) {
+      Token opt_tok;
+      ReplToken opt = repl_next_token (p, &opt_tok);
+      if (opt == REPL_TOK_PROFILE && peek_token (p).type == TOK_EOF) {
+        profile_p = 1;
+      } else {
+        safe_fprintf (stderr, "unknown RUN option: %s\n", opt_tok.str ? opt_tok.str : "");
+        return 0;
+      }
+    }
+    if (profile_p) basic_profile_reset ();
+    gen_program (prog, 0, 0, 0, 0, 0, 0, profile_p, line_tracking, NULL, "(repl)");
+    if (profile_p) basic_profile_dump ();
+    return 0;
+  }
+  case REPL_TOK_COMPILE: {
+    ReplToken target = repl_next_token (p, NULL);
+    switch (target) {
+    case REPL_TOK_NATIVE: {
+      char *fname = parse_rest (p);
+      if (fname == NULL || fname[0] == '\0') {
+        safe_fprintf (stderr, "missing output file\n");
+      } else {
+        gen_program (prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, fname, "(repl)");
+        if (access (fname, F_OK) == 0)
+          printf ("%s\n", fname);
+        else
+          perror (fname);
+      }
+      basic_pool_free (fname);
+    } break;
+    case REPL_TOK_BMIR: {
+      char *fname = parse_rest (p);
+      if (fname == NULL || fname[0] == '\0') {
+        safe_fprintf (stderr, "missing output file\n");
+      } else {
+        gen_program (prog, 0, 0, 1, 0, 0, 0, 0, line_tracking, fname, "(repl)");
+        char *name = change_suffix (fname, ".bmir");
+        if (access (name, F_OK) == 0)
+          printf ("%s\n", name);
+        else
+          perror (name);
+        basic_pool_free (name);
+      }
+      basic_pool_free (fname);
+    } break;
+    case REPL_TOK_CODE: {
+      char *fname = parse_rest (p);
+      if (fname == NULL || fname[0] == '\0') {
+        safe_fprintf (stderr, "missing output file\n");
+      } else {
+        gen_program (prog, 0, 0, 0, 0, 1, 0, 0, line_tracking, fname, "(repl)");
+        if (access (fname, F_OK) == 0)
+          printf ("%s\n", fname);
+        else
+          perror (fname);
+      }
+      basic_pool_free (fname);
+    } break;
+    default: safe_fprintf (stderr, "unknown COMPILE target\n"); break;
+    }
+    return 0;
+  }
+  case REPL_TOK_SAVE: {
+    char *fname = parse_rest (p);
+    if (fname == NULL || fname[0] == '\0') {
+      safe_fprintf (stderr, "missing output file\n");
+    } else {
+      gen_program (prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, fname, "(repl)");
+      if (access (fname, F_OK) == 0)
+        printf ("Saved %s\n", fname);
+      else
+        perror (fname);
+    }
+    basic_pool_free (fname);
+    return 0;
+  }
+  case REPL_TOK_LOAD: {
+    char *fname = parse_rest (p);
+    if (fname == NULL || fname[0] == '\0') {
+      safe_fprintf (stderr, "missing input file\n");
+    } else {
+      func_vec_clear (&func_defs);
+      data_vals_clear ();
+      line_vec_destroy (prog);
+      load_program (prog, fname);
+    }
+    basic_pool_free (fname);
+    return 0;
+  }
+  case REPL_TOK_LIST: list_program (prog); return 0;
+  case REPL_TOK_EVAL: {
+    char *cmd = parse_rest (p);
+    if (cmd && *cmd) repl_process_line (prog, cmd);
+    basic_pool_free (cmd);
+    return 0;
+  }
+  case REPL_TOK_NEW:
+    func_vec_clear (&func_defs);
+    data_vals_clear ();
+    line_vec_destroy (prog);
+    arena_release (&ast_arena);
+    return 0;
+  case REPL_TOK_QUIT:
+  case REPL_TOK_EXIT: return 1;
+  default: break;
+  }
+  return 0;
+}
+
 static void repl (void) {
   LineVec prog = {0};
   char line[256];
@@ -6576,134 +6716,7 @@ static void repl (void) {
     printf ("READY.\n");
     if (!fgets (line, sizeof (line), stdin)) break;
     line[strcspn (line, "\n")] = '\0';
-    Parser p_obj = {0};
-    Parser *p = &p_obj;
-    p->cur = line;
-    Token first = peek_token (p);
-    if (first.type == TOK_EOF) continue;
-    if (first.type == TOK_NUMBER) {
-      Token num_tok = next_token (p);
-      long num = num_tok.num;
-      if (peek_token (p).type == TOK_EOF) {
-        delete_line (&prog, num);
-      } else {
-        Line l;
-        Parser tmp;
-        if (parse_line (&tmp, line, &l))
-          insert_or_replace_line (&prog, l);
-        else {
-          /* error already reported by parse_line */
-        }
-      }
-      continue;
-    }
-    ReplToken tok = repl_next_token (p, NULL);
-    int exit_repl = 0;
-    switch (tok) {
-    case REPL_TOK_RUN: {
-      int profile_p = 0;
-      if (peek_token (p).type != TOK_EOF) {
-        Token opt_tok;
-        ReplToken opt = repl_next_token (p, &opt_tok);
-        if (opt == REPL_TOK_PROFILE && peek_token (p).type == TOK_EOF) {
-          profile_p = 1;
-        } else {
-          safe_fprintf (stderr, "unknown RUN option: %s\n", opt_tok.str ? opt_tok.str : "");
-          break;
-        }
-      }
-      if (profile_p) basic_profile_reset ();
-      gen_program (&prog, 0, 0, 0, 0, 0, 0, profile_p, line_tracking, NULL, "(repl)");
-      if (profile_p) basic_profile_dump ();
-      continue;
-    }
-    case REPL_TOK_COMPILE: {
-      ReplToken target = repl_next_token (p, NULL);
-      switch (target) {
-      case REPL_TOK_NATIVE: {
-        char *fname = parse_rest (p);
-        if (fname == NULL || fname[0] == '\0') {
-          safe_fprintf (stderr, "missing output file\n");
-        } else {
-          gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, fname, "(repl)");
-          if (access (fname, F_OK) == 0)
-            printf ("%s\n", fname);
-          else
-            perror (fname);
-        }
-        basic_pool_free (fname);
-      } break;
-      case REPL_TOK_BMIR: {
-        char *fname = parse_rest (p);
-        if (fname == NULL || fname[0] == '\0') {
-          safe_fprintf (stderr, "missing output file\n");
-        } else {
-          gen_program (&prog, 0, 0, 1, 0, 0, 0, 0, line_tracking, fname, "(repl)");
-          char *name = change_suffix (fname, ".bmir");
-          if (access (name, F_OK) == 0)
-            printf ("%s\n", name);
-          else
-            perror (name);
-          basic_pool_free (name);
-        }
-        basic_pool_free (fname);
-      } break;
-      case REPL_TOK_CODE: {
-        char *fname = parse_rest (p);
-        if (fname == NULL || fname[0] == '\0') {
-          safe_fprintf (stderr, "missing output file\n");
-        } else {
-          gen_program (&prog, 0, 0, 0, 0, 1, 0, 0, line_tracking, fname, "(repl)");
-          if (access (fname, F_OK) == 0)
-            printf ("%s\n", fname);
-          else
-            perror (fname);
-        }
-        basic_pool_free (fname);
-      } break;
-      default: safe_fprintf (stderr, "unknown COMPILE target\n"); break;
-      }
-      continue;
-    }
-    case REPL_TOK_SAVE: {
-      char *fname = parse_rest (p);
-      if (fname == NULL || fname[0] == '\0') {
-        safe_fprintf (stderr, "missing output file\n");
-      } else {
-        gen_program (&prog, 0, 0, 0, 1, 0, 0, 0, line_tracking, fname, "(repl)");
-        if (access (fname, F_OK) == 0)
-          printf ("Saved %s\n", fname);
-        else
-          perror (fname);
-      }
-      basic_pool_free (fname);
-      continue;
-    }
-    case REPL_TOK_LOAD: {
-      char *fname = parse_rest (p);
-      if (fname == NULL || fname[0] == '\0') {
-        safe_fprintf (stderr, "missing input file\n");
-      } else {
-        func_vec_clear (&func_defs);
-        data_vals_clear ();
-        line_vec_destroy (&prog);
-        load_program (&prog, fname);
-      }
-      basic_pool_free (fname);
-      continue;
-    }
-    case REPL_TOK_LIST: list_program (&prog); continue;
-    case REPL_TOK_NEW:
-      func_vec_clear (&func_defs);
-      data_vals_clear ();
-      line_vec_destroy (&prog);
-      arena_release (&ast_arena);
-      continue;
-    case REPL_TOK_QUIT:
-    case REPL_TOK_EXIT: exit_repl = 1; break;
-    default: break;
-    }
-    if (exit_repl) break;
+    if (repl_process_line (&prog, line)) break;
   }
   arena_release (&ast_arena);
 }

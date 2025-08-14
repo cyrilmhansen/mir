@@ -331,6 +331,16 @@ echo "print expression error OK"
         diff "$exp_dir/repl-list.out" "$ROOT/basic/repl-list.out"
         echo "repl LIST done"
 
+        echo "Running repl EVAL LIST"
+        printf 'LOAD %s\nEVAL LIST\nQUIT\n' "$ROOT/basic/tests/programs/funcproc.bas" | "$BASICC" > "$ROOT/basic/repl-eval-list.out"
+        diff "$exp_dir/repl-eval-list.out" "$ROOT/basic/repl-eval-list.out"
+        echo "repl EVAL LIST done"
+
+        echo "Running repl EVAL"
+        printf 'EVAL 10 PRINT "HI"\nRUN\nQUIT\n' | "$BASICC" > "$ROOT/basic/repl-eval-print.out"
+        diff "$exp_dir/repl-eval-print.out" "$ROOT/basic/repl-eval-print.out"
+        echo "repl EVAL done"
+
         echo "Running repl CODE"
         printf '10 PRINT "HI"\nCOMPILE CODE repl-code.bin\nQUIT\n' | "$BASICC" > "$ROOT/basic/repl-code.out"
         diff "$exp_dir/repl-code.out" "$ROOT/basic/repl-code.out"

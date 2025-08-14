@@ -58,6 +58,10 @@ statistics followed by function statistics, each sorted in ascending order. The
 format lists the line number or function name, the execution count, and the
 total time in seconds.
 
+The REPL also accepts an `EVAL <command>` directive that parses and executes
+the remainder of the line as if entered at the prompt. This allows nested
+commands such as `EVAL LIST` or `EVAL 10 PRINT "HI"`.
+
 Example session:
 
 ```
