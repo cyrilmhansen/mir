@@ -29,7 +29,10 @@ if(BASIC_NUM_MODE STREQUAL "long-double")
   set(BASICC_NAME "basicc-ld")
   add_compile_definitions(BASIC_USE_LONG_DOUBLE)
 elseif(BASIC_NUM_MODE STREQUAL "fixed64")
-  list(APPEND BASIC_SRCS src/vendor/fixed64/fixed64.c)
+  list(APPEND BASIC_SRCS
+       src/vendor/fixed64/fixed64.c
+       src/vendor/kitty/kitty.c
+       src/vendor/kitty/lodepng.c)
   set(BASICC_NAME "basicc-fix")
   add_compile_definitions(BASIC_USE_FIXED64)
 elseif(BASIC_NUM_MODE STREQUAL "msfp")
