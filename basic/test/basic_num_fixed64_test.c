@@ -1,6 +1,9 @@
 #include <assert.h>
 #include <stdio.h>
 
+#ifndef BASIC_USE_FIXED64
+#define BASIC_USE_FIXED64
+#endif
 #include "basic_num.h"
 
 int main (void) {
