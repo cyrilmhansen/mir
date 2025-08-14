@@ -1166,9 +1166,20 @@ void basic_beep (void) {
 }
 
 void basic_sound (basic_num_t f, basic_num_t d) {
-  (void) f;
-  (void) d;
-  basic_beep ();
+#if defined(_WIN32)
+  Beep ((DWORD) basic_num_to_int (f), (DWORD) basic_num_to_int (d));
+#else
+  int freq = basic_num_to_int (f);
+  int dur = basic_num_to_int (d);
+  if (freq > 0) {
+    fprintf (stdout, "\033[10;%d]", freq);
+  }
+  if (dur > 0) {
+    fprintf (stdout, "\033[11;%d]", dur);
+  }
+  fputc ('\a', stdout);
+  fflush (stdout);
+#endif
 }
 
 basic_num_t basic_system (const char *cmd) {
