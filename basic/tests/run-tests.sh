@@ -247,7 +247,7 @@ PY
         for src in "$ROOT/basic/tests/programs/"*.bas; do
                 name=$(basename "$src" .bas)
                case "$name" in
-                       base0_cli|base1_cli|extern|resume|dim_expr_error|line_number_float|print_expr_error|input_multi|incdec|prec53)
+                       base0_cli|base1_cli|extern|resume|dim_expr_error|line_number_float|print_expr_error|return_nogosub|input_multi|incdec|prec53)
                                continue
                                ;;
                        ahl_benchmark)
@@ -319,6 +319,14 @@ if ! grep -q "parse error at line 10" "$ROOT/basic/print_expr_error.err"; then
         exit 1
 fi
 echo "print expression error OK"
+
+echo "Running return without GOSUB (expect error)"
+if "$BASICC" "$ROOT/basic/tests/programs/return_nogosub.bas" >/dev/null 2> "$ROOT/basic/return_nogosub.err"; then
+        echo "return_nogosub should have failed"
+        exit 1
+fi
+grep -q "RETURN without GOSUB" "$ROOT/basic/return_nogosub.err"
+echo "return without GOSUB error OK"
 
 
         echo "Running repl LOAD"

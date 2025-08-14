@@ -1211,6 +1211,16 @@ void basic_stop (void) {
   exit (0);
 }
 
+void basic_return_error (void) {
+  fflush (stdout);
+  if (basic_line_tracking_enabled)
+    fprintf (stderr, "RETURN without GOSUB in line %d\n", basic_line);
+  else
+    fprintf (stderr, "RETURN without GOSUB\n");
+  basic_runtime_fini ();
+  exit (1);
+}
+
 typedef enum { H_CTX, H_MOD, H_FUNC, H_REG, H_LABEL } HandleKind;
 
 typedef struct {
