@@ -9,7 +9,6 @@ extern void basic_set_palette (const uint32_t *colors, size_t n);
 extern void basic_set_palette_from_env (void);
 
 int main (void) {
-  basic_num_init (BASIC_NUM_MODE_DOUBLE);
   basic_hcolor (basic_num_from_int (1));
   printf ("%06X\n", basic_get_hcolor ());
   basic_hcolor (basic_num_from_int (0x112233));

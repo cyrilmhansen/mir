@@ -7,7 +7,6 @@ char *basic_string (basic_num_t n, const char *s);
 
 /* Test runtime helpers under low-memory conditions. */
 int main (void) {
-  basic_num_init (BASIC_NUM_MODE_DOUBLE);
   struct rlimit lim = {32 * 1024 * 1024, 32 * 1024 * 1024};
   setrlimit (RLIMIT_AS, &lim);
 

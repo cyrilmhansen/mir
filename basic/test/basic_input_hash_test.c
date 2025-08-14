@@ -10,7 +10,6 @@ void basic_close (basic_num_t n);
 basic_num_t basic_input_hash (basic_num_t n);
 
 int main (void) {
-  basic_num_init (BASIC_NUM_MODE_DOUBLE);
   char path[] = "basic_input_hash_testXXXXXX";
   int fd = mkstemp (path);
   FILE *f = fdopen (fd, "w");
