@@ -18,6 +18,12 @@ fi
 run_tests() {
         BASICC="$1"
 
+        exp_dir="$ROOT/basic/tests/expected"
+        case "$(basename "$BASICC")" in
+                *-ld)  exp_dir="$exp_dir/ld" ;;
+                *-fix) exp_dir="$exp_dir/fixed64" ;;
+        esac
+
         # Build compiler if missing
         if [ ! -x "$BASICC" ]; then
                 (cd "$ROOT" && make "basic/$(basename "$BASICC")")
@@ -41,7 +47,7 @@ run_test() {
         local opts=("$@")
         local src="$ROOT/basic/tests/programs/$name.bas"
         local in_file="$ROOT/basic/tests/inputs/$name.in"
-        local exp="$ROOT/basic/tests/expected/$name.out"
+        local exp="$exp_dir/$name.out"
         local out="$ROOT/basic/$name.out"
         local err="$ROOT/basic/$name.err"
         mkdir -p "$(dirname "$out")"
@@ -231,7 +237,7 @@ PY
                 exit 1
         fi
         rm -f "$ROOT/basic/extern.err"
-        diff "$ROOT/basic/tests/expected/extern.out" "$ROOT/basic/extern.out"
+        diff "$exp_dir/extern.out" "$ROOT/basic/extern.out"
         echo "extern OK"
 
         for src in "$ROOT/basic/tests/programs/"*.bas; do
@@ -258,7 +264,7 @@ PY
                 exit 1
         fi
         rm -f "$ROOT/basic/base0_cli.err"
-        diff "$ROOT/basic/tests/expected/base0_cli.out" "$ROOT/basic/base0_cli.out"
+        diff "$exp_dir/base0_cli.out" "$ROOT/basic/base0_cli.out"
         echo "base0_cli OK"
 
         echo "Running base1_cli"
@@ -269,12 +275,12 @@ PY
                 exit 1
         fi
         rm -f "$ROOT/basic/base1_cli.err"
-        diff "$ROOT/basic/tests/expected/base1_cli.out" "$ROOT/basic/base1_cli.out"
+        diff "$exp_dir/base1_cli.out" "$ROOT/basic/base1_cli.out"
         echo "base1_cli OK"
 
         echo "Running hello (no line tracking)"
         "$BASICC" --no-line-tracking "$ROOT/basic/tests/programs/hello.bas" > "$ROOT/basic/hello-no-line.out"
-        diff "$ROOT/basic/tests/expected/hello.out" "$ROOT/basic/hello-no-line.out"
+        diff "$exp_dir/hello.out" "$ROOT/basic/hello-no-line.out"
         echo "hello (no line tracking) OK"
 
         echo "Running resume (expect error)"
@@ -313,17 +319,17 @@ echo "print expression error OK"
 
         echo "Running repl LOAD"
         printf 'LOAD %s\nRUN\nQUIT\n' "$ROOT/basic/tests/programs/hello.bas" | "$BASICC" > "$ROOT/basic/repl-load.out"
-        diff "$ROOT/basic/tests/expected/repl-load.out" "$ROOT/basic/repl-load.out"
+        diff "$exp_dir/repl-load.out" "$ROOT/basic/repl-load.out"
         echo "repl LOAD done"
 
         echo "Running repl LIST"
         printf 'LOAD %s\nLIST\nQUIT\n' "$ROOT/basic/tests/programs/funcproc.bas" | "$BASICC" > "$ROOT/basic/repl-list.out"
-        diff "$ROOT/basic/tests/expected/repl-list.out" "$ROOT/basic/repl-list.out"
+        diff "$exp_dir/repl-list.out" "$ROOT/basic/repl-list.out"
         echo "repl LIST done"
 
         echo "Running repl CODE"
         printf '10 PRINT "HI"\nCOMPILE CODE repl-code.bin\nQUIT\n' | "$BASICC" > "$ROOT/basic/repl-code.out"
-        diff "$ROOT/basic/tests/expected/repl-code.out" "$ROOT/basic/repl-code.out"
+        diff "$exp_dir/repl-code.out" "$ROOT/basic/repl-code.out"
         test -s repl-code.bin
         rm -f repl-code.bin
         echo "repl CODE done"
