@@ -240,10 +240,14 @@ PY
         diff "$exp_dir/extern.out" "$ROOT/basic/extern.out"
         echo "extern OK"
 
+        echo "Running prec53"
+        run_test prec53
+        echo "prec53 OK"
+
         for src in "$ROOT/basic/tests/programs/"*.bas; do
                 name=$(basename "$src" .bas)
                case "$name" in
-                       base0_cli|base1_cli|extern|resume|dim_expr_error|line_number_float|print_expr_error|input_multi|incdec)
+                       base0_cli|base1_cli|extern|resume|dim_expr_error|line_number_float|print_expr_error|input_multi|incdec|prec53)
                                continue
                                ;;
                        ahl_benchmark)
