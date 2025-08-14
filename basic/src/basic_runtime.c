@@ -281,6 +281,7 @@ void basic_print (basic_num_t x) {
 }
 
 void basic_print_str (const char *s) {
+  if (!s) s = "";
   for (const char *p = s; *p != '\0'; p++) basic_pos_val = *p == '\n' ? 1 : basic_pos_val + 1;
   fputs (s, stdout);
 }
