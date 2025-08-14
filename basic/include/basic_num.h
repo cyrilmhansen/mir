@@ -58,6 +58,9 @@ typedef long double basic_num_t;
 
 #elif defined(BASIC_USE_FIXED64)
 
+#include <ctype.h>
+#include <errno.h>
+#include <stdint.h>
 #include "fixed64/fixed64.h"
 
 typedef fixed64_t basic_num_t;
@@ -183,8 +186,14 @@ static inline basic_num_t basic_num_floor (basic_num_t x) { return BASIC_FLOOR (
 static inline int basic_num_scan (FILE *f, basic_num_t *out) {
   char buf[128], *end;
   if (fgets (buf, sizeof (buf), f) == NULL) return 0;
-  *out = fixed64_from_string (buf, &end);
-  return end != buf;
+  errno = 0;
+  double d = strtod (buf, &end);
+  if (end == buf || errno == ERANGE) return 0;
+  while (isspace ((unsigned char) *end)) end++;
+  if (*end != '\0') return 0;
+  if (d < (double) INT64_MIN || d > (double) INT64_MAX) return 0;
+  *out = fixed64_from_double (d);
+  return 1;
 }
 static inline void basic_num_print (FILE *f, basic_num_t x) {
   char buf[128];
