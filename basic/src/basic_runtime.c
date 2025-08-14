@@ -48,7 +48,14 @@
 #endif
 
 static int seeded = 0;
+#if defined(BASIC_USE_LONG_DOUBLE) && !defined(BASIC_PRNG128)
+#define BASIC_PRNG128 1
+#endif
+#if defined(BASIC_PRNG128)
+static uint64_t s[4] = {0, 0, 0, 0};
+#else
 static uint64_t rng_state = 0;
+#endif
 static int basic_pos_val = 1;
 static int basic_error_handler = 0;
 static int basic_line = 0;
@@ -517,6 +524,64 @@ void basic_locate (basic_num_t r, basic_num_t c) {
 void basic_tab (basic_num_t n) { printf ("\x1b[%ldG", basic_num_to_int (n)); }
 void basic_htab (basic_num_t n) { basic_tab (n); }
 
+#if defined(BASIC_PRNG128)
+static uint64_t rotl (const uint64_t x, int k) { return (x << k) | (x >> (64 - k)); }
+
+static uint64_t xoshiro256ss_next (void) {
+  const uint64_t result = rotl (s[1] * 5, 7) * 9;
+  const uint64_t t = s[1] << 17;
+  s[2] ^= s[0];
+  s[3] ^= s[1];
+  s[1] ^= s[2];
+  s[0] ^= s[3];
+  s[2] ^= t;
+  s[3] = rotl (s[3], 45);
+  return result;
+}
+
+static __uint128_t basic_next_u128 (void) {
+  __uint128_t hi = (__uint128_t) xoshiro256ss_next () << 64;
+  return hi | xoshiro256ss_next ();
+}
+
+static uint64_t splitmix64 (uint64_t *x) {
+  uint64_t z = (*x += UINT64_C (0x9E3779B97F4A7C15));
+  z = (z ^ (z >> 30)) * UINT64_C (0xBF58476D1CE4E5B9);
+  z = (z ^ (z >> 27)) * UINT64_C (0x94D049BB133111EB);
+  return z ^ (z >> 31);
+}
+
+void basic_randomize (basic_num_t n, basic_num_t has_seed) {
+  uint64_t seed;
+  if (basic_num_ne (has_seed, BASIC_ZERO)) {
+    seed = (uint64_t) basic_num_to_int (n);
+  } else {
+    seed = (((uint64_t) time (NULL)) << 32) ^ (uint64_t) clock ();
+  }
+  uint64_t sm = seed;
+  for (int i = 0; i < 4; i++) s[i] = splitmix64 (&sm);
+  seeded = 1;
+}
+
+basic_num_t basic_rnd (basic_num_t n) {
+  if (!seeded) {
+    basic_randomize (BASIC_ZERO, BASIC_ZERO);
+  }
+  __uint128_t r = basic_next_u128 ();
+  uint64_t hi = (uint64_t) (r >> 64);
+  uint64_t lo = (uint64_t) r;
+  basic_num_t base = basic_num_from_int ((long) (1ULL << 32));
+  basic_num_t base64 = basic_num_mul (base, base);
+  basic_num_t hi_num = basic_num_add (basic_num_mul (basic_num_from_int ((long) (hi >> 32)), base),
+                                      basic_num_from_int ((long) (hi & UINT32_MAX)));
+  basic_num_t lo_num = basic_num_add (basic_num_mul (basic_num_from_int ((long) (lo >> 32)), base),
+                                      basic_num_from_int ((long) (lo & UINT32_MAX)));
+  basic_num_t frac = basic_num_div (hi_num, base64);
+  basic_num_t base128 = basic_num_mul (base64, base64);
+  frac = basic_num_add (frac, basic_num_div (lo_num, base128));
+  return basic_num_mul (frac, n);
+}
+#else
 static uint64_t basic_next_u64 (void) {
   uint64_t x = rng_state;
   x ^= x >> 12;
@@ -547,6 +612,7 @@ basic_num_t basic_rnd (basic_num_t n) {
   frac = basic_num_div (frac, base);
   return basic_num_mul (frac, n);
 }
+#endif
 
 basic_num_t basic_abs (basic_num_t x) { return basic_num_fabs (x); }
 
@@ -606,6 +672,36 @@ basic_num_t basic_pi (void) { return basic_num_acos (basic_num_neg (basic_num_fr
 char *basic_chr (basic_num_t n) {
   char *s = basic_alloc_string (1);
   if (s != NULL) s[0] = (char) basic_num_to_int (n);
+  return s;
+}
+
+/* Allocate a UTF-8 string for the given Unicode code point.
+   Caller must free with basic_free. */
+char *basic_unichar (basic_num_t n) {
+  uint32_t code = (uint32_t) basic_num_to_int (n);
+  char buf[4];
+  size_t len = 0;
+  if (code <= 0x7F) {
+    buf[0] = (char) code;
+    len = 1;
+  } else if (code <= 0x7FF) {
+    buf[0] = (char) (0xC0 | (code >> 6));
+    buf[1] = (char) (0x80 | (code & 0x3F));
+    len = 2;
+  } else if (code <= 0xFFFF) {
+    buf[0] = (char) (0xE0 | (code >> 12));
+    buf[1] = (char) (0x80 | ((code >> 6) & 0x3F));
+    buf[2] = (char) (0x80 | (code & 0x3F));
+    len = 3;
+  } else if (code <= 0x10FFFF) {
+    buf[0] = (char) (0xF0 | (code >> 18));
+    buf[1] = (char) (0x80 | ((code >> 12) & 0x3F));
+    buf[2] = (char) (0x80 | ((code >> 6) & 0x3F));
+    buf[3] = (char) (0x80 | (code & 0x3F));
+    len = 4;
+  }
+  char *s = basic_alloc_string (len);
+  if (s != NULL && len > 0) memcpy (s, buf, len);
   return s;
 }
 
