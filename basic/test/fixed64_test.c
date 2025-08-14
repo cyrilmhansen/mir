@@ -59,6 +59,7 @@ int main (void) {
   res = fixed64_pow (two, three);
   assert (res.hi == 8 && res.lo == 0);
 
+
   fixed64_t v = fixed64_from_double (3.75);
   res = fixed64_floor (v);
   assert (res.hi == 3 && res.lo == 0);
@@ -73,6 +74,38 @@ int main (void) {
   assert (fabs (fixed64_to_double (res) - asin (0.5)) < 1e-6);
 
   (void) res;
+
+  /* additional math helpers */
+  res = fixed64_log (two);
+  assert (fabs (fixed64_to_double (res) - log (2.0)) < 1e-6);
+  res = fixed64_log2 (two);
+  assert (fabs (fixed64_to_double (res) - 1.0) < 1e-6);
+  res = fixed64_log10 (fixed64_from_int (100));
+  assert (fabs (fixed64_to_double (res) - 2.0) < 1e-6);
+  res = fixed64_exp (fixed64_from_int (1));
+  assert (fabs (fixed64_to_double (res) - exp (1.0)) < 1e-6);
+  res = fixed64_floor (fixed64_from_double (1.75));
+  assert (res.hi == 1 && res.lo == 0);
+  res = fixed64_floor (fixed64_from_double (-1.75));
+  assert (res.hi == -2 && res.lo == 0);
+  res = fixed64_ceil (fixed64_from_double (1.25));
+  assert (res.hi == 2 && res.lo == 0);
+  res = fixed64_ceil (fixed64_from_double (-1.25));
+  assert (res.hi == -1 && res.lo == 0);
+  res = fixed64_fmod (fixed64_from_double (5.5), two);
+  assert (fabs (fixed64_to_double (res) - fmod (5.5, 2.0)) < 1e-6);
+#ifndef _WIN32
+  pid_t pid = fork ();
+  if (pid == 0) {
+    fixed64_stub_unary (two);
+    _exit (0);
+  } else {
+    int status;
+    waitpid (pid, &status, 0);
+    assert (!(WIFEXITED (status) && WEXITSTATUS (status) == 0));
+  }
+#endif
+
   (void) zero;
   (void) half_pi;
   (void) pi;

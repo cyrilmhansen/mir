@@ -264,9 +264,24 @@ fixed64_t fixed64_pow (fixed64_t a, fixed64_t b) {
   return fixed64_from_double (pow (da, db));
 }
 
+fixed64_t fixed64_fmod (fixed64_t a, fixed64_t b) {
+  double da = fixed64_to_double (a);
+  double db = fixed64_to_double (b);
+  return fixed64_from_double (fmod (da, db));
+}
+
 fixed64_t fixed64_floor (fixed64_t a) {
-  double da = floor (fixed64_to_double (a));
-  return fixed64_from_double (da);
+  fixed64_t r = a;
+  r.lo = 0;
+  return r;
+}
+
+fixed64_t fixed64_ceil (fixed64_t a) {
+  if (a.lo == 0) return a;
+  fixed64_t r;
+  r.hi = a.hi + 1;
+  r.lo = 0;
+  return r;
 }
 
 fixed64_t fixed64_sinh (fixed64_t a) {
