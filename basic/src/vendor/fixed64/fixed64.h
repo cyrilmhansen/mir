@@ -60,6 +60,8 @@ fixed64_t fixed64_tan (fixed64_t angle);
 fixed64_t fixed64_sqrt (fixed64_t a);
 fixed64_t fixed64_pow (fixed64_t a, fixed64_t b);
 fixed64_t fixed64_floor (fixed64_t a);
+fixed64_t fixed64_ceil (fixed64_t a);
+fixed64_t fixed64_fmod (fixed64_t a, fixed64_t b);
 fixed64_t fixed64_sinh (fixed64_t a);
 fixed64_t fixed64_cosh (fixed64_t a);
 fixed64_t fixed64_tanh (fixed64_t a);
