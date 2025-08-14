@@ -542,21 +542,23 @@ $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_FIX): \
         $(BUILD_DIR)/libmir.$(LIBSUFF) | $(BUILD_DIR)/basic ; $(CC) $(CPPFLAGS) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 $(CFLAGS) $(LDFLAGS) $(BASIC_RUNTIME_FLAGS) $^ -lm $(EXEO)$@
 
 
-basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/hcolor_test$(EXE) $(BUILD_DIR)/basic/dfp_test$(EXE) $(BUILD_DIR)/basic/fixed64_test$(EXE) $(BUILD_DIR)/basic/ld2s_test$(EXE) $(BUILD_DIR)/basic/basic_num_scan_test$(EXE) $(BUILD_DIR)/basic/basic_input_hash_test$(EXE) $(BUILD_DIR)/basic/basic_num_fixed64_test$(EXE) $(BUILD_DIR)/basic/basic_prng128_test$(EXE) $(BUILD_DIR)/basic/basic_system_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/mir-bin-run$(EXE) run-basic-tests
+basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUILD_DIR)/basic/basicc-ld$(EXE) $(BUILD_DIR)/basic/basicc-fix$(EXE) $(BUILD_DIR)/basic/kitty_test$(EXE) $(BUILD_DIR)/basic/hcolor_test$(EXE) $(BUILD_DIR)/basic/dfp_test$(EXE) $(BUILD_DIR)/basic/fixed64_test$(EXE) $(BUILD_DIR)/basic/ld2s_test$(EXE) $(BUILD_DIR)/basic/basic_num_scan_test$(EXE) $(BUILD_DIR)/basic/basic_input_hash_test$(EXE) $(BUILD_DIR)/basic/basic_num_fixed64_test$(EXE) $(BUILD_DIR)/basic/basic_prng128_test$(EXE) $(BUILD_DIR)/basic/basic_system_test$(EXE) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_LD) $(BUILD_DIR)/basic/$(BASIC_RUNTIME_LIB_FIX) $(BUILD_DIR)/mir-bin-run$(EXE) run-basic-tests
 
 
 run-basic-tests:
 	$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
 	$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
+	$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc-fix$(EXE)
 	$(SRC_DIR)/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
 	$(SRC_DIR)/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
+	$(SRC_DIR)/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc-fix$(EXE)
 	$(BUILD_DIR)/basic/dfp_test$(EXE) > $(BUILD_DIR)/basic/dfp_test.out
 	diff $(SRC_DIR)/basic/test/dfp_test.out $(BUILD_DIR)/basic/dfp_test.out
 	$(BUILD_DIR)/basic/fixed64_test$(EXE)
 	$(BUILD_DIR)/basic/ld2s_test$(EXE)
-	        $(BUILD_DIR)/basic/basic_num_scan_test$(EXE)
-	        $(BUILD_DIR)/basic/basic_input_hash_test$(EXE)
-	        $(BUILD_DIR)/basic/basic_num_fixed64_test$(EXE)
+		$(BUILD_DIR)/basic/basic_num_scan_test$(EXE)
+		$(BUILD_DIR)/basic/basic_input_hash_test$(EXE)
+		$(BUILD_DIR)/basic/basic_num_fixed64_test$(EXE)
 	$(BUILD_DIR)/basic/basic_prng128_test$(EXE)
 	$(BUILD_DIR)/basic/basic_system_test$(EXE) > $(BUILD_DIR)/basic/basic_system_test.out
 	diff $(SRC_DIR)/basic/test/basic_system_test.out $(BUILD_DIR)/basic/basic_system_test.out
