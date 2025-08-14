@@ -36,6 +36,10 @@ values are `double`, `long-double`, `fixed64`, and `msfp`, which map to the
 `BASIC_USE_DOUBLE`, `BASIC_USE_LONG_DOUBLE`, `BASIC_USE_FIXED64`, and
 `BASIC_USE_MSFP` definitions respectively.  For example:
 
+Numeric mode is fixed at build time; the resulting interpreter operates
+solely in the chosen representation.  Runtime switching between numeric
+implementations is not supported.
+
 ```
 cmake -S . -B build -DBUILD_TESTING=ON -DBASIC_NUM_MODE=fixed64
 cmake --build build
