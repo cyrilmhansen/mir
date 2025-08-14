@@ -1058,11 +1058,15 @@ static FuncDef *find_func (const char *name) {
   return NULL;
 }
 
-/* Program line containing multiple statements */
+/* Program line containing multiple statements or a structural marker */
+typedef enum { LINE_NONE, LINE_ELSE, LINE_ELSEIF, LINE_ENDIF } LineType;
+
 typedef struct {
   int line;
   StmtVec stmts;
   char *src;
+  LineType type;
+  Node *cond; /* used for ELSEIF condition */
 } Line;
 
 typedef struct {
@@ -2993,6 +2997,52 @@ static int parse_line (Parser *p, char *line, Line *out) {
   p->line_no = line_no;
   out->line = line_no;
   out->stmts = (StmtVec) {0};
+  out->type = LINE_NONE;
+  out->cond = NULL;
+  t = peek_token (p);
+  if (t.type == TOK_ELSE) {
+    next_token (p);
+    if (peek_token (p).type != TOK_EOF) return parse_error (p);
+    out->type = LINE_ELSE;
+    return 1;
+  }
+  if (t.type == TOK_ELSEIF) {
+    next_token (p);
+    Node *e;
+    PARSE_EXPR_OR_ERROR (e);
+    if (next_token (p).type != TOK_THEN) return parse_error (p);
+    if (peek_token (p).type != TOK_EOF) return parse_error (p);
+    out->type = LINE_ELSEIF;
+    out->cond = e;
+    return 1;
+  }
+  if (t.type == TOK_ENDIF) {
+    next_token (p);
+    if (peek_token (p).type != TOK_EOF) return parse_error (p);
+    out->type = LINE_ENDIF;
+    return 1;
+  }
+  if (t.type == TOK_END) {
+    char *saved_cur = p->cur;
+    Token saved_tok = p->tok;
+    int saved_has_peek = p->has_peek;
+    Token saved_peek = p->peek;
+    char *saved_peek_cur = p->peek_cur;
+    next_token (p); /* consume END */
+    Token t2 = peek_token (p);
+    if (t2.type == TOK_IF) {
+      next_token (p);
+      out->type = LINE_ENDIF;
+      return 1;
+    }
+    /* restore state */
+    p->cur = saved_cur;
+    p->tok = saved_tok;
+    p->has_peek = saved_has_peek;
+    p->peek = saved_peek;
+    p->peek_cur = saved_peek_cur;
+    t = peek_token (p);
+  }
   while (1) {
     t = peek_token (p);
     while (t.type == TOK_COLON) {
@@ -3075,6 +3125,94 @@ static int parse_line (Parser *p, char *line, Line *out) {
   return 1;
 }
 
+/* Consume lines after an IF ... THEN with no statements to build block structure */
+static void build_if_block (LineVec *prog, size_t *idx, Stmt *s) {
+  size_t i = *idx;
+  /* then part */
+  while (i < prog->len) {
+    Line *ln = &prog->data[i];
+    if (ln->type == LINE_ELSEIF || ln->type == LINE_ELSE || ln->type == LINE_ENDIF) break;
+    for (size_t j = 0; j < ln->stmts.len; j++) {
+      Stmt st = ln->stmts.data[j];
+      if (st.kind == ST_IF && st.u.iff.then_stmts.len == 0) {
+        size_t tmp = i + 1;
+        build_if_block (prog, &tmp, &st);
+        i = tmp - 1;
+      }
+      stmt_vec_push (&s->u.iff.then_stmts, st);
+    }
+    ln->stmts.len = 0;
+    ln->type = LINE_NONE;
+    ln->cond = NULL;
+    i++;
+  }
+  /* ELSEIF parts */
+  while (i < prog->len && prog->data[i].type == LINE_ELSEIF) {
+    Line *ln = &prog->data[i];
+    ElseIf ei = {ln->cond, {0}};
+    i++;
+    while (i < prog->len) {
+      Line *ln2 = &prog->data[i];
+      if (ln2->type == LINE_ELSEIF || ln2->type == LINE_ELSE || ln2->type == LINE_ENDIF) break;
+      for (size_t j = 0; j < ln2->stmts.len; j++) {
+        Stmt st = ln2->stmts.data[j];
+        if (st.kind == ST_IF && st.u.iff.then_stmts.len == 0) {
+          size_t tmp = i + 1;
+          build_if_block (prog, &tmp, &st);
+          i = tmp - 1;
+        }
+        stmt_vec_push (&ei.stmts, st);
+      }
+      ln2->stmts.len = 0;
+      ln2->type = LINE_NONE;
+      ln2->cond = NULL;
+      i++;
+    }
+    elseif_vec_push (&s->u.iff.elseifs, ei);
+  }
+  /* ELSE part */
+  if (i < prog->len && prog->data[i].type == LINE_ELSE) {
+    i++;
+    while (i < prog->len) {
+      Line *ln = &prog->data[i];
+      if (ln->type == LINE_ENDIF) break;
+      for (size_t j = 0; j < ln->stmts.len; j++) {
+        Stmt st = ln->stmts.data[j];
+        if (st.kind == ST_IF && st.u.iff.then_stmts.len == 0) {
+          size_t tmp = i + 1;
+          build_if_block (prog, &tmp, &st);
+          i = tmp - 1;
+        }
+        stmt_vec_push (&s->u.iff.else_stmts, st);
+      }
+      ln->stmts.len = 0;
+      ln->type = LINE_NONE;
+      ln->cond = NULL;
+      i++;
+    }
+  }
+  if (i < prog->len && prog->data[i].type == LINE_ENDIF) {
+    prog->data[i].type = LINE_NONE;
+    prog->data[i].cond = NULL;
+    i++;
+  }
+  *idx = i;
+}
+
+static void parse_blocks (LineVec *prog) {
+  for (size_t i = 0; i < prog->len; i++) {
+    Line *ln = &prog->data[i];
+    for (size_t j = 0; j < ln->stmts.len; j++) {
+      Stmt *s = &ln->stmts.data[j];
+      if (s->kind == ST_IF && s->u.iff.then_stmts.len == 0) {
+        size_t idx = i + 1;
+        build_if_block (prog, &idx, s);
+        if (idx > i + 1) i = idx - 1;
+      }
+    }
+  }
+}
+
 static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
   *p = (Parser) {0};
   p->cur = line;
@@ -3131,6 +3269,7 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
     if (peek_token (p).type == TOK_RPAREN) next_token (p);
   }
   StmtVec body = {0};
+  LineVec body_lines = {0};
   char buf[256];
   while (fgets (buf, sizeof (buf), f)) {
     buf[strcspn (buf, "\n")] = '\0';
@@ -3165,11 +3304,16 @@ static void parse_func (Parser *p, FILE *f, char *line, int is_sub) {
         src_cap = new_cap;
       }
       src_lines[src_len++] = l.src;
-      for (size_t i = 0; i < l.stmts.len; i++) stmt_vec_push (&body, l.stmts.data[i]);
+      insert_or_replace_line (&body_lines, l);
     } else {
       /* error already reported by parse_line */
     }
   }
+  parse_blocks (&body_lines);
+  for (size_t i = 0; i < body_lines.len; i++)
+    for (size_t j = 0; j < body_lines.data[i].stmts.len; j++)
+      stmt_vec_push (&body, body_lines.data[i].stmts.data[j]);
+  line_vec_destroy (&body_lines);
   char **params_final = NULL;
   int *is_str_final = NULL;
   if (n != 0) {
@@ -5982,6 +6126,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       current_dir = basic_alloc_string (0);
     }
   }
+  parse_blocks (prog);
   MIR_context_t ctx = MIR_init ();
   MIR_module_t module = MIR_new_module (ctx, "BASIC");
   print_proto = MIR_new_proto (ctx, "basic_print_p", 0, NULL, 1, BASIC_MIR_NUM_T, "x");
@@ -6872,7 +7017,8 @@ static void usage (const char *progname) {
   safe_fprintf (stdout, "  -S                 Emit MIR text (.mir) and binary (.bmir) files\n");
   safe_fprintf (stdout, "  -c                 Emit MIR text (.mir) and binary (.bmir) files\n");
   safe_fprintf (stdout,
-                "  -r                 Emit only a binary (.bmir) file for use with mir-bin-run\n");
+                "  -r                 Emit only a binary (.bmir) file for use with "
+                "mir-bin-run\n");
   safe_fprintf (stdout, "  -b                 Build a standalone executable\n");
   safe_fprintf (stdout, "  -l                 Reduce linked libraries when building executables\n");
   safe_fprintf (stdout,
