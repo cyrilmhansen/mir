@@ -82,8 +82,6 @@ fixed64_t fixed64_fmod (fixed64_t a, fixed64_t b);
 fixed64_t fixed64_atan2 (fixed64_t y, fixed64_t x);
 fixed64_t fixed64_log1p (fixed64_t a);
 fixed64_t fixed64_expm1 (fixed64_t a);
-fixed64_t fixed64_stub_unary (fixed64_t a);
-fixed64_t fixed64_stub_binary (fixed64_t a, fixed64_t b);
 
 #ifdef __cplusplus
 }

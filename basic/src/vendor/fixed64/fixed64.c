@@ -347,7 +347,7 @@ fixed64_t fixed64_log10 (fixed64_t a) {
 fixed64_t fixed64_exp (fixed64_t a) {
   double da = fixed64_to_double (a);
   return fixed64_from_double (exp (da));
-}
+
 
 fixed64_t fixed64_ceil (fixed64_t a) {
   double da = fixed64_to_double (a);
@@ -386,17 +386,4 @@ fixed64_t fixed64_expm1 (fixed64_t a) {
   return fixed64_from_double (expm1 (da));
 }
 
-fixed64_t fixed64_stub_unary (fixed64_t a) {
-  (void) a;
-  fprintf (stderr, "runtime error: unsupported fixed64 operation\n");
-  exit (1);
-  return fixed64_from_int (0);
-}
 
-fixed64_t fixed64_stub_binary (fixed64_t a, fixed64_t b) {
-  (void) a;
-  (void) b;
-  fprintf (stderr, "runtime error: unsupported fixed64 operation\n");
-  exit (1);
-  return fixed64_from_int (0);
-}

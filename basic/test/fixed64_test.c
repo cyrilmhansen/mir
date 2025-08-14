@@ -3,10 +3,6 @@
 #include <stdio.h>
 
 #include "fixed64/fixed64.h"
-#ifndef _WIN32
-#include <sys/wait.h>
-#include <unistd.h>
-#endif
 
 int main (void) {
   fixed64_t half = {.hi = 0, .lo = 1ULL << 63};
@@ -43,7 +39,6 @@ int main (void) {
 
   res = fixed64_div (neg_two, half);
   assert (res.hi == -4 && res.lo == 0);
-  (void) res;
 
   fixed64_t zero = fixed64_from_int (0);
   fixed64_t half_pi = {.hi = 1, .lo = 0x921fb54442d18000ULL};
@@ -63,7 +58,6 @@ int main (void) {
   fixed64_t three = fixed64_from_int (3);
   res = fixed64_pow (two, three);
   assert (res.hi == 8 && res.lo == 0);
-
 
   fixed64_t five_half = fixed64_from_double (5.5);
   res = fixed64_ceil (five_half);
@@ -90,6 +84,22 @@ int main (void) {
   assert (fabs (fixed64_to_double (res) - 1.0) < 1e-6);
   res = fixed64_expm1 (fixed64_from_int (1));
   assert (fabs (fixed64_to_double (res) - (exp (1.0) - 1.0)) < 1e-6);
+
+  fixed64_t v = fixed64_from_double (3.75);
+  res = fixed64_floor (v);
+  assert (res.hi == 3 && res.lo == 0);
+
+  res = fixed64_log (fixed64_from_int (1));
+  assert (fabs (fixed64_to_double (res)) < 1e-6);
+
+  res = fixed64_exp (zero);
+  assert (res.hi == 1 && res.lo == 0);
+
+  res = fixed64_asin (fixed64_from_double (0.5));
+  assert (fabs (fixed64_to_double (res) - asin (0.5)) < 1e-6);
+
+  (void) res;
+
 
   /* additional math helpers */
   res = fixed64_log (two);
@@ -122,6 +132,7 @@ int main (void) {
     assert (!(WIFEXITED (status) && WEXITSTATUS (status) == 0));
   }
 #endif
+
   (void) zero;
   (void) half_pi;
   (void) pi;
