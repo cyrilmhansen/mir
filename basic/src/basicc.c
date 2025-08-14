@@ -7026,7 +7026,15 @@ static void usage (const char *progname) {
 }
 
 int main (int argc, char **argv) {
+#if defined(BASIC_USE_LONG_DOUBLE)
+  basic_num_init (BASIC_NUM_MODE_LONG_DOUBLE);
+#elif defined(BASIC_USE_FIXED64)
+  basic_num_init (BASIC_NUM_MODE_FIXED64);
+#elif defined(BASIC_USE_MSFP)
+  basic_num_init (BASIC_NUM_MODE_MSFP);
+#else
   basic_num_init (BASIC_NUM_MODE_DOUBLE);
+#endif
   arena_init (&ast_arena);
   basic_pool_reset ();
   int jit = 0, asm_p = 0, obj_p = 0, bin_p = 0, reduce_libs = 0;
