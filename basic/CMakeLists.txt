@@ -76,6 +76,18 @@ if(UNIX)
 endif()
 
 if(BUILD_TESTING)
+  add_executable(basic_num_fixed64_test
+    test/basic_num_fixed64_test.c
+    src/vendor/fixed64/fixed64.c)
+  target_compile_definitions(basic_num_fixed64_test PRIVATE BASIC_USE_FIXED64)
+  target_include_directories(basic_num_fixed64_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vendor
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vendor/fixed64)
+  if(UNIX)
+    target_link_libraries(basic_num_fixed64_test m)
+  endif()
+  add_test(NAME basic_num_fixed64_test COMMAND basic_num_fixed64_test)
   add_test(NAME basic-tests COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/run-tests.sh $<TARGET_FILE:${BASICC_NAME}>)
 endif()
-
