@@ -30,6 +30,36 @@
 #define MIR_DBGE MIR_LDBGE
 #endif
 
+#if defined(BASIC_USE_LONG_DOUBLE)
+#define BASIC_MIR_NUM_T MIR_T_LD
+#elif defined(BASIC_USE_FIXED64)
+#define BASIC_MIR_NUM_T MIR_T_BLK
+#else
+#define BASIC_MIR_NUM_T MIR_T_D
+#endif
+
+#if defined(BASIC_USE_FIXED64)
+#define BASIC_FROM_INT_OP(ctx, func, dst, src)                                              \
+  MIR_append_insn (ctx, func,                                                               \
+                   MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, fixed64_from_int_proto), \
+                                      MIR_new_ref_op (ctx, fixed64_from_int_import),        \
+                                      MIR_new_reg_op (ctx, dst), MIR_new_reg_op (ctx, src)))
+#define BASIC_TO_INT_OP(ctx, func, dst, src)                                              \
+  MIR_append_insn (ctx, func,                                                             \
+                   MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, fixed64_to_int_proto), \
+                                      MIR_new_ref_op (ctx, fixed64_to_int_import),        \
+                                      MIR_new_reg_op (ctx, dst), MIR_new_reg_op (ctx, src)))
+#else
+#define BASIC_FROM_INT_OP(ctx, func, dst, src)                            \
+  MIR_append_insn (ctx, func,                                             \
+                   MIR_new_insn (ctx, MIR_I2D, MIR_new_reg_op (ctx, dst), \
+                                 MIR_new_reg_op (ctx, src)))
+#define BASIC_TO_INT_OP(ctx, func, dst, src)                              \
+  MIR_append_insn (ctx, func,                                             \
+                   MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, dst), \
+                                 MIR_new_reg_op (ctx, src)))
+#endif
+
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -216,6 +246,7 @@ extern int fixed64_gt (basic_num_t, basic_num_t);
 extern int fixed64_ge (basic_num_t, basic_num_t);
 extern basic_num_t fixed64_from_int (long);
 extern basic_num_t fixed64_from_string (const char *, char **);
+extern long fixed64_to_int (basic_num_t);
 #endif
 
 extern void basic_stop (void);
@@ -292,6 +323,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "fixed64_ge")) return fixed64_ge;
   if (!strcmp (name, "fixed64_from_int")) return fixed64_from_int;
   if (!strcmp (name, "fixed64_from_string")) return fixed64_from_string;
+  if (!strcmp (name, "fixed64_to_int")) return fixed64_to_int;
 #endif
 
   if (!strcmp (name, "basic_read")) return basic_read;
@@ -440,7 +472,7 @@ static MIR_item_t fixed64_add_proto, fixed64_add_import, fixed64_sub_proto, fixe
   fixed64_eq_import, fixed64_ne_proto, fixed64_ne_import, fixed64_lt_proto, fixed64_lt_import,
   fixed64_le_proto, fixed64_le_import, fixed64_gt_proto, fixed64_gt_import, fixed64_ge_proto,
   fixed64_ge_import, fixed64_from_int_proto, fixed64_from_int_import, fixed64_from_string_proto,
-  fixed64_from_string_import;
+  fixed64_from_string_import, fixed64_to_int_proto, fixed64_to_int_import;
 #endif
 
 /* Runtime call prototypes for statements */
@@ -3220,7 +3252,7 @@ static void ensure_array_dim (VarVec *vars, MIR_context_t ctx, MIR_item_t func, 
                                  MIR_new_reg_op (ctx, base), MIR_new_int_op (ctx, 0)));
   char buf[32];
   safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-  MIR_reg_t len = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
+  MIR_reg_t len = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
   MIR_append_insn (ctx, func,
                    MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, len),
                                  MIR_new_double_op (ctx, (basic_num_t) asize)));
@@ -3530,11 +3562,23 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
   if (n->kind == N_NUM) {
     char buf[32];
     safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-    MIR_reg_t r = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
+    MIR_reg_t r = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
+#if defined(BASIC_USE_FIXED64)
+    char nbuf[128];
+    basic_num_to_chars (n->num, nbuf, sizeof (nbuf));
+    MIR_append_insn (ctx, func,
+                     MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, fixed64_from_string_proto),
+                                        MIR_new_ref_op (ctx, fixed64_from_string_import),
+                                        MIR_new_reg_op (ctx, r),
+                                        MIR_new_str_op (ctx, (MIR_str_t) {strlen (nbuf) + 1, nbuf}),
+                                        MIR_new_int_op (ctx, 0)));
+    return r;
+#else
     MIR_append_insn (ctx, func,
                      MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, r),
                                    MIR_new_double_op (ctx, n->num)));
     return r;
+#endif
   } else if (n->kind == N_VAR) {
     if (n->index != NULL) {
       MIR_reg_t base = get_array (vars, ctx, func, n->var, 0, 0, 0);
@@ -3543,9 +3587,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       char buf[32];
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t idx = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (ctx, func,
-                       MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, idx),
-                                     MIR_new_reg_op (ctx, idxd1)));
+      BASIC_TO_INT_OP (ctx, func, idx, idxd1);
       if (array_base != 0)
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, MIR_SUB, MIR_new_reg_op (ctx, idx),
@@ -3555,9 +3597,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
         MIR_reg_t idxd2 = gen_expr (ctx, func, vars, n->index2);
         safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
         MIR_reg_t idx2 = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-        MIR_append_insn (ctx, func,
-                         MIR_new_insn (ctx, MIR_D2I, MIR_new_reg_op (ctx, idx2),
-                                       MIR_new_reg_op (ctx, idxd2)));
+        BASIC_TO_INT_OP (ctx, func, idx2, idxd2);
         if (array_base != 0)
           MIR_append_insn (ctx, func,
                            MIR_new_insn (ctx, MIR_SUB, MIR_new_reg_op (ctx, idx2),
@@ -3594,10 +3634,10 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                        MIR_new_insn (ctx, MIR_ADD, MIR_new_reg_op (ctx, addr),
                                      MIR_new_reg_op (ctx, base), MIR_new_reg_op (ctx, off)));
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-      MIR_reg_t val = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
+      MIR_reg_t val = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
       MIR_append_insn (ctx, func,
                        MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, val),
-                                     MIR_new_mem_op (ctx, MIR_T_D, 0, addr, 0, 1)));
+                                     MIR_new_mem_op (ctx, BASIC_MIR_NUM_T, 0, addr, 0, 1)));
       MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, ok)));
       MIR_append_insn (ctx, func, bad);
       MIR_append_insn (ctx, func,
@@ -3612,7 +3652,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
     MIR_reg_t v = gen_expr (ctx, func, vars, n->left);
     char buf[32];
     safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-    MIR_reg_t r = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
+    MIR_reg_t r = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
     MIR_append_insn (ctx, func,
                      MIR_new_insn (ctx, MIR_DNEG, MIR_new_reg_op (ctx, r),
                                    MIR_new_reg_op (ctx, v)));
@@ -3626,15 +3666,13 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                      MIR_new_insn (ctx, MIR_DEQ, MIR_new_reg_op (ctx, resi),
                                    MIR_new_reg_op (ctx, v), MIR_new_double_op (ctx, 0.0)));
     safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-    MIR_reg_t resd = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
-    MIR_append_insn (ctx, func,
-                     MIR_new_insn (ctx, MIR_I2D, MIR_new_reg_op (ctx, resd),
-                                   MIR_new_reg_op (ctx, resi)));
+    MIR_reg_t resd = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
+    BASIC_FROM_INT_OP (ctx, func, resd, resi);
     return resd;
   } else if (n->kind == N_CALL) {
     char buf[32];
     safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-    MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, MIR_T_D, buf);
+    MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
     if (strcasecmp (n->var, "RND") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
       MIR_append_insn (ctx, func,
@@ -5922,6 +5960,13 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   int_vars[0].type = MIR_T_I64;
   fixed64_from_int_proto = MIR_new_proto_arr (ctx, "fixed64_from_int_p", 1, &blk, 1, int_vars);
   fixed64_from_int_import = MIR_new_import (ctx, "fixed64_from_int");
+
+  MIR_var_t num_vars[1];
+  num_vars[0].name = "x";
+  num_vars[0].type = MIR_T_BLK;
+  num_vars[0].size = sizeof (basic_num_t);
+  fixed64_to_int_proto = MIR_new_proto_arr (ctx, "fixed64_to_int_p", 1, &i64, 1, num_vars);
+  fixed64_to_int_import = MIR_new_import (ctx, "fixed64_to_int");
 
   MIR_var_t str_vars[2];
   str_vars[0].name = "s";
