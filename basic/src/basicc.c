@@ -366,7 +366,8 @@ extern void basic_enable_line_tracking (basic_num_t);
 
 extern void basic_delay (basic_num_t);
 extern void basic_beep (void);
-extern void basic_sound (basic_num_t, basic_num_t);
+extern void basic_sound (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
+extern void basic_sound_off (void);
 extern basic_num_t basic_system (const char *);
 extern char *basic_system_out (void);
 
@@ -533,6 +534,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_delay")) return basic_delay;
   if (!strcmp (name, "basic_beep")) return basic_beep;
   if (!strcmp (name, "basic_sound")) return basic_sound;
+  if (!strcmp (name, "basic_sound_off")) return basic_sound_off;
   if (!strcmp (name, "basic_system")) return basic_system;
   if (!strcmp (name, "basic_system_out")) return basic_system_out;
 
@@ -630,9 +632,9 @@ static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_
   set_line_import, get_line_proto, get_line_import, line_track_proto, line_track_import,
   profile_line_proto, profile_line_import, profile_func_enter_proto, profile_func_enter_import,
   profile_func_exit_proto, profile_func_exit_import, delay_proto, delay_import, beep_proto,
-  beep_import, sound_proto, sound_import, system_proto, system_import, system_out_proto,
-  system_out_import, pool_reset_proto, pool_reset_import, free_proto, free_import, chain_proto,
-  chain_import, eval_proto, eval_import;
+  beep_import, sound_proto, sound_import, sound_off_proto, sound_off_import, system_proto,
+  system_import, system_out_proto, system_out_import, pool_reset_proto, pool_reset_import,
+  free_proto, free_import, chain_proto, chain_import, eval_proto, eval_import;
 
 /* AST for expressions */
 typedef enum { N_NUM, N_VAR, N_BIN, N_NEG, N_NOT, N_STR, N_CALL, N_TAB } NodeKind;
@@ -1019,6 +1021,9 @@ struct Stmt {
     struct {
       Node *freq;
       Node *dur;
+      Node *vol;
+      int async;
+      int off;
     } sound;
     struct {
       Node *cmd;
@@ -1253,6 +1258,8 @@ typedef enum {
   TOK_BEEP,
   TOK_SOUND,
   TOK_SYSTEM,
+  TOK_ASYNC,
+  TOK_OFF,
   TOK_RANDOMIZE,
   TOK_TEXT,
   TOK_INVERSE,
@@ -1446,6 +1453,8 @@ static Token read_token (Parser *p) {
                     {"DELAY", TOK_DELAY},
                     {"BEEP", TOK_BEEP},
                     {"SOUND", TOK_SOUND},
+                    {"ASYNC", TOK_ASYNC},
+                    {"OFF", TOK_OFF},
                     {"SYSTEM", TOK_SYSTEM},
                     {"RANDOMIZE", TOK_RANDOMIZE},
                     {"TEXT", TOK_TEXT},
@@ -2532,9 +2541,31 @@ static int parse_stmt (Parser *p, Stmt *out) {
     return 1;
   case TOK_SOUND:
     out->kind = ST_SOUND;
+    out->u.sound.vol = NULL;
+    out->u.sound.async = 0;
+    out->u.sound.off = 0;
+    if (peek_token (p).type == TOK_OFF) {
+      next_token (p);
+      out->u.sound.off = 1;
+      return 1;
+    }
     PARSE_EXPR_OR_ERROR (out->u.sound.freq);
     if (next_token (p).type != TOK_COMMA) return 0;
     PARSE_EXPR_OR_ERROR (out->u.sound.dur);
+    if (peek_token (p).type == TOK_COMMA) {
+      next_token (p);
+      if (peek_token (p).type == TOK_ASYNC) {
+        next_token (p);
+        out->u.sound.async = 1;
+        return 1;
+      }
+      PARSE_EXPR_OR_ERROR (out->u.sound.vol);
+      if (peek_token (p).type == TOK_COMMA) {
+        next_token (p);
+        if (next_token (p).type != TOK_ASYNC) return 0;
+        out->u.sound.async = 1;
+      }
+    }
     return 1;
   case TOK_SYSTEM:
     out->kind = ST_SYSTEM;
@@ -5768,12 +5799,23 @@ static void gen_stmt (Stmt *s) {
     break;
   }
   case ST_SOUND: {
+    if (s->u.sound.off) {
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_call_insn (g_ctx, 2, MIR_new_ref_op (g_ctx, sound_off_proto),
+                                          MIR_new_ref_op (g_ctx, sound_off_import)));
+      break;
+    }
     MIR_reg_t f = gen_expr (g_ctx, g_func, &g_vars, s->u.sound.freq);
     MIR_reg_t d = gen_expr (g_ctx, g_func, &g_vars, s->u.sound.dur);
+    MIR_op_t v = s->u.sound.vol
+                   ? MIR_new_reg_op (g_ctx, gen_expr (g_ctx, g_func, &g_vars, s->u.sound.vol))
+                   : emit_num_const (g_ctx, basic_num_from_int (0));
+    MIR_op_t a = emit_num_const (g_ctx, basic_num_from_int (s->u.sound.async ? 1 : 0));
     MIR_append_insn (g_ctx, g_func,
-                     MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, sound_proto),
+                     MIR_new_call_insn (g_ctx, 6, MIR_new_ref_op (g_ctx, sound_proto),
                                         MIR_new_ref_op (g_ctx, sound_import),
-                                        MIR_new_reg_op (g_ctx, f), MIR_new_reg_op (g_ctx, d)));
+                                        MIR_new_reg_op (g_ctx, f), MIR_new_reg_op (g_ctx, d), v,
+                                        a));
     break;
   }
   case ST_SYSTEM: {
@@ -6309,9 +6351,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   delay_import = MIR_new_import (ctx, "basic_delay");
   beep_proto = MIR_new_proto (ctx, "basic_beep_p", 0, NULL, 0);
   beep_import = MIR_new_import (ctx, "basic_beep");
-  sound_proto
-    = MIR_new_proto (ctx, "basic_sound_p", 0, NULL, 2, BASIC_MIR_NUM_T, "f", BASIC_MIR_NUM_T, "d");
+  sound_proto = MIR_new_proto (ctx, "basic_sound_p", 0, NULL, 4, BASIC_MIR_NUM_T, "f",
+                               BASIC_MIR_NUM_T, "d", BASIC_MIR_NUM_T, "v", BASIC_MIR_NUM_T, "a");
   sound_import = MIR_new_import (ctx, "basic_sound");
+  sound_off_proto = MIR_new_proto (ctx, "basic_sound_off_p", 0, NULL, 0);
+  sound_off_import = MIR_new_import (ctx, "basic_sound_off");
   system_proto = MIR_new_proto (ctx, "basic_system_p", 1, &d, 1, MIR_T_P, "cmd");
   system_import = MIR_new_import (ctx, "basic_system");
   system_out_proto = MIR_new_proto (ctx, "basic_system_out_p", 1, &p, 0);
