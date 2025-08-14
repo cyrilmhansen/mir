@@ -6198,12 +6198,17 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   print_import = MIR_new_import (ctx, "basic_print");
   prints_proto = MIR_new_proto (ctx, "basic_print_str_p", 0, NULL, 1, MIR_T_P, "s");
   prints_import = MIR_new_import (ctx, "basic_print_str");
-  MIR_type_t d = BASIC_MIR_NUM_T;
 #if defined(BASIC_USE_FIXED64)
+  MIR_type_t d = MIR_T_I64; /* placeholder for unused numeric results */
   MIR_type_t blk = MIR_T_BLK;
   MIR_type_t i64_ = MIR_T_I64;
-  input_proto = MIR_new_proto_arr (ctx, "basic_input_p", 1, &blk, 0, NULL);
+  MIR_var_t res_arg;
+  res_arg.name = "res";
+  res_arg.type = MIR_T_RBLK;
+  res_arg.size = sizeof (basic_num_t);
+  input_proto = MIR_new_proto_arr (ctx, "basic_input_p", 0, NULL, 1, &res_arg);
 #else
+  MIR_type_t d = BASIC_MIR_NUM_T;
   input_proto = MIR_new_proto (ctx, "basic_input_p", 1, &d, 0);
 #endif
   input_import = MIR_new_import (ctx, "basic_input");
@@ -6215,26 +6220,28 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   put_proto = MIR_new_proto (ctx, "basic_put_p", 0, NULL, 1, MIR_T_P, "s");
   put_import = MIR_new_import (ctx, "basic_put");
 #if defined(BASIC_USE_FIXED64)
-  MIR_var_t bin_vars[2];
-  bin_vars[0].name = "a";
-  bin_vars[0].type = MIR_T_BLK;
-  bin_vars[0].size = sizeof (basic_num_t);
-  bin_vars[1].name = "b";
+  MIR_var_t bin_vars[3];
+  bin_vars[0] = res_arg;
+  bin_vars[1].name = "a";
   bin_vars[1].type = MIR_T_BLK;
   bin_vars[1].size = sizeof (basic_num_t);
-  fixed64_add_proto = MIR_new_proto_arr (ctx, "fixed64_add_p", 1, &blk, 2, bin_vars);
+  bin_vars[2].name = "b";
+  bin_vars[2].type = MIR_T_BLK;
+  bin_vars[2].size = sizeof (basic_num_t);
+  fixed64_add_proto = MIR_new_proto_arr (ctx, "fixed64_add_p", 0, NULL, 3, bin_vars);
   fixed64_add_import = MIR_new_import (ctx, "fixed64_add");
-  fixed64_sub_proto = MIR_new_proto_arr (ctx, "fixed64_sub_p", 1, &blk, 2, bin_vars);
+  fixed64_sub_proto = MIR_new_proto_arr (ctx, "fixed64_sub_p", 0, NULL, 3, bin_vars);
   fixed64_sub_import = MIR_new_import (ctx, "fixed64_sub");
-  fixed64_mul_proto = MIR_new_proto_arr (ctx, "fixed64_mul_p", 1, &blk, 2, bin_vars);
+  fixed64_mul_proto = MIR_new_proto_arr (ctx, "fixed64_mul_p", 0, NULL, 3, bin_vars);
   fixed64_mul_import = MIR_new_import (ctx, "fixed64_mul");
-  fixed64_div_proto = MIR_new_proto_arr (ctx, "fixed64_div_p", 1, &blk, 2, bin_vars);
+  fixed64_div_proto = MIR_new_proto_arr (ctx, "fixed64_div_p", 0, NULL, 3, bin_vars);
   fixed64_div_import = MIR_new_import (ctx, "fixed64_div");
-  MIR_var_t un_vars[1];
-  un_vars[0].name = "a";
-  un_vars[0].type = MIR_T_BLK;
-  un_vars[0].size = sizeof (basic_num_t);
-  fixed64_neg_proto = MIR_new_proto_arr (ctx, "fixed64_neg_p", 1, &blk, 1, un_vars);
+  MIR_var_t un_vars[2];
+  un_vars[0] = res_arg;
+  un_vars[1].name = "a";
+  un_vars[1].type = MIR_T_BLK;
+  un_vars[1].size = sizeof (basic_num_t);
+  fixed64_neg_proto = MIR_new_proto_arr (ctx, "fixed64_neg_p", 0, NULL, 2, un_vars);
   fixed64_neg_import = MIR_new_import (ctx, "fixed64_neg");
 
   MIR_var_t cmp_vars[2];
@@ -6257,19 +6264,21 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   fixed64_ge_proto = MIR_new_proto_arr (ctx, "fixed64_ge_p", 1, &i64_, 2, cmp_vars);
   fixed64_ge_import = MIR_new_import (ctx, "fixed64_ge");
 
-  MIR_var_t int_vars[1];
-  int_vars[0].name = "i";
-  int_vars[0].type = MIR_T_I64;
-  fixed64_from_int_proto = MIR_new_proto_arr (ctx, "fixed64_from_int_p", 1, &blk, 1, int_vars);
+  MIR_var_t int_vars[2];
+  int_vars[0] = res_arg;
+  int_vars[1].name = "i";
+  int_vars[1].type = MIR_T_I64;
+  fixed64_from_int_proto = MIR_new_proto_arr (ctx, "fixed64_from_int_p", 0, NULL, 2, int_vars);
   fixed64_from_int_import = MIR_new_import (ctx, "fixed64_from_int");
 
-  MIR_var_t str_vars[2];
-  str_vars[0].name = "s";
-  str_vars[0].type = MIR_T_P;
-  str_vars[1].name = "end";
+  MIR_var_t str_vars[3];
+  str_vars[0] = res_arg;
+  str_vars[1].name = "s";
   str_vars[1].type = MIR_T_P;
+  str_vars[2].name = "end";
+  str_vars[2].type = MIR_T_P;
   fixed64_from_string_proto
-    = MIR_new_proto_arr (ctx, "fixed64_from_string_p", 1, &blk, 2, str_vars);
+    = MIR_new_proto_arr (ctx, "fixed64_from_string_p", 0, NULL, 3, str_vars);
   fixed64_from_string_import = MIR_new_import (ctx, "fixed64_from_string");
 
   MIR_var_t to_int_vars[1];
@@ -6291,11 +6300,12 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     = MIR_new_proto (ctx, "basic_print_hash_str_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n", MIR_T_P, "s");
   prinths_import = MIR_new_import (ctx, "basic_print_hash_str");
 #if defined(BASIC_USE_FIXED64)
-  MIR_var_t hash_arg;
-  hash_arg.name = "n";
-  hash_arg.type = MIR_T_BLK;
-  hash_arg.size = sizeof (basic_num_t);
-  input_hash_proto = MIR_new_proto_arr (ctx, "basic_input_hash_p", 1, &blk, 1, &hash_arg);
+  MIR_var_t hash_vars[2];
+  hash_vars[0] = res_arg;
+  hash_vars[1].name = "n";
+  hash_vars[1].type = MIR_T_BLK;
+  hash_vars[1].size = sizeof (basic_num_t);
+  input_hash_proto = MIR_new_proto_arr (ctx, "basic_input_hash_p", 0, NULL, 2, hash_vars);
 #else
   input_hash_proto = MIR_new_proto (ctx, "basic_input_hash_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
 #endif
@@ -6550,17 +6560,18 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   mir_finish_import = MIR_new_import (ctx, "basic_mir_finish");
   {
 #if defined(BASIC_USE_FIXED64)
-    MIR_var_t run_args[5];
-    run_args[0].name = "func";
-    run_args[1].name = "a1";
-    run_args[2].name = "a2";
-    run_args[3].name = "a3";
-    run_args[4].name = "a4";
-    for (int i = 0; i < 5; i++) {
+    MIR_var_t run_args[6];
+    run_args[0] = res_arg;
+    run_args[1].name = "func";
+    run_args[2].name = "a1";
+    run_args[3].name = "a2";
+    run_args[4].name = "a3";
+    run_args[5].name = "a4";
+    for (int i = 1; i < 6; i++) {
       run_args[i].type = MIR_T_BLK;
       run_args[i].size = sizeof (basic_num_t);
     }
-    mir_run_proto = MIR_new_proto_arr (ctx, "basic_mir_run_p", 1, &blk, 5, run_args);
+    mir_run_proto = MIR_new_proto_arr (ctx, "basic_mir_run_p", 0, NULL, 6, run_args);
 #else
     mir_run_proto
       = MIR_new_proto (ctx, "basic_mir_run_p", 1, &d, 5, BASIC_MIR_NUM_T, "func", BASIC_MIR_NUM_T,
@@ -6570,11 +6581,12 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   mir_run_import = MIR_new_import (ctx, "basic_mir_run");
 #if defined(BASIC_USE_FIXED64)
   {
-    MIR_var_t dump_arg;
-    dump_arg.name = "func";
-    dump_arg.type = MIR_T_BLK;
-    dump_arg.size = sizeof (basic_num_t);
-    mir_dump_proto = MIR_new_proto_arr (ctx, "basic_mir_dump_p", 1, &blk, 1, &dump_arg);
+    MIR_var_t dump_args[2];
+    dump_args[0] = res_arg;
+    dump_args[1].name = "func";
+    dump_args[1].type = MIR_T_BLK;
+    dump_args[1].size = sizeof (basic_num_t);
+    mir_dump_proto = MIR_new_proto_arr (ctx, "basic_mir_dump_p", 0, NULL, 2, dump_args);
   }
 #else
   mir_dump_proto = MIR_new_proto (ctx, "basic_mir_dump_p", 1, &d, 1, BASIC_MIR_NUM_T, "func");
@@ -6593,7 +6605,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   strcmp_proto = MIR_new_proto (ctx, "basic_strcmp_p", 1, &i64, 2, MIR_T_P, "a", MIR_T_P, "b");
   strcmp_import = MIR_new_import (ctx, "basic_strcmp");
 #if defined(BASIC_USE_FIXED64)
-  read_proto = MIR_new_proto_arr (ctx, "basic_read_p", 1, &blk, 0, NULL);
+  read_proto = MIR_new_proto_arr (ctx, "basic_read_p", 0, NULL, 1, &res_arg);
 #else
   read_proto = MIR_new_proto (ctx, "basic_read_p", 1, &d, 0);
 #endif
