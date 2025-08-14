@@ -2,7 +2,7 @@
 ' 3 sections, 400 glyphs each, with always-on background gradients
 ' Works with mirbasic/basicc style: single-line IFs, simple GOSUBs
 
-5  ESC$=CHR$(27) : PRINT ESC$;"[2J";ESC$;"[H";
+5  ESC$=CHR$(27) : REM CLEAR SCREEN DISABLED PRINT ESC$;"[2J";ESC$;"[H";
 6  DIM S$(6)        ' tile buffer (max needed)
 7  DIM USED(6)      ' to avoid repeating a set
 8  DIM P(16)        ' palette color slots (max 16)
