@@ -429,11 +429,17 @@ static char *next_input_field (void) {
   }
 }
 
+#if defined(BASIC_USE_FIXED64)
+void basic_input (basic_num_t *res) {
+  if (!basic_num_scan (stdin, res)) *res = BASIC_ZERO;
+}
+#else
 basic_num_t basic_input (void) {
   basic_num_t x = BASIC_ZERO;
   if (!basic_num_scan (stdin, &x)) return BASIC_ZERO;
   return x;
 }
+#endif
 
 void basic_print (basic_num_t x) {
   char buf[128];
@@ -448,7 +454,11 @@ void basic_print_str (const char *s) {
   fputs (s, stdout);
 }
 
+#if defined(BASIC_USE_FIXED64)
+void basic_pos (basic_num_t *res) { *res = basic_num_from_int (basic_pos_val); }
+#else
 basic_num_t basic_pos (void) { return basic_num_from_int (basic_pos_val); }
+#endif
 
 /* Allocate a new string containing input from stdin.
    Caller must free the returned buffer with basic_free. */
@@ -534,6 +544,16 @@ void basic_print_hash_str (basic_num_t n, const char *s) {
   fputs (s, basic_files[idx]);
 }
 
+#if defined(BASIC_USE_FIXED64)
+void basic_input_hash (basic_num_t *res, basic_num_t n) {
+  int idx = basic_num_to_int (n);
+  if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) {
+    *res = BASIC_ZERO;
+    return;
+  }
+  if (!basic_num_scan (basic_files[idx], res)) *res = BASIC_ZERO;
+}
+#else
 basic_num_t basic_input_hash (basic_num_t n) {
   int idx = basic_num_to_int (n);
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return BASIC_ZERO;
@@ -541,6 +561,7 @@ basic_num_t basic_input_hash (basic_num_t n) {
   if (!basic_num_scan (basic_files[idx], &x)) return BASIC_ZERO;
   return x;
 }
+#endif
 
 /* Read a line from an open file and return a newly allocated string.
    Caller must free the result with basic_free. */
@@ -606,11 +627,21 @@ BasicData *basic_data_items = NULL;
 size_t basic_data_len = 0;
 size_t basic_data_pos = 0;
 
+#if defined(BASIC_USE_FIXED64)
+void basic_read (basic_num_t *res) {
+  if (basic_data_pos >= basic_data_len || basic_data_items[basic_data_pos].is_str) {
+    *res = BASIC_ZERO;
+    return;
+  }
+  *res = basic_data_items[basic_data_pos++].num;
+}
+#else
 basic_num_t basic_read (void) {
   if (basic_data_pos >= basic_data_len || basic_data_items[basic_data_pos].is_str)
     return BASIC_ZERO;
   return basic_data_items[basic_data_pos++].num;
 }
+#endif
 
 /* Return next DATA string as a newly allocated buffer.
    Caller must free the result with basic_free. */
@@ -717,6 +748,26 @@ void basic_randomize (basic_num_t n, basic_num_t has_seed) {
   seeded = 1;
 }
 
+#if defined(BASIC_USE_FIXED64)
+void basic_rnd (basic_num_t *res, basic_num_t n) {
+  if (!seeded) {
+    basic_randomize (BASIC_ZERO, BASIC_ZERO);
+  }
+  __uint128_t r = basic_next_u128 ();
+  uint64_t hi = (uint64_t) (r >> 64);
+  uint64_t lo = (uint64_t) r;
+  basic_num_t base = basic_num_from_int ((long) (1ULL << 32));
+  basic_num_t base64 = basic_num_mul (base, base);
+  basic_num_t hi_num = basic_num_add (basic_num_mul (basic_num_from_int ((long) (hi >> 32)), base),
+                                      basic_num_from_int ((long) (hi & UINT32_MAX)));
+  basic_num_t lo_num = basic_num_add (basic_num_mul (basic_num_from_int ((long) (lo >> 32)), base),
+                                      basic_num_from_int ((long) (lo & UINT32_MAX)));
+  basic_num_t frac = basic_num_div (hi_num, base64);
+  basic_num_t base128 = basic_num_mul (base64, base64);
+  frac = basic_num_add (frac, basic_num_div (lo_num, base128));
+  *res = basic_num_mul (frac, n);
+}
+#else
 basic_num_t basic_rnd (basic_num_t n) {
   if (!seeded) {
     basic_randomize (BASIC_ZERO, BASIC_ZERO);
@@ -735,6 +786,7 @@ basic_num_t basic_rnd (basic_num_t n) {
   frac = basic_num_add (frac, basic_num_div (lo_num, base128));
   return basic_num_mul (frac, n);
 }
+#endif
 #else
 static uint64_t basic_next_u64 (void) {
   uint64_t x = rng_state;
@@ -754,6 +806,20 @@ void basic_randomize (basic_num_t n, basic_num_t has_seed) {
   seeded = 1;
 }
 
+#if defined(BASIC_USE_FIXED64)
+void basic_rnd (basic_num_t *res, basic_num_t n) {
+  if (!seeded) {
+    basic_randomize (BASIC_ZERO, BASIC_ZERO);
+  }
+  uint64_t r = basic_next_u64 ();
+  basic_num_t hi = basic_num_from_int ((long) (r >> 32));
+  basic_num_t lo = basic_num_from_int ((long) (r & UINT32_MAX));
+  basic_num_t base = basic_num_from_int ((long) (1ULL << 32));
+  basic_num_t frac = basic_num_add (hi, basic_num_div (lo, base));
+  frac = basic_num_div (frac, base);
+  *res = basic_num_mul (frac, n);
+}
+#else
 basic_num_t basic_rnd (basic_num_t n) {
   if (!seeded) {
     basic_randomize (BASIC_ZERO, BASIC_ZERO);
@@ -766,6 +832,7 @@ basic_num_t basic_rnd (basic_num_t n) {
   frac = basic_num_div (frac, base);
   return basic_num_mul (frac, n);
 }
+#endif
 #endif
 
 basic_num_t basic_abs (basic_num_t x) { return basic_num_fabs (x); }

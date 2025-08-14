@@ -215,7 +215,11 @@ static void safe_fprintf (FILE *stream, const char *fmt, ...) {
 /* Runtime helpers defined in basic_runtime.c */
 extern void basic_print (basic_num_t);
 extern void basic_print_str (const char *);
+#if defined(BASIC_USE_FIXED64)
+extern void basic_input (basic_num_t *);
+#else
 extern basic_num_t basic_input (void);
+#endif
 extern char *basic_input_str (void);
 extern char *basic_get (void);
 
@@ -232,7 +236,11 @@ extern void basic_profile_func_exit (const char *);
 
 extern int basic_strcmp (const char *, const char *);
 
+#if defined(BASIC_USE_FIXED64)
+extern void basic_read (basic_num_t *);
+#else
 extern basic_num_t basic_read (void);
+#endif
 extern char *basic_read_str (void);
 extern void basic_restore (void);
 extern void basic_clear_array (void *, basic_num_t, basic_num_t);
@@ -252,7 +260,11 @@ extern size_t basic_data_pos;
 
 extern void basic_home (void);
 extern void basic_vtab (basic_num_t);
+#if defined(BASIC_USE_FIXED64)
+extern void basic_rnd (basic_num_t *, basic_num_t);
+#else
 extern basic_num_t basic_rnd (basic_num_t);
+#endif
 extern void basic_randomize (basic_num_t, basic_num_t);
 extern basic_num_t basic_abs (basic_num_t);
 extern basic_num_t basic_sgn (basic_num_t);
@@ -283,7 +295,11 @@ extern void basic_color (basic_num_t);
 extern void basic_key_off (void);
 extern void basic_locate (basic_num_t, basic_num_t);
 extern void basic_tab (basic_num_t);
+#if defined(BASIC_USE_FIXED64)
+extern void basic_pos (basic_num_t *);
+#else
 extern basic_num_t basic_pos (void);
+#endif
 extern void basic_text (void);
 extern void basic_inverse (void);
 extern void basic_normal (void);
@@ -352,7 +368,11 @@ extern void basic_open (basic_num_t, const char *);
 extern void basic_close (basic_num_t);
 extern void basic_print_hash (basic_num_t, basic_num_t);
 extern void basic_print_hash_str (basic_num_t, const char *);
+#if defined(BASIC_USE_FIXED64)
+extern void basic_input_hash (basic_num_t *, basic_num_t);
+#else
 extern basic_num_t basic_input_hash (basic_num_t);
+#endif
 extern char *basic_input_hash_str (basic_num_t);
 extern char *basic_get_hash (basic_num_t);
 extern void basic_put_hash (basic_num_t, const char *);
@@ -6427,7 +6447,16 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       = MIR_new_proto (ctx, "basic_profile_func_exit_p", 0, NULL, 1, MIR_T_P, "name");
     profile_func_exit_import = MIR_new_import (ctx, "basic_profile_func_exit");
   }
+#if defined(BASIC_USE_FIXED64)
+  MIR_var_t rnd_vars[2];
+  rnd_vars[0] = res_arg;
+  rnd_vars[1].name = "n";
+  rnd_vars[1].type = MIR_T_BLK;
+  rnd_vars[1].size = sizeof (basic_num_t);
+  rnd_proto = MIR_new_proto_arr (ctx, "basic_rnd_p", 0, NULL, 2, rnd_vars);
+#else
   rnd_proto = MIR_new_proto (ctx, "basic_rnd_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
+#endif
   rnd_import = MIR_new_import (ctx, "basic_rnd");
   chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
   chr_import = MIR_new_import (ctx, "basic_chr");
@@ -6458,7 +6487,13 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   peek_import = MIR_new_import (ctx, "basic_peek");
   eof_proto = MIR_new_proto (ctx, "basic_eof_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
   eof_import = MIR_new_import (ctx, "basic_eof");
+#if defined(BASIC_USE_FIXED64)
+  MIR_var_t pos_vars[1];
+  pos_vars[0] = res_arg;
+  pos_proto = MIR_new_proto_arr (ctx, "basic_pos_p", 0, NULL, 1, pos_vars);
+#else
   pos_proto = MIR_new_proto (ctx, "basic_pos_p", 1, &d, 0);
+#endif
   pos_import = MIR_new_import (ctx, "basic_pos");
 
   abs_proto = MIR_new_proto (ctx, "basic_abs_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
