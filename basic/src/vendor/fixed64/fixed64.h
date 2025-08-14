@@ -16,6 +16,12 @@ typedef struct {
 fixed64_t fixed64_from_int (int64_t i);
 int64_t fixed64_to_int (fixed64_t x);
 int fixed64_cmp (fixed64_t a, fixed64_t b);
+int fixed64_eq (fixed64_t a, fixed64_t b);
+int fixed64_ne (fixed64_t a, fixed64_t b);
+int fixed64_lt (fixed64_t a, fixed64_t b);
+int fixed64_le (fixed64_t a, fixed64_t b);
+int fixed64_gt (fixed64_t a, fixed64_t b);
+int fixed64_ge (fixed64_t a, fixed64_t b);
 
 static inline fixed64_t fixed64_neg (fixed64_t a) {
   fixed64_t r;

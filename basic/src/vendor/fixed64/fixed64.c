@@ -51,6 +51,13 @@ int fixed64_cmp (fixed64_t a, fixed64_t b) {
   return 0;
 }
 
+int fixed64_eq (fixed64_t a, fixed64_t b) { return fixed64_cmp (a, b) == 0; }
+int fixed64_ne (fixed64_t a, fixed64_t b) { return fixed64_cmp (a, b) != 0; }
+int fixed64_lt (fixed64_t a, fixed64_t b) { return fixed64_cmp (a, b) < 0; }
+int fixed64_le (fixed64_t a, fixed64_t b) { return fixed64_cmp (a, b) <= 0; }
+int fixed64_gt (fixed64_t a, fixed64_t b) { return fixed64_cmp (a, b) > 0; }
+int fixed64_ge (fixed64_t a, fixed64_t b) { return fixed64_cmp (a, b) >= 0; }
+
 fixed64_t fixed64_mul (fixed64_t a, fixed64_t b) {
   int neg = (a.hi < 0) ^ (b.hi < 0);
   fixed64_t aa = fixed64_abs (a);
