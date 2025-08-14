@@ -19,7 +19,7 @@
 
 80   ' --- print exactly 400 glyphs with gradient background ---
 90   CNT=400 : COL=0 : PRINT ESC$;"[0m";
-100  IF SPECIAL=1 THEN 2000 ELSE 3000
+100  IF SPECIAL=1 THEN GOSUB 2000 ELSE GOSUB 3000
 110  PRINT ESC$;"[0m"; : PRINT : PRINT
 120 NEXT SEC
 130 END
