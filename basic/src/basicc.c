@@ -146,6 +146,7 @@ extern void basic_fill (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
 extern void basic_mode (basic_num_t);
 
 extern char *basic_chr (basic_num_t);
+extern char *basic_unichar (basic_num_t);
 extern char *basic_string (basic_num_t, const char *);
 extern char *basic_concat (const char *, const char *);
 extern char *basic_upper (const char *);
@@ -354,6 +355,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_profile_func_exit")) return basic_profile_func_exit;
 
   if (!strcmp (name, "basic_chr")) return basic_chr;
+  if (!strcmp (name, "basic_unichar")) return basic_unichar;
   if (!strcmp (name, "basic_string")) return basic_string;
   if (!strcmp (name, "basic_concat")) return basic_concat;
   if (!strcmp (name, "basic_left")) return basic_left;
@@ -413,17 +415,17 @@ static void *resolve (const char *name) {
 }
 
 /* Runtime call prototypes for expressions */
-static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, string_proto, string_import,
-  concat_proto, concat_import, int_proto, int_import, timer_proto, timer_import, time_proto,
-  time_import, time_str_proto, time_str_import, date_proto, date_import, date_str_proto,
-  date_str_import, input_chr_proto, input_chr_import, peek_proto, peek_import, eof_proto,
-  eof_import, abs_proto, abs_import, sgn_proto, sgn_import, inkey_proto, inkey_import, sqr_proto,
-  sqr_import, sin_proto, sin_import, cos_proto, cos_import, tan_proto, tan_import, atn_proto,
-  atn_import, asin_proto, asin_import, acos_proto, acos_import, sinh_proto, sinh_import, cosh_proto,
-  cosh_import, tanh_proto, tanh_import, asinh_proto, asinh_import, acosh_proto, acosh_import,
-  atanh_proto, atanh_import, log_proto, log_import, log2_proto, log2_import, log10_proto,
-  log10_import, exp_proto, exp_import, fact_proto, fact_import, pow_proto, pow_import, pi_proto,
-  pi_import, left_proto, left_import, right_proto, right_import, mid_proto, mid_import,
+static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, unichar_proto, unichar_import,
+  string_proto, string_import, concat_proto, concat_import, int_proto, int_import, timer_proto,
+  timer_import, time_proto, time_import, time_str_proto, time_str_import, date_proto, date_import,
+  date_str_proto, date_str_import, input_chr_proto, input_chr_import, peek_proto, peek_import,
+  eof_proto, eof_import, abs_proto, abs_import, sgn_proto, sgn_import, inkey_proto, inkey_import,
+  sqr_proto, sqr_import, sin_proto, sin_import, cos_proto, cos_import, tan_proto, tan_import,
+  atn_proto, atn_import, asin_proto, asin_import, acos_proto, acos_import, sinh_proto, sinh_import,
+  cosh_proto, cosh_import, tanh_proto, tanh_import, asinh_proto, asinh_import, acosh_proto,
+  acosh_import, atanh_proto, atanh_import, log_proto, log_import, log2_proto, log2_import,
+  log10_proto, log10_import, exp_proto, exp_import, fact_proto, fact_import, pow_proto, pow_import,
+  pi_proto, pi_import, left_proto, left_import, right_proto, right_import, mid_proto, mid_import,
   mirror_proto, mirror_import, upper_proto, upper_import, lower_proto, lower_import, len_proto,
   len_import, val_proto, val_import, str_proto, str_import, asc_proto, asc_import, pos_proto,
   pos_import, instr_proto, instr_import, strdup_proto, strdup_import, mir_ctx_proto, mir_ctx_import,
@@ -1541,19 +1543,19 @@ typedef struct {
 } Builtin;
 
 static const Builtin builtins[]
-  = {{"RND", 0},     {"INT", 0},       {"TIMER", 0},    {"TIME", 0},    {"DATE", 0},
-     {"PEEK", 0},    {"EOF", 0},       {"POS", 0},      {"ABS", 0},     {"SGN", 0},
-     {"SQR", 0},     {"SIN", 0},       {"COS", 0},      {"TAN", 0},     {"ATN", 0},
-     {"ASIN", 0},    {"ACOS", 0},      {"SINH", 0},     {"COSH", 0},    {"TANH", 0},
-     {"ASINH", 0},   {"ACOSH", 0},     {"ATANH", 0},    {"LOG", 0},     {"LOG2", 0},
-     {"LOG10", 0},   {"EXP", 0},       {"FACT", 0},     {"PI", 0},      {"LEN", 0},
-     {"VAL", 0},     {"ASC", 0},       {"INSTR", 0},    {"MIRCTX", 0},  {"MIRMOD", 0},
-     {"MIRFUNC", 0}, {"MIRREG", 0},    {"MIRLABEL", 0}, {"MIREMIT", 0}, {"MIREMITLBL", 0},
-     {"MIRRET", 0},  {"MIRFINISH", 0}, {"MIRRUN", 0},   {"MIRDUMP", 0}, {"CHR$", 1},
-     {"STRING$", 1}, {"TIME$", 1},     {"DATE$", 1},    {"INPUT$", 1},  {"SPC", 1},
-     {"SPACE$", 1},  {"TAB", 0},       {"LEFT$", 1},    {"RIGHT$", 1},  {"MID$", 1},
-     {"STR$", 1},    {"INKEY$", 1},    {"MIRROR$", 1},  {"UPPER$", 1},  {"LOWER$", 1},
-     {NULL, 0}};
+  = {{"RND", 0},      {"INT", 0},       {"TIMER", 0},    {"TIME", 0},    {"DATE", 0},
+     {"PEEK", 0},     {"EOF", 0},       {"POS", 0},      {"ABS", 0},     {"SGN", 0},
+     {"SQR", 0},      {"SIN", 0},       {"COS", 0},      {"TAN", 0},     {"ATN", 0},
+     {"ASIN", 0},     {"ACOS", 0},      {"SINH", 0},     {"COSH", 0},    {"TANH", 0},
+     {"ASINH", 0},    {"ACOSH", 0},     {"ATANH", 0},    {"LOG", 0},     {"LOG2", 0},
+     {"LOG10", 0},    {"EXP", 0},       {"FACT", 0},     {"PI", 0},      {"LEN", 0},
+     {"VAL", 0},      {"ASC", 0},       {"INSTR", 0},    {"MIRCTX", 0},  {"MIRMOD", 0},
+     {"MIRFUNC", 0},  {"MIRREG", 0},    {"MIRLABEL", 0}, {"MIREMIT", 0}, {"MIREMITLBL", 0},
+     {"MIRRET", 0},   {"MIRFINISH", 0}, {"MIRRUN", 0},   {"MIRDUMP", 0}, {"CHR$", 1},
+     {"UNICHAR$", 1}, {"STRING$", 1},   {"TIME$", 1},    {"DATE$", 1},   {"INPUT$", 1},
+     {"SPC", 1},      {"SPACE$", 1},    {"TAB", 0},      {"LEFT$", 1},   {"RIGHT$", 1},
+     {"MID$", 1},     {"STR$", 1},      {"INKEY$", 1},   {"MIRROR$", 1}, {"UPPER$", 1},
+     {"LOWER$", 1},   {NULL, 0}};
 
 static const Builtin *lookup_builtin (const char *id) {
   for (int i = 0; builtins[i].name != NULL; i++)
@@ -3340,6 +3342,12 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
         MIR_append_insn (ctx, func,
                          MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, chr_proto),
                                             MIR_new_ref_op (ctx, chr_import),
+                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      } else if (strcasecmp (n->var, "UNICHAR$") == 0) {
+        MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, unichar_proto),
+                                            MIR_new_ref_op (ctx, unichar_import),
                                             MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
       } else if (strcasecmp (n->var, "STRING$") == 0) {
         MIR_reg_t a1 = gen_expr (ctx, func, vars, n->left);
@@ -6036,6 +6044,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   rnd_import = MIR_new_import (ctx, "basic_rnd");
   chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, MIR_T_D, "n");
   chr_import = MIR_new_import (ctx, "basic_chr");
+  unichar_proto = MIR_new_proto (ctx, "basic_unichar_p", 1, &p, 1, MIR_T_D, "n");
+  unichar_import = MIR_new_import (ctx, "basic_unichar");
   string_proto = MIR_new_proto (ctx, "basic_string_p", 1, &p, 2, MIR_T_D, "n", MIR_T_P, "s");
   string_import = MIR_new_import (ctx, "basic_string");
   concat_proto = MIR_new_proto (ctx, "basic_concat_p", 1, &p, 2, MIR_T_P, "a", MIR_T_P, "b");

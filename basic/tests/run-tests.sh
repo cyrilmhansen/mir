@@ -377,6 +377,10 @@ exit 1
 fi
 rm -f "$ROOT/basic/hexapawn.err"
 echo "hexapawn sample OK"
+
+echo "Running unicode pattern sample"
+timeout 1 "$BASICC" "$ROOT/basic/samples/unicode_pattern.bas" > /dev/null || true
+echo "unicode pattern sample OK"
 }
 
 for cc in "${BASICCS[@]}"; do
