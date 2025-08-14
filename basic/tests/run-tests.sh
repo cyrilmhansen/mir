@@ -18,11 +18,13 @@ fi
 run_tests() {
         BASICC="$1"
 
-        exp_dir="$ROOT/basic/tests/expected"
-        case "$(basename "$BASICC")" in
+       exp_dir="$ROOT/basic/tests/expected"
+       case "$(basename "$BASICC")" in
                 *-ld)  exp_dir="$exp_dir/ld" ;;
                 *-fix) exp_dir="$exp_dir/fixed64" ;;
-        esac
+       esac
+
+       export BASIC_ABBREV_CONFIG="$ROOT/basic/abbrev.cfg"
 
         # Build compiler if missing
         if [ ! -x "$BASICC" ]; then
@@ -399,7 +401,12 @@ echo "return without GOSUB error OK"
         printf 'LOAD %s\nRUN PROFILING\nQUIT\n' "$ROOT/basic/tests/programs/funcproc.bas" | "$BASICC" > "$ROOT/basic/repl-prof-funcproc.out"
         grep -q 'func ADD: count 1' "$ROOT/basic/repl-prof-funcproc.out"
         grep -q 'func HELLO: count 2' "$ROOT/basic/repl-prof-funcproc.out"
-        echo "repl PROFILING funcproc done"
+       echo "repl PROFILING funcproc done"
+
+       echo "Running repl abbreviations"
+       printf '10 ? "HI"\n20 P "THERE"\n30 '\'' comment\nRUN\nQUIT\n' | "$BASICC" > "$ROOT/basic/repl-abbrev.out"
+       diff "$exp_dir/repl-abbrev.out" "$ROOT/basic/repl-abbrev.out"
+       echo "repl abbreviations done"
 
 echo "Running bullfight sample"
 set +e

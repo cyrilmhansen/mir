@@ -62,6 +62,12 @@ The REPL also accepts an `EVAL <command>` directive that parses and executes
 the remainder of the line as if entered at the prompt. This allows nested
 commands such as `EVAL LIST` or `EVAL 10 PRINT "HI"`.
 
+Interactive input supports configurable abbreviations.  Definitions are read
+from an `abbrev.cfg` file (or the path given by `BASIC_ABBREV_CONFIG`) and are
+expanded before parsing.  By default `?` and `P` abbreviate `PRINT` while `'`
+acts as `REM`.  Abbreviations apply only in the REPL; program files must use the
+full keywords.
+
 `EVAL` can also be used as a BASIC statement. A line like `20 EVAL LIST`
 evaluates the `LIST` command when the program runs, producing a listing of the
 current program.
@@ -212,8 +218,21 @@ roots. If a math function is invoked that does not yet have a fixed-point
 implementation, the runtime reports a dedicated error.
 
 The `basicc-fix` executable is built with the same compiler source but
-compiled with `-DBASIC_USE_FIXED64`. Build it with `make basic/basicc-fix`
-and invoke it just like the floating-point `basicc` variants.
+compiled with `-DBASIC_USE_FIXED64`. Build it by configuring CMake with
+`-DBASIC_NUM_MODE=fixed64`:
+
+```
+cmake -DBASIC_NUM_MODE=fixed64
+make
+```
+
+Or use the GNU Make target:
+
+```
+make basic/basicc-fix
+```
+
+Invoke the resulting binary just like the floating-point `basicc` variants.
 
 Numbers are stored as signed 64.64 fixed-point values. The integer portion
 spans approximately ±9.22e18 and the fractional component has a resolution

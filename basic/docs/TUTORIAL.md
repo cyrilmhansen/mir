@@ -17,6 +17,11 @@ The dialect supports line‑numbered programs in the style of early microcompute
 80 END
 ```
 
+The interactive REPL can expand abbreviations defined in an `abbrev.cfg`
+configuration file.  By default `?` and `P` stand for `PRINT`, and a leading `'`
+introduces a `REM` comment.  These shortcuts are only available when typing at
+the prompt; source files should use the full keywords.
+
 Assignments may optionally use the classic `LET` keyword, though it is not required:
 
 ```basic
