@@ -1294,6 +1294,9 @@ basic_num_t basic_mir_func (basic_num_t mod_h, const char *name, basic_num_t nar
     snprintf (arg_name, len + 1, "a%zu", i);
     vars[i].type = BASIC_MIR_NUM_T;
     vars[i].name = arg_name;
+#if defined(BASIC_USE_FIXED64)
+    vars[i].size = sizeof (basic_num_t);
+#endif
   }
   MIR_item_t func = MIR_new_func_arr (ctx, name, 1, &res, nargs, vars);
   FuncHandle *fh = basic_pool_alloc (sizeof (FuncHandle));
@@ -1315,7 +1318,11 @@ basic_num_t basic_mir_reg (basic_num_t func_h) {
     snprintf (name, len + 1, "a%zu", fh->next_arg++);
     r = MIR_reg (ctx, name, fh->item->u.func);
   } else {
+#if defined(BASIC_USE_FIXED64)
+    r = MIR_new_func_reg (ctx, fh->item->u.func, MIR_T_I64, NULL);
+#else
     r = MIR_new_func_reg (ctx, fh->item->u.func, BASIC_MIR_NUM_T, NULL);
+#endif
   }
   return new_handle (H_REG, ctx, (void *) (uintptr_t) r);
 }

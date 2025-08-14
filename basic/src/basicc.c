@@ -6,8 +6,8 @@
 #include "basic_pool.h"
 
 #if defined(BASIC_USE_LONG_DOUBLE)
-#define MIR_T_D MIR_T_LD
-#define MIR_new_double_op MIR_new_ldouble_op
+#define BASIC_MIR_NUM_T MIR_T_LD
+#define BASIC_MIR_new_num_op MIR_new_ldouble_op
 #define MIR_D2I MIR_LD2I
 #define MIR_I2D MIR_I2LD
 #define MIR_DMOV MIR_LDMOV
@@ -28,6 +28,34 @@
 #define MIR_DBLE MIR_LDBLE
 #define MIR_DBGT MIR_LDBGT
 #define MIR_DBGE MIR_LDBGE
+#elif defined(BASIC_USE_FIXED64)
+#define BASIC_MIR_NUM_T MIR_T_BLK
+static inline MIR_op_t BASIC_MIR_new_num_op (MIR_context_t ctx, basic_num_t v) {
+  basic_num_t *p = basic_pool_alloc (sizeof (basic_num_t));
+  *p = v;
+  return MIR_new_ref_op (ctx, p);
+}
+#else
+#define BASIC_MIR_NUM_T MIR_T_D
+#define BASIC_MIR_new_num_op MIR_new_double_op
+#endif
+
+#if defined(BASIC_USE_FIXED64)
+static MIR_item_t BASIC_MIR_new_proto (MIR_context_t ctx, const char *name, size_t nres,
+                                       MIR_type_t *res_types, size_t nargs, ...) {
+  va_list ap;
+  MIR_var_t *vars = nargs ? basic_pool_alloc (nargs * sizeof (MIR_var_t)) : NULL;
+  va_start (ap, nargs);
+  for (size_t i = 0; i < nargs; i++) {
+    vars[i].type = va_arg (ap, MIR_type_t);
+    vars[i].name = va_arg (ap, const char *);
+    vars[i].size = vars[i].type == BASIC_MIR_NUM_T ? sizeof (basic_num_t) : 0;
+  }
+  va_end (ap);
+  return MIR_new_proto_arr (ctx, name, nres, res_types, nargs, vars);
+}
+#else
+#define BASIC_MIR_new_proto MIR_new_proto
 #endif
 
 static MIR_insn_t basic_mir_binop (MIR_context_t ctx, MIR_insn_code_t code, MIR_op_t dst,
@@ -142,12 +170,6 @@ static void basic_mir_bcmp (MIR_context_t ctx, MIR_item_t func, MIR_insn_code_t 
   MIR_append_insn (ctx, func, MIR_new_insn (ctx, code, label, src1, src2));
 #endif
 }
-
-#if defined(BASIC_USE_FIXED64)
-#define BASIC_MIR_NUM_T MIR_T_BLK
-#else
-#define BASIC_MIR_NUM_T MIR_T_D
-#endif
 
 #include <ctype.h>
 #include <stdio.h>
@@ -3346,13 +3368,13 @@ static void ensure_array_dim (VarVec *vars, MIR_context_t ctx, MIR_item_t func, 
   MIR_reg_t len = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
   MIR_append_insn (ctx, func,
                    MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, len),
-                                 MIR_new_double_op (ctx, (basic_num_t) asize)));
+                                 BASIC_MIR_new_num_op (ctx, (basic_num_t) asize)));
   MIR_append_insn (ctx, func,
                    MIR_new_call_insn (ctx, 6, MIR_new_ref_op (ctx, dim_alloc_proto),
                                       MIR_new_ref_op (ctx, dim_alloc_import),
                                       MIR_new_reg_op (ctx, base), MIR_new_reg_op (ctx, base),
                                       MIR_new_reg_op (ctx, len),
-                                      MIR_new_double_op (ctx, (basic_num_t) is_str)));
+                                      BASIC_MIR_new_num_op (ctx, (basic_num_t) is_str)));
   MIR_append_insn (ctx, func, done);
 }
 
@@ -3551,7 +3573,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
           MIR_reg_t len = gen_expr (ctx, func, vars, n->index);
           len_op = MIR_new_reg_op (ctx, len);
         } else {
-          len_op = MIR_new_double_op (ctx, -1.0);
+          len_op = BASIC_MIR_new_num_op (ctx, -1.0);
         }
         MIR_append_insn (ctx, func,
                          MIR_new_call_insn (ctx, 6, MIR_new_ref_op (ctx, mid_proto),
@@ -3656,7 +3678,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
     MIR_reg_t r = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
     MIR_append_insn (ctx, func,
                      MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, r),
-                                   MIR_new_double_op (ctx, n->num)));
+                                   BASIC_MIR_new_num_op (ctx, n->num)));
     return r;
   } else if (n->kind == N_VAR) {
     if (n->index != NULL) {
@@ -3747,7 +3769,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
     MIR_reg_t resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
     MIR_append_insn (ctx, func,
                      basic_mir_binop (ctx, MIR_DEQ, MIR_new_reg_op (ctx, resi),
-                                      MIR_new_reg_op (ctx, v), MIR_new_double_op (ctx, 0.0)));
+                                      MIR_new_reg_op (ctx, v), BASIC_MIR_new_num_op (ctx, 0.0)));
     safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
     MIR_reg_t resd = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
     MIR_append_insn (ctx, func,
@@ -3978,11 +4000,11 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       MIR_reg_t f = gen_expr (ctx, func, vars, n->left);
       MIR_reg_t op = gen_expr (ctx, func, vars, n->right);
       MIR_op_t a = n->index ? MIR_new_reg_op (ctx, gen_expr (ctx, func, vars, n->index))
-                            : MIR_new_double_op (ctx, 0.0);
+                            : BASIC_MIR_new_num_op (ctx, 0.0);
       MIR_op_t b = n->index2 ? MIR_new_reg_op (ctx, gen_expr (ctx, func, vars, n->index2))
-                             : MIR_new_double_op (ctx, 0.0);
+                             : BASIC_MIR_new_num_op (ctx, 0.0);
       MIR_op_t c = n->arg4 ? MIR_new_reg_op (ctx, gen_expr (ctx, func, vars, n->arg4))
-                           : MIR_new_double_op (ctx, 0.0);
+                           : BASIC_MIR_new_num_op (ctx, 0.0);
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 8, MIR_new_ref_op (ctx, mir_emit_proto),
                                           MIR_new_ref_op (ctx, mir_emit_import),
@@ -4013,13 +4035,13 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
     } else if (strcasecmp (n->var, "MIRRUN") == 0) {
       MIR_reg_t f = gen_expr (ctx, func, vars, n->left);
       MIR_op_t a1 = n->right ? MIR_new_reg_op (ctx, gen_expr (ctx, func, vars, n->right))
-                             : MIR_new_double_op (ctx, 0.0);
+                             : BASIC_MIR_new_num_op (ctx, 0.0);
       MIR_op_t a2 = n->index ? MIR_new_reg_op (ctx, gen_expr (ctx, func, vars, n->index))
-                             : MIR_new_double_op (ctx, 0.0);
+                             : BASIC_MIR_new_num_op (ctx, 0.0);
       MIR_op_t a3 = n->index2 ? MIR_new_reg_op (ctx, gen_expr (ctx, func, vars, n->index2))
-                              : MIR_new_double_op (ctx, 0.0);
+                              : BASIC_MIR_new_num_op (ctx, 0.0);
       MIR_op_t a4 = n->arg4 ? MIR_new_reg_op (ctx, gen_expr (ctx, func, vars, n->arg4))
-                            : MIR_new_double_op (ctx, 0.0);
+                            : BASIC_MIR_new_num_op (ctx, 0.0);
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 8, MIR_new_ref_op (ctx, mir_run_proto),
                                           MIR_new_ref_op (ctx, mir_run_import),
@@ -4051,7 +4073,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
         safe_fprintf (stderr, "undefined function %s\n", n->var);
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, res),
-                                       MIR_new_double_op (ctx, 0.0)));
+                                       BASIC_MIR_new_num_op (ctx, 0.0)));
         return res;
       }
       MIR_item_t proto = fd->proto;
@@ -4117,7 +4139,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
         safe_fprintf (stderr, "undefined function %s\n", n->var);
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, res),
-                                       MIR_new_double_op (ctx, 0.0)));
+                                       BASIC_MIR_new_num_op (ctx, 0.0)));
         return res;
       }
       MIR_item_t proto = fd->proto;
@@ -4172,18 +4194,18 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
     MIR_label_t false_lab = MIR_new_label (ctx);
     MIR_label_t end_lab = MIR_new_label (ctx);
     basic_mir_bcmp (ctx, func, MIR_DBEQ, MIR_new_label_op (ctx, false_lab), MIR_new_reg_op (ctx, l),
-                    MIR_new_double_op (ctx, 0.0));
+                    BASIC_MIR_new_num_op (ctx, 0.0));
     MIR_reg_t r = gen_expr (ctx, func, vars, n->right);
     basic_mir_bcmp (ctx, func, MIR_DBEQ, MIR_new_label_op (ctx, false_lab), MIR_new_reg_op (ctx, r),
-                    MIR_new_double_op (ctx, 0.0));
+                    BASIC_MIR_new_num_op (ctx, 0.0));
     MIR_append_insn (ctx, func,
                      MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, res),
-                                   MIR_new_double_op (ctx, 1.0)));
+                                   BASIC_MIR_new_num_op (ctx, 1.0)));
     MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, end_lab)));
     MIR_append_insn (ctx, func, false_lab);
     MIR_append_insn (ctx, func,
                      MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, res),
-                                   MIR_new_double_op (ctx, 0.0)));
+                                   BASIC_MIR_new_num_op (ctx, 0.0)));
     MIR_append_insn (ctx, func, end_lab);
     return res;
   } else if (n->op == OP_OR) {
@@ -4194,18 +4216,18 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
     MIR_label_t true_lab = MIR_new_label (ctx);
     MIR_label_t end_lab = MIR_new_label (ctx);
     basic_mir_bcmp (ctx, func, MIR_DBNE, MIR_new_label_op (ctx, true_lab), MIR_new_reg_op (ctx, l),
-                    MIR_new_double_op (ctx, 0.0));
+                    BASIC_MIR_new_num_op (ctx, 0.0));
     MIR_reg_t r = gen_expr (ctx, func, vars, n->right);
     basic_mir_bcmp (ctx, func, MIR_DBNE, MIR_new_label_op (ctx, true_lab), MIR_new_reg_op (ctx, r),
-                    MIR_new_double_op (ctx, 0.0));
+                    BASIC_MIR_new_num_op (ctx, 0.0));
     MIR_append_insn (ctx, func,
                      MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, res),
-                                   MIR_new_double_op (ctx, 0.0)));
+                                   BASIC_MIR_new_num_op (ctx, 0.0)));
     MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, end_lab)));
     MIR_append_insn (ctx, func, true_lab);
     MIR_append_insn (ctx, func,
                      MIR_new_insn (ctx, MIR_DMOV, MIR_new_reg_op (ctx, res),
-                                   MIR_new_double_op (ctx, 1.0)));
+                                   BASIC_MIR_new_num_op (ctx, 1.0)));
     MIR_append_insn (ctx, func, end_lab);
     return res;
   } else {
@@ -4217,12 +4239,12 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       MIR_reg_t li = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
       MIR_append_insn (ctx, func,
                        basic_mir_binop (ctx, MIR_DNE, MIR_new_reg_op (ctx, li),
-                                        MIR_new_reg_op (ctx, l), MIR_new_double_op (ctx, 0.0)));
+                                        MIR_new_reg_op (ctx, l), BASIC_MIR_new_num_op (ctx, 0.0)));
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t ri = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
       MIR_append_insn (ctx, func,
                        basic_mir_binop (ctx, MIR_DNE, MIR_new_reg_op (ctx, ri),
-                                        MIR_new_reg_op (ctx, r), MIR_new_double_op (ctx, 0.0)));
+                                        MIR_new_reg_op (ctx, r), BASIC_MIR_new_num_op (ctx, 0.0)));
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
       MIR_insn_code_t bop = n->op == OP_AND ? MIR_AND : MIR_OR;
@@ -4932,8 +4954,8 @@ static void gen_stmt (Stmt *s) {
                          MIR_new_call_insn (g_ctx, 5, MIR_new_ref_op (g_ctx, clear_array_proto),
                                             MIR_new_ref_op (g_ctx, clear_array_import),
                                             MIR_new_reg_op (g_ctx, v->reg),
-                                            MIR_new_double_op (g_ctx, (basic_num_t) v->size),
-                                            MIR_new_double_op (g_ctx, (basic_num_t) v->is_str)));
+                                            BASIC_MIR_new_num_op (g_ctx, (basic_num_t) v->size),
+                                            BASIC_MIR_new_num_op (g_ctx, (basic_num_t) v->is_str)));
         MIR_append_insn (g_ctx, g_func,
                          MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, v->reg),
                                        MIR_new_int_op (g_ctx, 0)));
@@ -4944,7 +4966,7 @@ static void gen_stmt (Stmt *s) {
       } else {
         MIR_append_insn (g_ctx, g_func,
                          MIR_new_insn (g_ctx, MIR_DMOV, MIR_new_reg_op (g_ctx, v->reg),
-                                       MIR_new_double_op (g_ctx, 0.0)));
+                                       BASIC_MIR_new_num_op (g_ctx, 0.0)));
       }
     }
     MIR_append_insn (g_ctx, g_func,
@@ -5086,7 +5108,7 @@ static void gen_stmt (Stmt *s) {
     MIR_label_t neg_step = MIR_new_label (g_ctx);
     MIR_label_t after_cmp = MIR_new_label (g_ctx);
     basic_mir_bcmp (g_ctx, g_func, MIR_DBLT, MIR_new_label_op (g_ctx, neg_step),
-                    MIR_new_reg_op (g_ctx, step), MIR_new_double_op (g_ctx, 0.0));
+                    MIR_new_reg_op (g_ctx, step), BASIC_MIR_new_num_op (g_ctx, 0.0));
     basic_mir_bcmp (g_ctx, g_func, MIR_DBGT, MIR_new_label_op (g_ctx, end_label),
                     MIR_new_reg_op (g_ctx, var), MIR_new_reg_op (g_ctx, end));
     MIR_append_insn (g_ctx, g_func,
@@ -5125,7 +5147,7 @@ static void gen_stmt (Stmt *s) {
     MIR_append_insn (g_ctx, g_func, start_label);
     MIR_reg_t cond = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
     basic_mir_bcmp (g_ctx, g_func, MIR_DBEQ, MIR_new_label_op (g_ctx, end_label),
-                    MIR_new_reg_op (g_ctx, cond), MIR_new_double_op (g_ctx, 0.0));
+                    MIR_new_reg_op (g_ctx, cond), BASIC_MIR_new_num_op (g_ctx, 0.0));
     break;
   }
   case ST_WEND: {
@@ -5182,7 +5204,7 @@ static void gen_stmt (Stmt *s) {
     if (info.type != LOOP_REPEAT) break;
     MIR_reg_t cond = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
     basic_mir_bcmp (g_ctx, g_func, MIR_DBEQ, MIR_new_label_op (g_ctx, info.start_label),
-                    MIR_new_reg_op (g_ctx, cond), MIR_new_double_op (g_ctx, 0.0));
+                    MIR_new_reg_op (g_ctx, cond), BASIC_MIR_new_num_op (g_ctx, 0.0));
     MIR_append_insn (g_ctx, g_func, info.end_label);
     break;
   }
@@ -5291,7 +5313,8 @@ static void gen_stmt (Stmt *s) {
     MIR_insn_code_t ic = s->kind == ST_INC ? MIR_DADD : MIR_DSUB;
     MIR_append_insn (g_ctx, g_func,
                      basic_mir_binop (g_ctx, ic, MIR_new_reg_op (g_ctx, v),
-                                      MIR_new_reg_op (g_ctx, v), MIR_new_double_op (g_ctx, 1.0)));
+                                      MIR_new_reg_op (g_ctx, v),
+                                      BASIC_MIR_new_num_op (g_ctx, 1.0)));
     break;
   }
   case ST_GOTO: {
@@ -5347,7 +5370,7 @@ static void gen_stmt (Stmt *s) {
     MIR_label_t next = (n > 0 || s->u.iff.else_stmts.len > 0) ? MIR_new_label (g_ctx) : end;
     MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.iff.cond);
     basic_mir_bcmp (g_ctx, g_func, MIR_DBEQ, MIR_new_label_op (g_ctx, next),
-                    MIR_new_reg_op (g_ctx, r), MIR_new_double_op (g_ctx, 0.0));
+                    MIR_new_reg_op (g_ctx, r), BASIC_MIR_new_num_op (g_ctx, 0.0));
     for (size_t k = 0; k < s->u.iff.then_stmts.len; k++) gen_stmt (&s->u.iff.then_stmts.data[k]);
     if (n > 0 || s->u.iff.else_stmts.len > 0)
       MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, end)));
@@ -5357,7 +5380,7 @@ static void gen_stmt (Stmt *s) {
       MIR_label_t next2 = (i + 1 < n || s->u.iff.else_stmts.len > 0) ? MIR_new_label (g_ctx) : end;
       MIR_reg_t ri = gen_expr (g_ctx, g_func, &g_vars, ei->cond);
       basic_mir_bcmp (g_ctx, g_func, MIR_DBEQ, MIR_new_label_op (g_ctx, next2),
-                      MIR_new_reg_op (g_ctx, ri), MIR_new_double_op (g_ctx, 0.0));
+                      MIR_new_reg_op (g_ctx, ri), BASIC_MIR_new_num_op (g_ctx, 0.0));
       for (size_t k = 0; k < ei->stmts.len; k++) gen_stmt (&ei->stmts.data[k]);
       MIR_append_insn (g_ctx, g_func, MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, end)));
       if (next2 != end) MIR_append_insn (g_ctx, g_func, next2);
@@ -5763,10 +5786,10 @@ static void gen_stmt (Stmt *s) {
     if (s->u.expr != NULL) {
       MIR_reg_t seed = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
       seed_op = MIR_new_reg_op (g_ctx, seed);
-      has_seed_op = MIR_new_double_op (g_ctx, 1.0);
+      has_seed_op = BASIC_MIR_new_num_op (g_ctx, 1.0);
     } else {
-      seed_op = MIR_new_double_op (g_ctx, 0.0);
-      has_seed_op = MIR_new_double_op (g_ctx, 0.0);
+      seed_op = BASIC_MIR_new_num_op (g_ctx, 0.0);
+      has_seed_op = BASIC_MIR_new_num_op (g_ctx, 0.0);
     }
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, randomize_proto),
@@ -5778,7 +5801,7 @@ static void gen_stmt (Stmt *s) {
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, on_error_proto),
                                         MIR_new_ref_op (g_ctx, on_error_import),
-                                        MIR_new_double_op (g_ctx, (basic_num_t) s->u.target)));
+                                        BASIC_MIR_new_num_op (g_ctx, (basic_num_t) s->u.target)));
     break;
   }
   case ST_RESUME: {
@@ -5942,8 +5965,8 @@ static void gen_stmt (Stmt *s) {
                                           MIR_new_reg_op (g_ctx, base),
                                           MIR_new_reg_op (g_ctx, base),
                                           MIR_new_reg_op (g_ctx, totald),
-                                          MIR_new_double_op (g_ctx,
-                                                             (basic_num_t) s->u.dim.is_str[k])));
+                                          BASIC_MIR_new_num_op (g_ctx,
+                                                                (basic_num_t) s->u.dim.is_str[k])));
     }
     break;
   }
@@ -5984,19 +6007,19 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   }
   MIR_context_t ctx = MIR_init ();
   MIR_module_t module = MIR_new_module (ctx, "BASIC");
-  print_proto = MIR_new_proto (ctx, "basic_print_p", 0, NULL, 1, BASIC_MIR_NUM_T, "x");
+  print_proto = BASIC_MIR_new_proto (ctx, "basic_print_p", 0, NULL, 1, BASIC_MIR_NUM_T, "x");
   print_import = MIR_new_import (ctx, "basic_print");
-  prints_proto = MIR_new_proto (ctx, "basic_print_str_p", 0, NULL, 1, MIR_T_P, "s");
+  prints_proto = BASIC_MIR_new_proto (ctx, "basic_print_str_p", 0, NULL, 1, MIR_T_P, "s");
   prints_import = MIR_new_import (ctx, "basic_print_str");
   MIR_type_t d = BASIC_MIR_NUM_T;
-  input_proto = MIR_new_proto (ctx, "basic_input_p", 1, &d, 0);
+  input_proto = BASIC_MIR_new_proto (ctx, "basic_input_p", 1, &d, 0);
   input_import = MIR_new_import (ctx, "basic_input");
   MIR_type_t p = MIR_T_P;
-  input_str_proto = MIR_new_proto (ctx, "basic_input_str_p", 1, &p, 0);
+  input_str_proto = BASIC_MIR_new_proto (ctx, "basic_input_str_p", 1, &p, 0);
   input_str_import = MIR_new_import (ctx, "basic_input_str");
-  get_proto = MIR_new_proto (ctx, "basic_get_p", 1, &p, 0);
+  get_proto = BASIC_MIR_new_proto (ctx, "basic_get_p", 1, &p, 0);
   get_import = MIR_new_import (ctx, "basic_get");
-  put_proto = MIR_new_proto (ctx, "basic_put_p", 0, NULL, 1, MIR_T_P, "s");
+  put_proto = BASIC_MIR_new_proto (ctx, "basic_put_p", 0, NULL, 1, MIR_T_P, "s");
   put_import = MIR_new_import (ctx, "basic_put");
 #if defined(BASIC_USE_FIXED64)
   MIR_type_t blk = MIR_T_BLK;
@@ -6059,284 +6082,294 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   fixed64_from_string_import = MIR_new_import (ctx, "fixed64_from_string");
 #endif
   open_proto
-    = MIR_new_proto (ctx, "basic_open_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n", MIR_T_P, "path");
+    = BASIC_MIR_new_proto (ctx, "basic_open_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n", MIR_T_P, "path");
   open_import = MIR_new_import (ctx, "basic_open");
-  close_proto = MIR_new_proto (ctx, "basic_close_p", 0, NULL, 1, BASIC_MIR_NUM_T, "n");
+  close_proto = BASIC_MIR_new_proto (ctx, "basic_close_p", 0, NULL, 1, BASIC_MIR_NUM_T, "n");
   close_import = MIR_new_import (ctx, "basic_close");
-  printh_proto = MIR_new_proto (ctx, "basic_print_hash_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n",
-                                BASIC_MIR_NUM_T, "x");
+  printh_proto = BASIC_MIR_new_proto (ctx, "basic_print_hash_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n",
+                                      BASIC_MIR_NUM_T, "x");
   printh_import = MIR_new_import (ctx, "basic_print_hash");
-  prinths_proto
-    = MIR_new_proto (ctx, "basic_print_hash_str_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n", MIR_T_P, "s");
+  prinths_proto = BASIC_MIR_new_proto (ctx, "basic_print_hash_str_p", 0, NULL, 2, BASIC_MIR_NUM_T,
+                                       "n", MIR_T_P, "s");
   prinths_import = MIR_new_import (ctx, "basic_print_hash_str");
-  input_hash_proto = MIR_new_proto (ctx, "basic_input_hash_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
+  input_hash_proto
+    = BASIC_MIR_new_proto (ctx, "basic_input_hash_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
   input_hash_import = MIR_new_import (ctx, "basic_input_hash");
   input_hash_str_proto
-    = MIR_new_proto (ctx, "basic_input_hash_str_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
+    = BASIC_MIR_new_proto (ctx, "basic_input_hash_str_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
   input_hash_str_import = MIR_new_import (ctx, "basic_input_hash_str");
-  get_hash_proto = MIR_new_proto (ctx, "basic_get_hash_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
+  get_hash_proto = BASIC_MIR_new_proto (ctx, "basic_get_hash_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
   get_hash_import = MIR_new_import (ctx, "basic_get_hash");
   put_hash_proto
-    = MIR_new_proto (ctx, "basic_put_hash_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n", MIR_T_P, "s");
+    = BASIC_MIR_new_proto (ctx, "basic_put_hash_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n", MIR_T_P, "s");
   put_hash_import = MIR_new_import (ctx, "basic_put_hash");
-  home_proto = MIR_new_proto (ctx, "basic_home_p", 0, NULL, 0);
+  home_proto = BASIC_MIR_new_proto (ctx, "basic_home_p", 0, NULL, 0);
   home_import = MIR_new_import (ctx, "basic_home");
-  vtab_proto = MIR_new_proto (ctx, "basic_vtab_p", 0, NULL, 1, BASIC_MIR_NUM_T, "n");
+  vtab_proto = BASIC_MIR_new_proto (ctx, "basic_vtab_p", 0, NULL, 1, BASIC_MIR_NUM_T, "n");
   vtab_import = MIR_new_import (ctx, "basic_vtab");
-  screen_proto = MIR_new_proto (ctx, "basic_screen_p", 0, NULL, 1, BASIC_MIR_NUM_T, "m");
+  screen_proto = BASIC_MIR_new_proto (ctx, "basic_screen_p", 0, NULL, 1, BASIC_MIR_NUM_T, "m");
   screen_import = MIR_new_import (ctx, "basic_screen");
-  cls_proto = MIR_new_proto (ctx, "basic_cls_p", 0, NULL, 0);
+  cls_proto = BASIC_MIR_new_proto (ctx, "basic_cls_p", 0, NULL, 0);
   cls_import = MIR_new_import (ctx, "basic_cls");
-  color_proto = MIR_new_proto (ctx, "basic_color_p", 0, NULL, 1, BASIC_MIR_NUM_T, "c");
+  color_proto = BASIC_MIR_new_proto (ctx, "basic_color_p", 0, NULL, 1, BASIC_MIR_NUM_T, "c");
   color_import = MIR_new_import (ctx, "basic_color");
-  keyoff_proto = MIR_new_proto (ctx, "basic_key_off_p", 0, NULL, 0);
+  keyoff_proto = BASIC_MIR_new_proto (ctx, "basic_key_off_p", 0, NULL, 0);
   keyoff_import = MIR_new_import (ctx, "basic_key_off");
-  locate_proto
-    = MIR_new_proto (ctx, "basic_locate_p", 0, NULL, 2, BASIC_MIR_NUM_T, "r", BASIC_MIR_NUM_T, "c");
+  locate_proto = BASIC_MIR_new_proto (ctx, "basic_locate_p", 0, NULL, 2, BASIC_MIR_NUM_T, "r",
+                                      BASIC_MIR_NUM_T, "c");
   locate_import = MIR_new_import (ctx, "basic_locate");
-  tab_proto = MIR_new_proto (ctx, "basic_tab_p", 0, NULL, 1, BASIC_MIR_NUM_T, "n");
+  tab_proto = BASIC_MIR_new_proto (ctx, "basic_tab_p", 0, NULL, 1, BASIC_MIR_NUM_T, "n");
   tab_import = MIR_new_import (ctx, "basic_tab");
-  poke_proto = MIR_new_proto (ctx, "basic_poke_p", 0, NULL, 2, BASIC_MIR_NUM_T, "addr",
-                              BASIC_MIR_NUM_T, "value");
+  poke_proto = BASIC_MIR_new_proto (ctx, "basic_poke_p", 0, NULL, 2, BASIC_MIR_NUM_T, "addr",
+                                    BASIC_MIR_NUM_T, "value");
   poke_import = MIR_new_import (ctx, "basic_poke");
-  text_proto = MIR_new_proto (ctx, "basic_text_p", 0, NULL, 0);
+  text_proto = BASIC_MIR_new_proto (ctx, "basic_text_p", 0, NULL, 0);
   text_import = MIR_new_import (ctx, "basic_text");
-  inverse_proto = MIR_new_proto (ctx, "basic_inverse_p", 0, NULL, 0);
+  inverse_proto = BASIC_MIR_new_proto (ctx, "basic_inverse_p", 0, NULL, 0);
   inverse_import = MIR_new_import (ctx, "basic_inverse");
-  normal_proto = MIR_new_proto (ctx, "basic_normal_p", 0, NULL, 0);
+  normal_proto = BASIC_MIR_new_proto (ctx, "basic_normal_p", 0, NULL, 0);
   normal_import = MIR_new_import (ctx, "basic_normal");
-  hgr2_proto = MIR_new_proto (ctx, "basic_hgr2_p", 0, NULL, 0);
+  hgr2_proto = BASIC_MIR_new_proto (ctx, "basic_hgr2_p", 0, NULL, 0);
   hgr2_import = MIR_new_import (ctx, "basic_hgr2");
-  hcolor_proto = MIR_new_proto (ctx, "basic_hcolor_p", 0, NULL, 1, BASIC_MIR_NUM_T, "c");
+  hcolor_proto = BASIC_MIR_new_proto (ctx, "basic_hcolor_p", 0, NULL, 1, BASIC_MIR_NUM_T, "c");
   hcolor_import = MIR_new_import (ctx, "basic_hcolor");
-  hplot_proto
-    = MIR_new_proto (ctx, "basic_hplot_p", 0, NULL, 2, BASIC_MIR_NUM_T, "x", BASIC_MIR_NUM_T, "y");
+  hplot_proto = BASIC_MIR_new_proto (ctx, "basic_hplot_p", 0, NULL, 2, BASIC_MIR_NUM_T, "x",
+                                     BASIC_MIR_NUM_T, "y");
   hplot_import = MIR_new_import (ctx, "basic_hplot");
   hplotto_proto
-    = MIR_new_proto (ctx, "basic_hplot_to_p", 0, NULL, 4, BASIC_MIR_NUM_T, "x0", BASIC_MIR_NUM_T,
-                     "y0", BASIC_MIR_NUM_T, "x1", BASIC_MIR_NUM_T, "y1");
+    = BASIC_MIR_new_proto (ctx, "basic_hplot_to_p", 0, NULL, 4, BASIC_MIR_NUM_T, "x0",
+                           BASIC_MIR_NUM_T, "y0", BASIC_MIR_NUM_T, "x1", BASIC_MIR_NUM_T, "y1");
   hplotto_import = MIR_new_import (ctx, "basic_hplot_to");
-  hplottocur_proto = MIR_new_proto (ctx, "basic_hplot_to_current_p", 0, NULL, 2, BASIC_MIR_NUM_T,
-                                    "x", BASIC_MIR_NUM_T, "y");
+  hplottocur_proto = BASIC_MIR_new_proto (ctx, "basic_hplot_to_current_p", 0, NULL, 2,
+                                          BASIC_MIR_NUM_T, "x", BASIC_MIR_NUM_T, "y");
   hplottocur_import = MIR_new_import (ctx, "basic_hplot_to_current");
-  move_proto
-    = MIR_new_proto (ctx, "basic_move_p", 0, NULL, 2, BASIC_MIR_NUM_T, "x", BASIC_MIR_NUM_T, "y");
+  move_proto = BASIC_MIR_new_proto (ctx, "basic_move_p", 0, NULL, 2, BASIC_MIR_NUM_T, "x",
+                                    BASIC_MIR_NUM_T, "y");
   move_import = MIR_new_import (ctx, "basic_move");
-  draw_proto
-    = MIR_new_proto (ctx, "basic_draw_p", 0, NULL, 2, BASIC_MIR_NUM_T, "x", BASIC_MIR_NUM_T, "y");
+  draw_proto = BASIC_MIR_new_proto (ctx, "basic_draw_p", 0, NULL, 2, BASIC_MIR_NUM_T, "x",
+                                    BASIC_MIR_NUM_T, "y");
   draw_import = MIR_new_import (ctx, "basic_draw");
-  line_proto = MIR_new_proto (ctx, "basic_line_p", 0, NULL, 4, BASIC_MIR_NUM_T, "x0",
-                              BASIC_MIR_NUM_T, "y0", BASIC_MIR_NUM_T, "x1", BASIC_MIR_NUM_T, "y1");
+  line_proto
+    = BASIC_MIR_new_proto (ctx, "basic_line_p", 0, NULL, 4, BASIC_MIR_NUM_T, "x0", BASIC_MIR_NUM_T,
+                           "y0", BASIC_MIR_NUM_T, "x1", BASIC_MIR_NUM_T, "y1");
   line_import = MIR_new_import (ctx, "basic_draw_line");
-  circle_proto = MIR_new_proto (ctx, "basic_circle_p", 0, NULL, 3, BASIC_MIR_NUM_T, "x",
-                                BASIC_MIR_NUM_T, "y", BASIC_MIR_NUM_T, "r");
+  circle_proto = BASIC_MIR_new_proto (ctx, "basic_circle_p", 0, NULL, 3, BASIC_MIR_NUM_T, "x",
+                                      BASIC_MIR_NUM_T, "y", BASIC_MIR_NUM_T, "r");
   circle_import = MIR_new_import (ctx, "basic_circle");
-  rect_proto = MIR_new_proto (ctx, "basic_rect_p", 0, NULL, 4, BASIC_MIR_NUM_T, "x0",
-                              BASIC_MIR_NUM_T, "y0", BASIC_MIR_NUM_T, "x1", BASIC_MIR_NUM_T, "y1");
+  rect_proto
+    = BASIC_MIR_new_proto (ctx, "basic_rect_p", 0, NULL, 4, BASIC_MIR_NUM_T, "x0", BASIC_MIR_NUM_T,
+                           "y0", BASIC_MIR_NUM_T, "x1", BASIC_MIR_NUM_T, "y1");
   rect_import = MIR_new_import (ctx, "basic_rect");
-  mode_proto = MIR_new_proto (ctx, "basic_mode_p", 0, NULL, 1, BASIC_MIR_NUM_T, "m");
+  mode_proto = BASIC_MIR_new_proto (ctx, "basic_mode_p", 0, NULL, 1, BASIC_MIR_NUM_T, "m");
   mode_import = MIR_new_import (ctx, "basic_mode");
-  fill_proto = MIR_new_proto (ctx, "basic_fill_p", 0, NULL, 4, BASIC_MIR_NUM_T, "x0",
-                              BASIC_MIR_NUM_T, "y0", BASIC_MIR_NUM_T, "x1", BASIC_MIR_NUM_T, "y1");
+  fill_proto
+    = BASIC_MIR_new_proto (ctx, "basic_fill_p", 0, NULL, 4, BASIC_MIR_NUM_T, "x0", BASIC_MIR_NUM_T,
+                           "y0", BASIC_MIR_NUM_T, "x1", BASIC_MIR_NUM_T, "y1");
   fill_import = MIR_new_import (ctx, "basic_fill");
-  delay_proto = MIR_new_proto (ctx, "basic_delay_p", 0, NULL, 1, BASIC_MIR_NUM_T, "ms");
+  delay_proto = BASIC_MIR_new_proto (ctx, "basic_delay_p", 0, NULL, 1, BASIC_MIR_NUM_T, "ms");
   delay_import = MIR_new_import (ctx, "basic_delay");
-  beep_proto = MIR_new_proto (ctx, "basic_beep_p", 0, NULL, 0);
+  beep_proto = BASIC_MIR_new_proto (ctx, "basic_beep_p", 0, NULL, 0);
   beep_import = MIR_new_import (ctx, "basic_beep");
-  sound_proto
-    = MIR_new_proto (ctx, "basic_sound_p", 0, NULL, 2, BASIC_MIR_NUM_T, "f", BASIC_MIR_NUM_T, "d");
+  sound_proto = BASIC_MIR_new_proto (ctx, "basic_sound_p", 0, NULL, 2, BASIC_MIR_NUM_T, "f",
+                                     BASIC_MIR_NUM_T, "d");
   sound_import = MIR_new_import (ctx, "basic_sound");
-  system_proto = MIR_new_proto (ctx, "basic_system_p", 1, &d, 1, MIR_T_P, "cmd");
+  system_proto = BASIC_MIR_new_proto (ctx, "basic_system_p", 1, &d, 1, MIR_T_P, "cmd");
   system_import = MIR_new_import (ctx, "basic_system");
-  system_out_proto = MIR_new_proto (ctx, "basic_system_out_p", 1, &p, 0);
+  system_out_proto = BASIC_MIR_new_proto (ctx, "basic_system_out_p", 1, &p, 0);
   system_out_import = MIR_new_import (ctx, "basic_system_out");
-  chain_proto = MIR_new_proto (ctx, "basic_chain_p", 0, NULL, 1, MIR_T_P, "path");
+  chain_proto = BASIC_MIR_new_proto (ctx, "basic_chain_p", 0, NULL, 1, MIR_T_P, "path");
   chain_import = MIR_new_import (ctx, "basic_chain");
-  pool_reset_proto = MIR_new_proto (ctx, "basic_pool_reset_p", 0, NULL, 0);
+  pool_reset_proto = BASIC_MIR_new_proto (ctx, "basic_pool_reset_p", 0, NULL, 0);
   pool_reset_import = MIR_new_import (ctx, "basic_pool_reset");
-  randomize_proto = MIR_new_proto (ctx, "basic_randomize_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n",
-                                   BASIC_MIR_NUM_T, "has_seed");
+  randomize_proto = BASIC_MIR_new_proto (ctx, "basic_randomize_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n",
+                                         BASIC_MIR_NUM_T, "has_seed");
   randomize_import = MIR_new_import (ctx, "basic_randomize");
-  stop_proto = MIR_new_proto (ctx, "basic_stop_p", 0, NULL, 0);
+  stop_proto = BASIC_MIR_new_proto (ctx, "basic_stop_p", 0, NULL, 0);
   stop_import = MIR_new_import (ctx, "basic_stop");
   on_error_proto
-    = MIR_new_proto (ctx, "basic_set_error_handler_p", 0, NULL, 1, BASIC_MIR_NUM_T, "line");
+    = BASIC_MIR_new_proto (ctx, "basic_set_error_handler_p", 0, NULL, 1, BASIC_MIR_NUM_T, "line");
   on_error_import = MIR_new_import (ctx, "basic_set_error_handler");
-  set_line_proto = MIR_new_proto (ctx, "basic_set_line_p", 0, NULL, 1, BASIC_MIR_NUM_T, "line");
+  set_line_proto
+    = BASIC_MIR_new_proto (ctx, "basic_set_line_p", 0, NULL, 1, BASIC_MIR_NUM_T, "line");
   set_line_import = MIR_new_import (ctx, "basic_set_line");
-  get_line_proto = MIR_new_proto (ctx, "basic_get_line_p", 1, &d, 0);
+  get_line_proto = BASIC_MIR_new_proto (ctx, "basic_get_line_p", 1, &d, 0);
   get_line_import = MIR_new_import (ctx, "basic_get_line");
   line_track_proto
-    = MIR_new_proto (ctx, "basic_enable_line_tracking_p", 0, NULL, 1, BASIC_MIR_NUM_T, "on");
+    = BASIC_MIR_new_proto (ctx, "basic_enable_line_tracking_p", 0, NULL, 1, BASIC_MIR_NUM_T, "on");
   line_track_import = MIR_new_import (ctx, "basic_enable_line_tracking");
   if (profile_p) {
     profile_line_proto
-      = MIR_new_proto (ctx, "basic_profile_line_p", 0, NULL, 1, BASIC_MIR_NUM_T, "line");
+      = BASIC_MIR_new_proto (ctx, "basic_profile_line_p", 0, NULL, 1, BASIC_MIR_NUM_T, "line");
     profile_line_import = MIR_new_import (ctx, "basic_profile_line");
     profile_func_enter_proto
-      = MIR_new_proto (ctx, "basic_profile_func_enter_p", 0, NULL, 1, MIR_T_P, "name");
+      = BASIC_MIR_new_proto (ctx, "basic_profile_func_enter_p", 0, NULL, 1, MIR_T_P, "name");
     profile_func_enter_import = MIR_new_import (ctx, "basic_profile_func_enter");
     profile_func_exit_proto
-      = MIR_new_proto (ctx, "basic_profile_func_exit_p", 0, NULL, 1, MIR_T_P, "name");
+      = BASIC_MIR_new_proto (ctx, "basic_profile_func_exit_p", 0, NULL, 1, MIR_T_P, "name");
     profile_func_exit_import = MIR_new_import (ctx, "basic_profile_func_exit");
   }
-  rnd_proto = MIR_new_proto (ctx, "basic_rnd_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
+  rnd_proto = BASIC_MIR_new_proto (ctx, "basic_rnd_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
   rnd_import = MIR_new_import (ctx, "basic_rnd");
-  chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
+  chr_proto = BASIC_MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
   chr_import = MIR_new_import (ctx, "basic_chr");
-  unichar_proto = MIR_new_proto (ctx, "basic_unichar_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
+  unichar_proto = BASIC_MIR_new_proto (ctx, "basic_unichar_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
   unichar_import = MIR_new_import (ctx, "basic_unichar");
   string_proto
-    = MIR_new_proto (ctx, "basic_string_p", 1, &p, 2, BASIC_MIR_NUM_T, "n", MIR_T_P, "s");
+    = BASIC_MIR_new_proto (ctx, "basic_string_p", 1, &p, 2, BASIC_MIR_NUM_T, "n", MIR_T_P, "s");
   string_import = MIR_new_import (ctx, "basic_string");
-  concat_proto = MIR_new_proto (ctx, "basic_concat_p", 1, &p, 2, MIR_T_P, "a", MIR_T_P, "b");
+  concat_proto = BASIC_MIR_new_proto (ctx, "basic_concat_p", 1, &p, 2, MIR_T_P, "a", MIR_T_P, "b");
   concat_import = MIR_new_import (ctx, "basic_concat");
-  int_proto = MIR_new_proto (ctx, "basic_int_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  int_proto = BASIC_MIR_new_proto (ctx, "basic_int_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   int_import = MIR_new_import (ctx, "basic_int");
-  timer_proto = MIR_new_proto (ctx, "basic_timer_p", 1, &d, 0);
+  timer_proto = BASIC_MIR_new_proto (ctx, "basic_timer_p", 1, &d, 0);
   timer_import = MIR_new_import (ctx, "basic_timer");
-  time_proto = MIR_new_proto (ctx, "basic_time_p", 1, &d, 0);
+  time_proto = BASIC_MIR_new_proto (ctx, "basic_time_p", 1, &d, 0);
   time_import = MIR_new_import (ctx, "basic_time");
-  time_str_proto = MIR_new_proto (ctx, "basic_time_str_p", 1, &p, 0);
+  time_str_proto = BASIC_MIR_new_proto (ctx, "basic_time_str_p", 1, &p, 0);
   time_str_import = MIR_new_import (ctx, "basic_time_str");
-  date_proto = MIR_new_proto (ctx, "basic_date_p", 1, &d, 0);
+  date_proto = BASIC_MIR_new_proto (ctx, "basic_date_p", 1, &d, 0);
   date_import = MIR_new_import (ctx, "basic_date");
-  date_str_proto = MIR_new_proto (ctx, "basic_date_str_p", 1, &p, 0);
+  date_str_proto = BASIC_MIR_new_proto (ctx, "basic_date_str_p", 1, &p, 0);
   date_str_import = MIR_new_import (ctx, "basic_date_str");
-  input_chr_proto = MIR_new_proto (ctx, "basic_input_chr_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
+  input_chr_proto = BASIC_MIR_new_proto (ctx, "basic_input_chr_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
   input_chr_import = MIR_new_import (ctx, "basic_input_chr");
-  inkey_proto = MIR_new_proto (ctx, "basic_inkey_p", 1, &p, 0);
+  inkey_proto = BASIC_MIR_new_proto (ctx, "basic_inkey_p", 1, &p, 0);
   inkey_import = MIR_new_import (ctx, "basic_inkey");
-  peek_proto = MIR_new_proto (ctx, "basic_peek_p", 1, &d, 1, BASIC_MIR_NUM_T, "addr");
+  peek_proto = BASIC_MIR_new_proto (ctx, "basic_peek_p", 1, &d, 1, BASIC_MIR_NUM_T, "addr");
   peek_import = MIR_new_import (ctx, "basic_peek");
-  eof_proto = MIR_new_proto (ctx, "basic_eof_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
+  eof_proto = BASIC_MIR_new_proto (ctx, "basic_eof_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
   eof_import = MIR_new_import (ctx, "basic_eof");
-  pos_proto = MIR_new_proto (ctx, "basic_pos_p", 1, &d, 0);
+  pos_proto = BASIC_MIR_new_proto (ctx, "basic_pos_p", 1, &d, 0);
   pos_import = MIR_new_import (ctx, "basic_pos");
 
-  abs_proto = MIR_new_proto (ctx, "basic_abs_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  abs_proto = BASIC_MIR_new_proto (ctx, "basic_abs_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   abs_import = MIR_new_import (ctx, "basic_abs");
-  sgn_proto = MIR_new_proto (ctx, "basic_sgn_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  sgn_proto = BASIC_MIR_new_proto (ctx, "basic_sgn_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   sgn_import = MIR_new_import (ctx, "basic_sgn");
-  sqr_proto = MIR_new_proto (ctx, "basic_sqr_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  sqr_proto = BASIC_MIR_new_proto (ctx, "basic_sqr_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   sqr_import = MIR_new_import (ctx, "basic_sqr");
-  sin_proto = MIR_new_proto (ctx, "basic_sin_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  sin_proto = BASIC_MIR_new_proto (ctx, "basic_sin_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   sin_import = MIR_new_import (ctx, "basic_sin");
-  cos_proto = MIR_new_proto (ctx, "basic_cos_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  cos_proto = BASIC_MIR_new_proto (ctx, "basic_cos_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   cos_import = MIR_new_import (ctx, "basic_cos");
-  tan_proto = MIR_new_proto (ctx, "basic_tan_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  tan_proto = BASIC_MIR_new_proto (ctx, "basic_tan_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   tan_import = MIR_new_import (ctx, "basic_tan");
-  atn_proto = MIR_new_proto (ctx, "basic_atn_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  atn_proto = BASIC_MIR_new_proto (ctx, "basic_atn_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   atn_import = MIR_new_import (ctx, "basic_atn");
-  sinh_proto = MIR_new_proto (ctx, "basic_sinh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  sinh_proto = BASIC_MIR_new_proto (ctx, "basic_sinh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   sinh_import = MIR_new_import (ctx, "basic_sinh");
-  cosh_proto = MIR_new_proto (ctx, "basic_cosh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  cosh_proto = BASIC_MIR_new_proto (ctx, "basic_cosh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   cosh_import = MIR_new_import (ctx, "basic_cosh");
-  tanh_proto = MIR_new_proto (ctx, "basic_tanh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  tanh_proto = BASIC_MIR_new_proto (ctx, "basic_tanh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   tanh_import = MIR_new_import (ctx, "basic_tanh");
-  asinh_proto = MIR_new_proto (ctx, "basic_asinh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  asinh_proto = BASIC_MIR_new_proto (ctx, "basic_asinh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   asinh_import = MIR_new_import (ctx, "basic_asinh");
-  acosh_proto = MIR_new_proto (ctx, "basic_acosh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  acosh_proto = BASIC_MIR_new_proto (ctx, "basic_acosh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   acosh_import = MIR_new_import (ctx, "basic_acosh");
-  atanh_proto = MIR_new_proto (ctx, "basic_atanh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  atanh_proto = BASIC_MIR_new_proto (ctx, "basic_atanh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   atanh_import = MIR_new_import (ctx, "basic_atanh");
-  asin_proto = MIR_new_proto (ctx, "basic_asin_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  asin_proto = BASIC_MIR_new_proto (ctx, "basic_asin_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   asin_import = MIR_new_import (ctx, "basic_asin");
-  acos_proto = MIR_new_proto (ctx, "basic_acos_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  acos_proto = BASIC_MIR_new_proto (ctx, "basic_acos_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   acos_import = MIR_new_import (ctx, "basic_acos");
-  log_proto = MIR_new_proto (ctx, "basic_log_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  log_proto = BASIC_MIR_new_proto (ctx, "basic_log_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   log_import = MIR_new_import (ctx, "basic_log");
-  log2_proto = MIR_new_proto (ctx, "basic_log2_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  log2_proto = BASIC_MIR_new_proto (ctx, "basic_log2_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   log2_import = MIR_new_import (ctx, "basic_log2");
-  log10_proto = MIR_new_proto (ctx, "basic_log10_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  log10_proto = BASIC_MIR_new_proto (ctx, "basic_log10_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   log10_import = MIR_new_import (ctx, "basic_log10");
-  exp_proto = MIR_new_proto (ctx, "basic_exp_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  exp_proto = BASIC_MIR_new_proto (ctx, "basic_exp_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   exp_import = MIR_new_import (ctx, "basic_exp");
-  fact_proto = MIR_new_proto (ctx, "basic_fact_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  fact_proto = BASIC_MIR_new_proto (ctx, "basic_fact_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
   fact_import = MIR_new_import (ctx, "basic_fact");
-  pow_proto
-    = MIR_new_proto (ctx, "basic_pow_p", 1, &d, 2, BASIC_MIR_NUM_T, "x", BASIC_MIR_NUM_T, "y");
+  pow_proto = BASIC_MIR_new_proto (ctx, "basic_pow_p", 1, &d, 2, BASIC_MIR_NUM_T, "x",
+                                   BASIC_MIR_NUM_T, "y");
   pow_import = MIR_new_import (ctx, "basic_pow");
-  pi_proto = MIR_new_proto (ctx, "basic_pi_p", 1, &d, 0);
+  pi_proto = BASIC_MIR_new_proto (ctx, "basic_pi_p", 1, &d, 0);
   pi_import = MIR_new_import (ctx, "basic_pi");
-  left_proto = MIR_new_proto (ctx, "basic_left_p", 1, &p, 2, MIR_T_P, "s", BASIC_MIR_NUM_T, "n");
+  left_proto
+    = BASIC_MIR_new_proto (ctx, "basic_left_p", 1, &p, 2, MIR_T_P, "s", BASIC_MIR_NUM_T, "n");
   left_import = MIR_new_import (ctx, "basic_left");
-  right_proto = MIR_new_proto (ctx, "basic_right_p", 1, &p, 2, MIR_T_P, "s", BASIC_MIR_NUM_T, "n");
+  right_proto
+    = BASIC_MIR_new_proto (ctx, "basic_right_p", 1, &p, 2, MIR_T_P, "s", BASIC_MIR_NUM_T, "n");
   right_import = MIR_new_import (ctx, "basic_right");
-  mid_proto = MIR_new_proto (ctx, "basic_mid_p", 1, &p, 3, MIR_T_P, "s", BASIC_MIR_NUM_T, "start",
-                             BASIC_MIR_NUM_T, "len");
+  mid_proto = BASIC_MIR_new_proto (ctx, "basic_mid_p", 1, &p, 3, MIR_T_P, "s", BASIC_MIR_NUM_T,
+                                   "start", BASIC_MIR_NUM_T, "len");
   mid_import = MIR_new_import (ctx, "basic_mid");
-  mirror_proto = MIR_new_proto (ctx, "basic_mirror_p", 1, &p, 1, MIR_T_P, "s");
+  mirror_proto = BASIC_MIR_new_proto (ctx, "basic_mirror_p", 1, &p, 1, MIR_T_P, "s");
   mirror_import = MIR_new_import (ctx, "basic_mirror");
-  upper_proto = MIR_new_proto (ctx, "basic_upper_p", 1, &p, 1, MIR_T_P, "s");
+  upper_proto = BASIC_MIR_new_proto (ctx, "basic_upper_p", 1, &p, 1, MIR_T_P, "s");
   upper_import = MIR_new_import (ctx, "basic_upper");
-  lower_proto = MIR_new_proto (ctx, "basic_lower_p", 1, &p, 1, MIR_T_P, "s");
+  lower_proto = BASIC_MIR_new_proto (ctx, "basic_lower_p", 1, &p, 1, MIR_T_P, "s");
   lower_import = MIR_new_import (ctx, "basic_lower");
-  len_proto = MIR_new_proto (ctx, "basic_len_p", 1, &d, 1, MIR_T_P, "s");
+  len_proto = BASIC_MIR_new_proto (ctx, "basic_len_p", 1, &d, 1, MIR_T_P, "s");
   len_import = MIR_new_import (ctx, "basic_len");
-  val_proto = MIR_new_proto (ctx, "basic_val_p", 1, &d, 1, MIR_T_P, "s");
+  val_proto = BASIC_MIR_new_proto (ctx, "basic_val_p", 1, &d, 1, MIR_T_P, "s");
   val_import = MIR_new_import (ctx, "basic_val");
-  str_proto = MIR_new_proto (ctx, "basic_str_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
+  str_proto = BASIC_MIR_new_proto (ctx, "basic_str_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
   str_import = MIR_new_import (ctx, "basic_str");
-  asc_proto = MIR_new_proto (ctx, "basic_asc_p", 1, &d, 1, MIR_T_P, "s");
+  asc_proto = BASIC_MIR_new_proto (ctx, "basic_asc_p", 1, &d, 1, MIR_T_P, "s");
   asc_import = MIR_new_import (ctx, "basic_asc");
-  instr_proto = MIR_new_proto (ctx, "basic_instr_p", 1, &d, 2, MIR_T_P, "s", MIR_T_P, "sub");
+  instr_proto = BASIC_MIR_new_proto (ctx, "basic_instr_p", 1, &d, 2, MIR_T_P, "s", MIR_T_P, "sub");
   instr_import = MIR_new_import (ctx, "basic_instr");
 
-  strdup_proto = MIR_new_proto (ctx, "basic_strdup_p", 1, &p, 1, MIR_T_P, "s");
+  strdup_proto = BASIC_MIR_new_proto (ctx, "basic_strdup_p", 1, &p, 1, MIR_T_P, "s");
   strdup_import = MIR_new_import (ctx, "basic_strdup");
-  free_proto = MIR_new_proto (ctx, "basic_free_p", 0, NULL, 1, MIR_T_P, "s");
+  free_proto = BASIC_MIR_new_proto (ctx, "basic_free_p", 0, NULL, 1, MIR_T_P, "s");
   free_import = MIR_new_import (ctx, "basic_free");
-  mir_ctx_proto = MIR_new_proto (ctx, "basic_mir_ctx_p", 1, &d, 0);
+  mir_ctx_proto = BASIC_MIR_new_proto (ctx, "basic_mir_ctx_p", 1, &d, 0);
   mir_ctx_import = MIR_new_import (ctx, "basic_mir_ctx");
-  mir_mod_proto
-    = MIR_new_proto (ctx, "basic_mir_mod_p", 1, &d, 2, BASIC_MIR_NUM_T, "ctx", MIR_T_P, "name");
+  mir_mod_proto = BASIC_MIR_new_proto (ctx, "basic_mir_mod_p", 1, &d, 2, BASIC_MIR_NUM_T, "ctx",
+                                       MIR_T_P, "name");
   mir_mod_import = MIR_new_import (ctx, "basic_mir_mod");
-  mir_func_proto = MIR_new_proto (ctx, "basic_mir_func_p", 1, &d, 3, BASIC_MIR_NUM_T, "mod",
-                                  MIR_T_P, "name", BASIC_MIR_NUM_T, "nargs");
+  mir_func_proto = BASIC_MIR_new_proto (ctx, "basic_mir_func_p", 1, &d, 3, BASIC_MIR_NUM_T, "mod",
+                                        MIR_T_P, "name", BASIC_MIR_NUM_T, "nargs");
   mir_func_import = MIR_new_import (ctx, "basic_mir_func");
-  mir_reg_proto = MIR_new_proto (ctx, "basic_mir_reg_p", 1, &d, 1, BASIC_MIR_NUM_T, "func");
+  mir_reg_proto = BASIC_MIR_new_proto (ctx, "basic_mir_reg_p", 1, &d, 1, BASIC_MIR_NUM_T, "func");
   mir_reg_import = MIR_new_import (ctx, "basic_mir_reg");
-  mir_label_proto = MIR_new_proto (ctx, "basic_mir_label_p", 1, &d, 1, BASIC_MIR_NUM_T, "func");
+  mir_label_proto
+    = BASIC_MIR_new_proto (ctx, "basic_mir_label_p", 1, &d, 1, BASIC_MIR_NUM_T, "func");
   mir_label_import = MIR_new_import (ctx, "basic_mir_label");
   mir_emit_proto
-    = MIR_new_proto (ctx, "basic_mir_emit_p", 1, &d, 5, BASIC_MIR_NUM_T, "func", MIR_T_P, "op",
-                     BASIC_MIR_NUM_T, "a", BASIC_MIR_NUM_T, "b", BASIC_MIR_NUM_T, "c");
+    = BASIC_MIR_new_proto (ctx, "basic_mir_emit_p", 1, &d, 5, BASIC_MIR_NUM_T, "func", MIR_T_P,
+                           "op", BASIC_MIR_NUM_T, "a", BASIC_MIR_NUM_T, "b", BASIC_MIR_NUM_T, "c");
   mir_emit_import = MIR_new_import (ctx, "basic_mir_emit");
-  mir_emitlbl_proto = MIR_new_proto (ctx, "basic_mir_emitlbl_p", 1, &d, 2, BASIC_MIR_NUM_T, "func",
-                                     BASIC_MIR_NUM_T, "lab");
+  mir_emitlbl_proto = BASIC_MIR_new_proto (ctx, "basic_mir_emitlbl_p", 1, &d, 2, BASIC_MIR_NUM_T,
+                                           "func", BASIC_MIR_NUM_T, "lab");
   mir_emitlbl_import = MIR_new_import (ctx, "basic_mir_emitlbl");
-  mir_ret_proto = MIR_new_proto (ctx, "basic_mir_ret_p", 1, &d, 2, BASIC_MIR_NUM_T, "func",
-                                 BASIC_MIR_NUM_T, "reg");
+  mir_ret_proto = BASIC_MIR_new_proto (ctx, "basic_mir_ret_p", 1, &d, 2, BASIC_MIR_NUM_T, "func",
+                                       BASIC_MIR_NUM_T, "reg");
   mir_ret_import = MIR_new_import (ctx, "basic_mir_ret");
-  mir_finish_proto = MIR_new_proto (ctx, "basic_mir_finish_p", 1, &d, 1, BASIC_MIR_NUM_T, "mod");
+  mir_finish_proto
+    = BASIC_MIR_new_proto (ctx, "basic_mir_finish_p", 1, &d, 1, BASIC_MIR_NUM_T, "mod");
   mir_finish_import = MIR_new_import (ctx, "basic_mir_finish");
-  mir_run_proto
-    = MIR_new_proto (ctx, "basic_mir_run_p", 1, &d, 5, BASIC_MIR_NUM_T, "func", BASIC_MIR_NUM_T,
-                     "a1", BASIC_MIR_NUM_T, "a2", BASIC_MIR_NUM_T, "a3", BASIC_MIR_NUM_T, "a4");
+  mir_run_proto = BASIC_MIR_new_proto (ctx, "basic_mir_run_p", 1, &d, 5, BASIC_MIR_NUM_T, "func",
+                                       BASIC_MIR_NUM_T, "a1", BASIC_MIR_NUM_T, "a2",
+                                       BASIC_MIR_NUM_T, "a3", BASIC_MIR_NUM_T, "a4");
   mir_run_import = MIR_new_import (ctx, "basic_mir_run");
-  mir_dump_proto = MIR_new_proto (ctx, "basic_mir_dump_p", 1, &d, 1, BASIC_MIR_NUM_T, "func");
+  mir_dump_proto = BASIC_MIR_new_proto (ctx, "basic_mir_dump_p", 1, &d, 1, BASIC_MIR_NUM_T, "func");
   mir_dump_import = MIR_new_import (ctx, "basic_mir_dump");
 
-  calloc_proto = MIR_new_proto (ctx, "calloc_p", 1, &p, 2, MIR_T_I64, "n", MIR_T_I64, "sz");
+  calloc_proto = BASIC_MIR_new_proto (ctx, "calloc_p", 1, &p, 2, MIR_T_I64, "n", MIR_T_I64, "sz");
   calloc_import = MIR_new_import (ctx, "calloc");
-  dim_alloc_proto = MIR_new_proto (ctx, "basic_dim_alloc_p", 1, &p, 3, MIR_T_P, "base",
-                                   BASIC_MIR_NUM_T, "len", BASIC_MIR_NUM_T, "is_str");
+  dim_alloc_proto = BASIC_MIR_new_proto (ctx, "basic_dim_alloc_p", 1, &p, 3, MIR_T_P, "base",
+                                         BASIC_MIR_NUM_T, "len", BASIC_MIR_NUM_T, "is_str");
   dim_alloc_import = MIR_new_import (ctx, "basic_dim_alloc");
   memset_proto
-    = MIR_new_proto (ctx, "memset_p", 1, &p, 3, MIR_T_P, "s", MIR_T_I64, "c", MIR_T_I64, "n");
+    = BASIC_MIR_new_proto (ctx, "memset_p", 1, &p, 3, MIR_T_P, "s", MIR_T_I64, "c", MIR_T_I64, "n");
   memset_import = MIR_new_import (ctx, "memset");
   MIR_type_t i64 = MIR_T_I64;
-  strcmp_proto = MIR_new_proto (ctx, "basic_strcmp_p", 1, &i64, 2, MIR_T_P, "a", MIR_T_P, "b");
+  strcmp_proto
+    = BASIC_MIR_new_proto (ctx, "basic_strcmp_p", 1, &i64, 2, MIR_T_P, "a", MIR_T_P, "b");
   strcmp_import = MIR_new_import (ctx, "basic_strcmp");
-  read_proto = MIR_new_proto (ctx, "basic_read_p", 1, &d, 0);
+  read_proto = BASIC_MIR_new_proto (ctx, "basic_read_p", 1, &d, 0);
   read_import = MIR_new_import (ctx, "basic_read");
-  read_str_proto = MIR_new_proto (ctx, "basic_read_str_p", 1, &p, 0);
+  read_str_proto = BASIC_MIR_new_proto (ctx, "basic_read_str_p", 1, &p, 0);
   read_str_import = MIR_new_import (ctx, "basic_read_str");
-  clear_array_proto = MIR_new_proto (ctx, "basic_clear_array_p", 0, NULL, 3, MIR_T_P, "base",
-                                     BASIC_MIR_NUM_T, "len", BASIC_MIR_NUM_T, "is_str");
+  clear_array_proto = BASIC_MIR_new_proto (ctx, "basic_clear_array_p", 0, NULL, 3, MIR_T_P, "base",
+                                           BASIC_MIR_NUM_T, "len", BASIC_MIR_NUM_T, "is_str");
   clear_array_import = MIR_new_import (ctx, "basic_clear_array");
-  restore_proto = MIR_new_proto (ctx, "basic_restore_p", 0, NULL, 0);
+  restore_proto = BASIC_MIR_new_proto (ctx, "basic_restore_p", 0, NULL, 0);
   restore_import = MIR_new_import (ctx, "basic_restore");
   g_ctx = ctx;
   /* Pass 1: create prototypes and forward declarations. */
@@ -6490,7 +6523,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   MIR_append_insn (g_ctx, g_func,
                    MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, line_track_proto),
                                       MIR_new_ref_op (g_ctx, line_track_import),
-                                      MIR_new_double_op (g_ctx, (basic_num_t) g_line_tracking)));
+                                      BASIC_MIR_new_num_op (g_ctx, (basic_num_t) g_line_tracking)));
 
   /* create labels for lines */
   size_t n = prog->len;
@@ -6506,12 +6539,12 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, profile_line_proto),
                                           MIR_new_ref_op (g_ctx, profile_line_import),
-                                          MIR_new_double_op (g_ctx, (basic_num_t) ln->line)));
+                                          BASIC_MIR_new_num_op (g_ctx, (basic_num_t) ln->line)));
     if (g_line_tracking)
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, set_line_proto),
                                           MIR_new_ref_op (g_ctx, set_line_import),
-                                          MIR_new_double_op (g_ctx, (basic_num_t) ln->line)));
+                                          BASIC_MIR_new_num_op (g_ctx, (basic_num_t) ln->line)));
     for (size_t j = 0; j < ln->stmts.len; j++) {
       gen_stmt (&ln->stmts.data[j]);
     }
