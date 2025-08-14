@@ -59,6 +59,31 @@ int main (void) {
   res = fixed64_pow (two, three);
   assert (res.hi == 8 && res.lo == 0);
 
+  fixed64_t five_half = fixed64_from_double (5.5);
+  res = fixed64_ceil (five_half);
+  assert (res.hi == 6 && res.lo == 0);
+  fixed64_t neg_five_half = fixed64_from_double (-5.5);
+  res = fixed64_ceil (neg_five_half);
+  assert (res.hi == -5 && res.lo == 0);
+  res = fixed64_trunc (five_half);
+  assert (res.hi == 5 && res.lo == 0);
+  res = fixed64_round (fixed64_from_double (2.5));
+  assert (res.hi == 3 && res.lo == 0);
+  res = fixed64_round (fixed64_from_double (-2.5));
+  assert (res.hi == -3 && res.lo == 0);
+
+  res = fixed64_fmod (fixed64_from_int (5), fixed64_from_int (2));
+  assert (res.hi == 1 && res.lo == 0);
+
+  res = fixed64_atan2 (fixed64_from_int (1), fixed64_from_int (1));
+  assert (fabs (fixed64_to_double (res) - fixed64_to_double (quarter_pi)) < 1e-6);
+
+  res = fixed64_log1p (zero);
+  assert (res.hi == 0 && res.lo == 0);
+  res = fixed64_log1p (fixed64_from_double (exp (1.0) - 1.0));
+  assert (fabs (fixed64_to_double (res) - 1.0) < 1e-6);
+  res = fixed64_expm1 (fixed64_from_int (1));
+  assert (fabs (fixed64_to_double (res) - (exp (1.0) - 1.0)) < 1e-6);
 
   fixed64_t v = fixed64_from_double (3.75);
   res = fixed64_floor (v);
@@ -74,6 +99,7 @@ int main (void) {
   assert (fabs (fixed64_to_double (res) - asin (0.5)) < 1e-6);
 
   (void) res;
+
 
   /* additional math helpers */
   res = fixed64_log (two);
@@ -94,6 +120,7 @@ int main (void) {
   assert (res.hi == -1 && res.lo == 0);
   res = fixed64_fmod (fixed64_from_double (5.5), two);
   assert (fabs (fixed64_to_double (res) - fmod (5.5, 2.0)) < 1e-6);
+
 #ifndef _WIN32
   pid_t pid = fork ();
   if (pid == 0) {
