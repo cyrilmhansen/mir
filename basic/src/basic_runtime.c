@@ -102,6 +102,13 @@ static inline MIR_op_t BASIC_MIR_new_num_op (MIR_context_t ctx, basic_num_t v) {
 #define BASIC_MIR_DBGE MIR_DBGE
 #endif
 
+#if defined(BASIC_USE_FIXED64)
+#define BASIC_MIR_VAR(name) \
+  (MIR_var_t) { BASIC_MIR_NUM_T, (name), sizeof (basic_num_t) }
+#else
+#define BASIC_MIR_VAR(name) (MIR_var_t){BASIC_MIR_NUM_T, (name), 0}
+#endif
+
 static int seeded = 0;
 #if defined(BASIC_USE_LONG_DOUBLE) && !defined(BASIC_PRNG128)
 #define BASIC_PRNG128 1
@@ -1292,8 +1299,7 @@ basic_num_t basic_mir_func (basic_num_t mod_h, const char *name, basic_num_t nar
     size_t len = snprintf (NULL, 0, "a%zu", i);
     char *arg_name = basic_alloc_string (len);
     snprintf (arg_name, len + 1, "a%zu", i);
-    vars[i].type = BASIC_MIR_NUM_T;
-    vars[i].name = arg_name;
+    vars[i] = BASIC_MIR_VAR (arg_name);
   }
   MIR_item_t func = MIR_new_func_arr (ctx, name, 1, &res, nargs, vars);
   FuncHandle *fh = basic_pool_alloc (sizeof (FuncHandle));
