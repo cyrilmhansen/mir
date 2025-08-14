@@ -334,6 +334,43 @@ fixed64_t fixed64_exp (fixed64_t a) {
   return fixed64_from_double (exp (da));
 }
 
+fixed64_t fixed64_ceil (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (ceil (da));
+}
+
+fixed64_t fixed64_trunc (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (trunc (da));
+}
+
+fixed64_t fixed64_round (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (round (da));
+}
+
+fixed64_t fixed64_fmod (fixed64_t a, fixed64_t b) {
+  double da = fixed64_to_double (a);
+  double db = fixed64_to_double (b);
+  return fixed64_from_double (fmod (da, db));
+}
+
+fixed64_t fixed64_atan2 (fixed64_t y, fixed64_t x) {
+  double dy = fixed64_to_double (y);
+  double dx = fixed64_to_double (x);
+  return fixed64_from_double (atan2 (dy, dx));
+}
+
+fixed64_t fixed64_log1p (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (log1p (da));
+}
+
+fixed64_t fixed64_expm1 (fixed64_t a) {
+  double da = fixed64_to_double (a);
+  return fixed64_from_double (expm1 (da));
+}
+
 fixed64_t fixed64_stub_unary (fixed64_t a) {
   (void) a;
   fprintf (stderr, "runtime error: unsupported fixed64 operation\n");
