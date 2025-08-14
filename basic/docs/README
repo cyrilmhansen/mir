@@ -203,17 +203,13 @@ output. Users needing greater precision should compile the BASIC runtime with
 Fixed-Point Variant
 -------------------
 For targets lacking floating-point support, the runtime can be built with
-`-DBASIC_USE_FIXED64` to use a 64.64 fixed-point representation. Arithmetic and
-I/O rely on helper functions such as `basic_num_add`, `basic_num_lt`, and
-`basic_num_scan` which wrap the underlying `fixed64` routines.
-
-Unsupported Operations
-----------------------
-The fixed-point math helpers implement the standard BASIC numeric
-functions, including trigonometric, inverse, hyperbolic, logarithmic,
-power, and square-root operations.  If a math function is invoked that
-does not yet have an implementation, the runtime reports a dedicated
-error.
+`-DBASIC_USE_FIXED64` to use a 64.64 fixed-point representation. Arithmetic,
+I/O, and math built-ins rely on helper functions such as `basic_num_add`,
+`basic_num_lt`, and `basic_num_scan` which wrap the underlying `fixed64`
+routines. These helpers implement the usual BASIC numeric operations,
+including trigonometric functions, logarithms, exponentials, and square
+roots. If a math function is invoked that does not yet have a fixed-point
+implementation, the runtime reports a dedicated error.
 
 The `basicc-fix` executable is built with the same compiler source but
 compiled with `-DBASIC_USE_FIXED64`. Build it with `make basic/basicc-fix`
@@ -224,10 +220,9 @@ spans approximately ±9.22e18 and the fractional component has a resolution
 of 1/2^64 (about 5.4e-20). Values exceeding this range wrap around and
 sub-unit magnitudes round to zero.
 
-Compared to the double and long-double builds, the fixed-point runtime
-implements only basic arithmetic; transcendental functions such as `LOG`,
-`EXP`, and `SQRT` are stubs and may return zero. Execution is slower because
-all arithmetic is emulated in software.
+Because all arithmetic is emulated in software, execution is slower than the
+double and long-double builds, and accuracy may degrade for large or highly
+precise calculations.
 
 Sample programs in `basic/samples/fixed_demo.bas` and
 `basic/samples/fixed_edge.bas` demonstrate fixed-point math and
