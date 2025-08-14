@@ -25,7 +25,9 @@
 
 #if defined(BASIC_USE_LONG_DOUBLE)
 #define BASIC_MIR_NUM_T MIR_T_LD
-#define BASIC_MIR_new_num_op MIR_new_ldouble_op
+static inline MIR_op_t BASIC_MIR_new_num_op (MIR_context_t ctx, basic_num_t v) {
+  return MIR_new_ldouble_op (ctx, v);
+}
 #define BASIC_MIR_D2I MIR_LD2I
 #define BASIC_MIR_I2D MIR_I2LD
 #define BASIC_MIR_DMOV MIR_LDMOV
@@ -48,7 +50,11 @@
 #define BASIC_MIR_DBGE MIR_LDBGE
 #elif defined(BASIC_USE_FIXED64)
 #define BASIC_MIR_NUM_T MIR_T_BLK
-#define BASIC_MIR_new_num_op(ctx, v) MIR_new_int_op (ctx, 0)
+static inline MIR_op_t BASIC_MIR_new_num_op (MIR_context_t ctx, basic_num_t v) {
+  basic_num_t *p = basic_pool_alloc (sizeof (basic_num_t));
+  *p = v;
+  return MIR_new_ref_op (ctx, p);
+}
 #define BASIC_MIR_D2I MIR_D2I
 #define BASIC_MIR_I2D MIR_I2D
 #define BASIC_MIR_DMOV MIR_DMOV
@@ -71,7 +77,9 @@
 #define BASIC_MIR_DBGE MIR_DBGE
 #else
 #define BASIC_MIR_NUM_T MIR_T_D
-#define BASIC_MIR_new_num_op MIR_new_double_op
+static inline MIR_op_t BASIC_MIR_new_num_op (MIR_context_t ctx, basic_num_t v) {
+  return MIR_new_double_op (ctx, v);
+}
 #define BASIC_MIR_D2I MIR_D2I
 #define BASIC_MIR_I2D MIR_I2D
 #define BASIC_MIR_DMOV MIR_DMOV
