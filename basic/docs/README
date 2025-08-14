@@ -212,8 +212,21 @@ roots. If a math function is invoked that does not yet have a fixed-point
 implementation, the runtime reports a dedicated error.
 
 The `basicc-fix` executable is built with the same compiler source but
-compiled with `-DBASIC_USE_FIXED64`. Build it with `make basic/basicc-fix`
-and invoke it just like the floating-point `basicc` variants.
+compiled with `-DBASIC_USE_FIXED64`. Build it by configuring CMake with
+`-DBASIC_NUM_MODE=fixed64`:
+
+```
+cmake -DBASIC_NUM_MODE=fixed64
+make
+```
+
+Or use the GNU Make target:
+
+```
+make basic/basicc-fix
+```
+
+Invoke the resulting binary just like the floating-point `basicc` variants.
 
 Numbers are stored as signed 64.64 fixed-point values. The integer portion
 spans approximately ±9.22e18 and the fractional component has a resolution
