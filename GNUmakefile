@@ -548,6 +548,7 @@ run-basic-tests:
 	$(BUILD_DIR)/basic/basic_input_hash_test$(EXE)
 	$(BUILD_DIR)/basic/basic_num_fixed64_test$(EXE)
 	$(BUILD_DIR)/basic/basic_prng128_test$(EXE)
+	$(BUILD_DIR)/basic/basicc $(BUILD_DIR)/basic/samples/unicode_pattern_banner.bas
 
 # ------------------ MIR interp tests --------------------------
 .PHONY: clean-mir-interp-tests
