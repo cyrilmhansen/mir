@@ -26,6 +26,7 @@
 #if defined(BASIC_USE_LONG_DOUBLE)
 #define BASIC_MIR_NUM_T MIR_T_LD
 #define BASIC_MIR_new_num_op MIR_new_ldouble_op
+#define BASIC_MIR_ARG(name) (MIR_var_t){BASIC_MIR_NUM_T, name, 0}
 #define BASIC_MIR_D2I MIR_LD2I
 #define BASIC_MIR_I2D MIR_I2LD
 #define BASIC_MIR_DMOV MIR_LDMOV
@@ -49,6 +50,8 @@
 #elif defined(BASIC_USE_FIXED64)
 #define BASIC_MIR_NUM_T MIR_T_BLK
 #define BASIC_MIR_new_num_op(ctx, v) MIR_new_int_op (ctx, 0)
+#define BASIC_MIR_ARG(name) \
+  (MIR_var_t) { BASIC_MIR_NUM_T, name, sizeof (basic_num_t) }
 #define BASIC_MIR_D2I MIR_D2I
 #define BASIC_MIR_I2D MIR_I2D
 #define BASIC_MIR_DMOV MIR_DMOV
@@ -72,6 +75,7 @@
 #else
 #define BASIC_MIR_NUM_T MIR_T_D
 #define BASIC_MIR_new_num_op MIR_new_double_op
+#define BASIC_MIR_ARG(name) (MIR_var_t){BASIC_MIR_NUM_T, name, 0}
 #define BASIC_MIR_D2I MIR_D2I
 #define BASIC_MIR_I2D MIR_I2D
 #define BASIC_MIR_DMOV MIR_DMOV
@@ -1284,8 +1288,7 @@ basic_num_t basic_mir_func (basic_num_t mod_h, const char *name, basic_num_t nar
     size_t len = snprintf (NULL, 0, "a%zu", i);
     char *arg_name = basic_alloc_string (len);
     snprintf (arg_name, len + 1, "a%zu", i);
-    vars[i].type = BASIC_MIR_NUM_T;
-    vars[i].name = arg_name;
+    vars[i] = BASIC_MIR_ARG (arg_name);
   }
   MIR_item_t func = MIR_new_func_arr (ctx, name, 1, &res, nargs, vars);
   FuncHandle *fh = basic_pool_alloc (sizeof (FuncHandle));
