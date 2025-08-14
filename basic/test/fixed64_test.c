@@ -1,8 +1,17 @@
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "fixed64/fixed64.h"
+
+void fixed64_stub_unary (fixed64_t x) {
+  (void) x;
+  abort ();
+}
 
 int main (void) {
   fixed64_t half = {.hi = 0, .lo = 1ULL << 63};
@@ -99,7 +108,6 @@ int main (void) {
   assert (fabs (fixed64_to_double (res) - asin (0.5)) < 1e-6);
 
   (void) res;
-
 
   /* additional math helpers */
   res = fixed64_log (two);

@@ -690,7 +690,7 @@ static Node *new_node (NodeKind k) {
   Node *n = arena_alloc (&ast_arena, sizeof (Node));
   n->kind = k;
   n->is_str = 0;
-  n->num = 0;
+  n->num = BASIC_ZERO;
   n->var = NULL;
   n->str = NULL;
   n->op = OP_NONE;
@@ -1398,7 +1398,7 @@ static int parse_error (Parser *p) {
 static Token read_token (Parser *p) {
   char *cur = p->cur;
   while (*cur && isspace ((unsigned char) *cur)) cur++;
-  Token t = {TOK_EOF, NULL, 0};
+  Token t = {.type = TOK_EOF, .str = NULL, .num = BASIC_ZERO};
   if (*cur == '\0') {
     p->cur = cur;
     return t;
@@ -1567,7 +1567,7 @@ static Token read_token (Parser *p) {
       if (end != cur) {
         cur = end;
         t.type = TOK_NUMBER;
-        t.num = (basic_num_t) v;
+        t.num = basic_num_from_int (v);
         decimal_locked = 1;
         p->cur = cur;
         return t;
@@ -1676,9 +1676,9 @@ static basic_num_t parse_number (Parser *p) {
   if (t.type == TOK_NUMBER) return t.num;
   if (t.type == TOK_MINUS) {
     t = next_token (p);
-    if (t.type == TOK_NUMBER) return -t.num;
+    if (t.type == TOK_NUMBER) return basic_num_neg (t.num);
   }
-  return 0;
+  return BASIC_ZERO;
 }
 
 static char *parse_string (Parser *p) {
@@ -1784,7 +1784,7 @@ static Node *parse_literal (Parser *p) {
   case TOK_FALSE:
     t = next_token (p);
     n = new_node (N_NUM);
-    n->num = (t.type == TOK_TRUE);
+    n->num = basic_num_from_int (t.type == TOK_TRUE);
     return n;
   default: return NULL;
   }
@@ -1800,7 +1800,7 @@ static Node *parse_builtin_call (char *id, CallArgs *a) {
   }
   if (!strcasecmp (id, "RND") && a->a[0] == NULL) {
     a->a[0] = new_node (N_NUM);
-    a->a[0]->num = 1;
+    a->a[0]->num = basic_num_from_int (1);
   }
   Node *n = new_node (N_CALL);
   n->var = id;
@@ -2066,7 +2066,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
       safe_fprintf (stderr, "expected integer\n");
       return 0;
     }
-    int base = (int) tok.num;
+    int base = basic_num_to_int (tok.num);
     if (base != 0 && base != 1) return 0;
     array_base = base;
     out->kind = ST_REM;
@@ -2312,7 +2312,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
       safe_fprintf (stderr, "expected integer\n");
       return 0;
     }
-    out->u.target = (int) tok.num;
+    out->u.target = basic_num_to_int (tok.num);
     return 1;
   case TOK_GOSUB:
     out->kind = ST_GOSUB;
@@ -2321,7 +2321,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
       safe_fprintf (stderr, "expected integer\n");
       return 0;
     }
-    out->u.target = (int) tok.num;
+    out->u.target = basic_num_to_int (tok.num);
     return 1;
   case TOK_NEXT:
     out->kind = ST_NEXT;
@@ -2475,7 +2475,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
     while (1) {
       BasicData d;
       d.is_str = 0;
-      d.num = 0;
+      d.num = BASIC_ZERO;
       d.str = NULL;
       Token t = peek_token (p);
       if (t.type == TOK_STRING) {
@@ -2754,7 +2754,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
       PARSE_EXPR_OR_ERROR (out->u.forto.step);
     } else {
       Node *one = new_node (N_NUM);
-      one->num = 1;
+      one->num = basic_num_from_int (1);
       out->u.forto.step = one;
     }
     return 1;
@@ -2768,7 +2768,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
         safe_fprintf (stderr, "expected integer\n");
         return 0;
       }
-      out->u.target = (int) tok.num;
+      out->u.target = basic_num_to_int (tok.num);
       return 1;
     }
     {
@@ -2801,7 +2801,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
           safe_fprintf (stderr, "expected integer\n");
           return 0;
         }
-        int tline = (int) tt2.num;
+        int tline = basic_num_to_int (tt2.num);
         if (*n_targets == cap) {
           size_t new_cap = cap ? cap * 2 : 4;
           int *tmp = pool_realloc (*targets, cap * sizeof (int), new_cap * sizeof (int));
@@ -2824,7 +2824,7 @@ static int parse_stmt (Parser *p, Stmt *out) {
     out->kind = ST_RESUME;
     if (peek_token (p).type == TOK_NUMBER) {
       out->u.resume.has_line = 1;
-      out->u.resume.line = (int) parse_number (p);
+      out->u.resume.line = basic_num_to_int (parse_number (p));
     } else {
       out->u.resume.has_line = 0;
       out->u.resume.line = 0;
@@ -2985,7 +2985,7 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
     Stmt bs;
     if (t.type == TOK_NUMBER) {
       bs.kind = ST_GOTO;
-      bs.u.target = (int) parse_number (p);
+      bs.u.target = basic_num_to_int (parse_number (p));
     } else {
       p->has_peek = 0;
       if (!parse_stmt (p, &bs)) return 0;
@@ -3088,11 +3088,11 @@ static int parse_line (Parser *p, char *line, Line *out) {
   Token t = peek_token (p);
   int line_no = 0;
   if (t.type == TOK_NUMBER) {
-    if ((basic_num_t) (int) t.num != t.num) {
+    if (!basic_num_eq (basic_num_from_int (basic_num_to_int (t.num)), t.num)) {
       safe_fprintf (stderr, "expected integer\n");
       return parse_error (p);
     }
-    line_no = (int) parse_number (p);
+    line_no = basic_num_to_int (parse_number (p));
   }
   p->line_no = line_no;
   out->line = line_no;
@@ -6094,9 +6094,14 @@ static void gen_stmt (Stmt *s) {
     for (size_t k = 0; k < s->u.dim.n; k++) {
       if (s->u.dim.sizes1[k] == NULL) continue;
       size_t csize1 = 0, csize2 = 0;
-      if (s->u.dim.sizes1[k]->kind == N_NUM) csize1 = s->u.dim.sizes1[k]->num - array_base + 1;
+      if (s->u.dim.sizes1[k]->kind == N_NUM)
+        csize1 = basic_num_to_int (
+          basic_num_add (basic_num_sub (s->u.dim.sizes1[k]->num, basic_num_from_int (array_base)),
+                         basic_num_from_int (1)));
       if (s->u.dim.sizes2[k] != NULL && s->u.dim.sizes2[k]->kind == N_NUM)
-        csize2 = s->u.dim.sizes2[k]->num - array_base + 1;
+        csize2 = basic_num_to_int (
+          basic_num_add (basic_num_sub (s->u.dim.sizes2[k]->num, basic_num_from_int (array_base)),
+                         basic_num_from_int (1)));
       MIR_reg_t base
         = get_array (&g_vars, g_ctx, g_func, s->u.dim.names[k], csize1, csize2, s->u.dim.is_str[k]);
       MIR_reg_t size1d = gen_expr (g_ctx, g_func, &g_vars, s->u.dim.sizes1[k]);
@@ -6201,6 +6206,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   input_proto = MIR_new_proto (ctx, "basic_input_p", 1, &d, 0);
   input_import = MIR_new_import (ctx, "basic_input");
   MIR_type_t p = MIR_T_P;
+  MIR_type_t i64 = MIR_T_I64;
   input_str_proto = MIR_new_proto (ctx, "basic_input_str_p", 1, &p, 0);
   input_str_import = MIR_new_import (ctx, "basic_input_str");
   get_proto = MIR_new_proto (ctx, "basic_get_p", 1, &p, 0);
@@ -6209,7 +6215,6 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   put_import = MIR_new_import (ctx, "basic_put");
 #if defined(BASIC_USE_FIXED64)
   MIR_type_t blk = MIR_T_BLK;
-  MIR_type_t i64 = MIR_T_I64;
   MIR_var_t bin_vars[2];
   bin_vars[0].name = "a";
   bin_vars[0].type = MIR_T_BLK;
@@ -6550,7 +6555,6 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   memset_proto
     = MIR_new_proto (ctx, "memset_p", 1, &p, 3, MIR_T_P, "s", MIR_T_I64, "c", MIR_T_I64, "n");
   memset_import = MIR_new_import (ctx, "memset");
-  MIR_type_t i64 = MIR_T_I64;
   strcmp_proto = MIR_new_proto (ctx, "basic_strcmp_p", 1, &i64, 2, MIR_T_P, "a", MIR_T_P, "b");
   strcmp_import = MIR_new_import (ctx, "basic_strcmp");
   read_proto = MIR_new_proto (ctx, "basic_read_p", 1, &d, 0);
@@ -7060,7 +7064,7 @@ static int repl_process_line (LineVec *prog, const char *line) {
   if (first.type == TOK_EOF) return 0;
   if (first.type == TOK_NUMBER) {
     Token num_tok = next_token (p);
-    long num = num_tok.num;
+    long num = basic_num_to_int (num_tok.num);
     if (peek_token (p).type == TOK_EOF) {
       delete_line (prog, num);
     } else {
