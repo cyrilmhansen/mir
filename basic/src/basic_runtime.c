@@ -809,7 +809,11 @@ char *basic_lower (const char *s) {
    Caller must free the result with basic_free. */
 char *basic_left (const char *s, basic_num_t n) {
   size_t len = s != NULL ? strlen (s) : 0;
-  size_t cnt = (size_t) n;
+  size_t cnt = 0;
+  if (!basic_num_lt (n, BASIC_ZERO)) {
+    long n_int = basic_num_to_int (n);
+    if (n_int > 0) cnt = (size_t) n_int;
+  }
   if (cnt > len) cnt = len;
   char *res = basic_alloc_string (cnt);
   if (res != NULL) memcpy (res, s, cnt);
@@ -820,7 +824,11 @@ char *basic_left (const char *s, basic_num_t n) {
    Caller must free the result with basic_free. */
 char *basic_right (const char *s, basic_num_t n) {
   size_t len = s != NULL ? strlen (s) : 0;
-  size_t cnt = (size_t) n;
+  size_t cnt = 0;
+  if (!basic_num_lt (n, BASIC_ZERO)) {
+    long n_int = basic_num_to_int (n);
+    if (n_int > 0) cnt = (size_t) n_int;
+  }
   if (cnt > len) cnt = len;
   char *res = basic_alloc_string (cnt);
   if (res != NULL) memcpy (res, s + len - cnt, cnt);
@@ -831,15 +839,16 @@ char *basic_right (const char *s, basic_num_t n) {
    Caller must free the result with basic_free. */
 char *basic_mid (const char *s, basic_num_t start_d, basic_num_t len_d) {
   size_t len = s != NULL ? strlen (s) : 0;
-  size_t start = (size_t) start_d;
-  if (start < 1) start = 1;
+  long start_i = basic_num_to_int (start_d);
+  if (basic_num_lt (start_d, basic_num_from_int (1))) start_i = 1;
+  size_t start = (size_t) start_i;
   start--;
   if (start >= len) {
     char *res = basic_alloc_string (0);
     if (res == NULL) return NULL;
     return res;
   }
-  size_t cnt = len_d < 0 ? len - start : (size_t) len_d;
+  size_t cnt = basic_num_lt (len_d, BASIC_ZERO) ? len - start : (size_t) basic_num_to_int (len_d);
   if (start + cnt > len) cnt = len - start;
   char *res = basic_alloc_string (cnt);
   if (res != NULL) memcpy (res, s + start, cnt);
