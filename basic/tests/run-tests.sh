@@ -217,10 +217,38 @@ PY
                 exit 1
         fi
         rm -f "$ROOT/basic/basic_runtime_lowmem_test.err"
-        diff "$ROOT/basic/test/basic_runtime_lowmem_test.out" "$ROOT/basic/basic_runtime_lowmem_test.out"
-        echo "basic_runtime_lowmem_test OK"
+       diff "$ROOT/basic/test/basic_runtime_lowmem_test.out" "$ROOT/basic/basic_runtime_lowmem_test.out"
+       echo "basic_runtime_lowmem_test OK"
 
-        echo "Building extlib"
+       if [[ "$BASICC" == *-fix ]]; then
+               echo "Building basic_system_fix_test"
+               cc -Wall -Wextra -I"$ROOT/basic/include" -I"$ROOT/basic/src" -I"$ROOT/basic/src/vendor" \\
+                       "$ROOT/basic/src/basic_runtime.c" \\
+                       "$ROOT/basic/src/basic_pool.c" \\
+                       "$ROOT/basic/src/vendor/ryu/f2s.c" \\
+                       "$ROOT/basic/src/vendor/kitty/kitty.c" \\
+                       "$ROOT/basic/src/vendor/kitty/lodepng.c" \\
+                       "$ROOT/basic/test/basic_system_fix_test.c" \\
+                       "$ROOT/libmir.a" -lm -o "$ROOT/basic/basic_system_fix_test"
+               echo "Running basic_system_fix_test"
+               "$ROOT/basic/basic_system_fix_test" > "$ROOT/basic/basic_system_fix_test.out" 2> "$ROOT/basic/basic_system_fix_test.err"
+               if [ -s "$ROOT/basic/basic_system_fix_test.err" ]; then
+                       echo "Unexpected stderr for basic_system_fix_test"
+                       cat "$ROOT/basic/basic_system_fix_test.err"
+                       exit 1
+               fi
+               rm -f "$ROOT/basic/basic_system_fix_test.err"
+               diff "$ROOT/basic/test/basic_system_fix_test.out" "$ROOT/basic/basic_system_fix_test.out"
+               echo "basic_system_fix_test OK"
+
+               echo "Running mir_runtime_fix (JIT)"
+               "$BASICC" -j "$ROOT/basic/test/mir_runtime_fix.bas" > "$ROOT/basic/mir_runtime_fix.out"
+               diff "$ROOT/basic/test/mir_runtime_fix.out" "$ROOT/basic/mir_runtime_fix.out"
+               rm -f "$ROOT/basic/mir_runtime_fix.out"
+               echo "mir_runtime_fix OK"
+       fi
+
+       echo "Building extlib"
         if [[ "$BASICC" == *-ld ]]; then
                 cc -shared -fPIC -Wall -Wextra -DBASIC_USE_LONG_DOUBLE -I"$ROOT/basic/include" -I"$ROOT/basic/src" -I"$ROOT/basic/src/vendor" \
                         "$ROOT/basic/test/extlib.c" -o "$ROOT/basic/libextlib.so"
