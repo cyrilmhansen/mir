@@ -1165,10 +1165,22 @@ void basic_beep (void) {
   fflush (stdout);
 }
 
-void basic_sound (basic_num_t f, basic_num_t d) {
-  (void) f;
-  (void) d;
-  basic_beep ();
+void basic_sound (basic_num_t f, basic_num_t d, basic_num_t v, basic_num_t async) {
+  long freq = basic_num_to_int (f);
+  long dur = basic_num_to_int (d);
+  long vol = basic_num_to_int (v);
+  int non_block = basic_num_to_int (async) != 0;
+  if (freq <= 0 || dur <= 0) return;
+  if (vol < 0) vol = 0;
+  if (vol > 100) vol = 100;
+  fprintf (stdout, "\033[10;%ld]\033[11;%ld]\033[12;%ld]\a", freq, dur, vol);
+  fflush (stdout);
+  if (!non_block) usleep ((useconds_t) (dur * 1000));
+}
+
+void basic_sound_off (void) {
+  fputs ("\033[10;0]\033[11;0]", stdout);
+  fflush (stdout);
 }
 
 basic_num_t basic_system (const char *cmd) {
