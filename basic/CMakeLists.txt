@@ -23,6 +23,7 @@ if(BASIC_NUM_MODE STREQUAL "long-double")
        src/vendor/libdfp/decQuad.c
        src/vendor/ryu/d2s.c
        src/vendor/ryu/f2s.c
+       src/vendor/ryu/generic_128.c
        src/vendor/ryu/ld2s.c
        src/vendor/kitty/kitty.c
        src/vendor/kitty/lodepng.c)

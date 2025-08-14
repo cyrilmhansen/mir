@@ -442,6 +442,7 @@ $(BUILD_DIR)/basic/basicc-ld$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir
         $(SRC_DIR)/basic/src/vendor/libdfp/decNumber.c \
         $(SRC_DIR)/basic/src/vendor/libdfp/decQuad.c \
         $(SRC_DIR)/basic/src/vendor/ryu/d2s.c $(SRC_DIR)/basic/src/vendor/ryu/f2s.c \
+        $(SRC_DIR)/basic/src/vendor/ryu/generic_128.c \
         $(SRC_DIR)/basic/src/vendor/ryu/ld2s.c \
         $(SRC_DIR)/basic/src/vendor/kitty/kitty.c $(SRC_DIR)/basic/src/vendor/kitty/lodepng.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/libdfp -DBASIC_USE_LONG_DOUBLE -DBASIC_SRC_DIR=\"$(SRC_DIR)\" -DDECNUMDIGITS=34 $^ -lm $(EXEO)$@
 
