@@ -16,12 +16,22 @@
 // KIND, either express or implied.
 
 #include "ryu/ld2s.h"
-#include "ryu/ryu.h"
+#include "ryu/ryu_generic_128.h"
 
 #include <stdlib.h>
 
-int ld2s_buffered_n (long double d, char *result) { return d2s_buffered_n ((double) d, result); }
+int ld2s_buffered_n (long double d, char *result) {
+  const struct floating_decimal_128 v = long_double_to_fd128 (d);
+  return generic_to_chars (v, result);
+}
 
-void ld2s_buffered (long double d, char *result) { d2s_buffered ((double) d, result); }
+void ld2s_buffered (long double d, char *result) {
+  const int index = ld2s_buffered_n (d, result);
+  result[index] = '\0';
+}
 
-char *ld2s (long double d) { return d2s ((double) d); }
+char *ld2s (long double d) {
+  char *const result = (char *) malloc (64);
+  ld2s_buffered (d, result);
+  return result;
+}
