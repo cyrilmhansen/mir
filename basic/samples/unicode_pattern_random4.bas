@@ -6,7 +6,7 @@
 6  DIM S$(6)        ' tile buffer (max needed)
 7  DIM USED(6)      ' to avoid repeating a set
 8  DIM P(16)        ' palette color slots (max 16)
-9  WRAP=100         ' columns per line before newline
+9  WRAP=80          ' columns per line before newline
 
 10 FOR SEC=1 TO 3
 20   ' --- choose a distinct tile set (1..6) ---
@@ -14,12 +14,12 @@
 40   USED(SETID)=1
 
 50   ' --- load tiles & choose a palette for this section ---
-60   GOSUB 6000          ' -> S$(), SZ, SPECIAL
+60   GOSUB 6000          ' -> S$(), SZ, SPECIAL (1=braille, 2=fg-color blocks)
 70   GOSUB 6500          ' -> P(), PL (palette & length)
 
 80   ' --- print exactly 400 glyphs with gradient background ---
 90   CNT=400 : COL=0 : PRINT ESC$;"[0m";
-100  IF SPECIAL=1 THEN GOSUB 2000 ELSE GOSUB 3000
+100  IF SPECIAL=1 THEN GOSUB 2000 ELSE IF SPECIAL=2 THEN GOSUB 3200 ELSE GOSUB 3000
 110  PRINT ESC$;"[0m"; : PRINT : PRINT
 120 NEXT SEC
 130 END
@@ -31,7 +31,7 @@
 6030 IF SETID=3 THEN SZ=6 : S$(1)=UNICHAR$(&H250C) : S$(2)=UNICHAR$(&H2510) : S$(3)=UNICHAR$(&H2514) : S$(4)=UNICHAR$(&H2518) : S$(5)=UNICHAR$(&H2502) : S$(6)=UNICHAR$(&H2500) : RETURN ' corners/lines
 6040 IF SETID=4 THEN SZ=4 : S$(1)=UNICHAR$(&H2591) : S$(2)=UNICHAR$(&H2592) : S$(3)=UNICHAR$(&H2593) : S$(4)=UNICHAR$(&H2588) : RETURN  ' ░ ▒ ▓ █
 6050 IF SETID=5 THEN SPECIAL=1 : RETURN                                                        ' Braille random
-6060 IF SETID=6 THEN SZ=4 : S$(1)=UNICHAR$(&H1F7E5) : S$(2)=UNICHAR$(&H1F7E6) : S$(3)=UNICHAR$(&H1F7E9) : S$(4)=UNICHAR$(&H1F7E8) : RETURN ' 🟥 🟦 🟩 🟨
+6060 IF SETID=6 THEN SPECIAL=2 : RETURN                                                        ' Foreground-colored █ tiles (Option B)
 6070 RETURN
 
 ' ---------- Pick a background palette (hand-picked gradients) ----------
@@ -56,14 +56,29 @@
 2010 GOSUB 6900
 2020 GLY$=UNICHAR$(&H2800+INT(RND*256))
 2030 PRINT GLY$;
-2040 COL=COL+1 : IF COL>=WRAP THEN PRINT : COL=0
+2040 COL=COL+1
+2045 IF COL>=WRAP THEN PRINT ESC$;"[0m"; : PRINT : COL=0
 2050 CNT=CNT-1 : IF CNT>0 THEN 2010 ELSE RETURN
 
-' ---------- Standard set section ----------
+' ---------- Standard set section (single-width glyphs) ----------
 3000 IF CNT<=0 THEN RETURN
 3010 GOSUB 6900
 3020 IDX=1+INT(RND*SZ) : GLY$=S$(IDX)
 3030 PRINT GLY$;
-3040 COL=COL+1 : IF COL>=WRAP THEN PRINT : COL=0
+3040 COL=COL+1
+3045 IF COL>=WRAP THEN PRINT ESC$;"[0m"; : PRINT : COL=0
 3050 CNT=CNT-1 : IF CNT>0 THEN 3000 ELSE RETURN
 
+' ---------- Foreground-colored block section (SPECIAL=2) ----------
+' Prints U+2588 (█) with random 256-color foreground; single column wide.
+3200 IF CNT<=0 THEN RETURN
+3210 GOSUB 6900                      ' set BG for this column
+3220 CIDX=1+INT(RND*4)
+3230 IF CIDX=1 THEN FG=196           ' red
+3240 IF CIDX=2 THEN FG=21            ' blue
+3250 IF CIDX=3 THEN FG=46            ' green
+3260 IF CIDX=4 THEN FG=226           ' yellow
+3270 PRINT ESC$;"[38;5;";FG;"m";UNICHAR$(&H2588);
+3280 COL=COL+1
+3290 IF COL>=WRAP THEN PRINT ESC$;"[0m"; : PRINT : COL=0
+3300 CNT=CNT-1 : IF CNT>0 THEN 3210 ELSE RETURN
