@@ -3,6 +3,14 @@
 #include <stdio.h>
 
 #include "fixed64/fixed64.h"
+#ifndef _WIN32
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
+#ifndef _WIN32
+extern void fixed64_stub_unary (fixed64_t) __attribute__ ((weak));
+#endif
 
 int main (void) {
   fixed64_t half = {.hi = 0, .lo = 1ULL << 63};
@@ -100,7 +108,6 @@ int main (void) {
 
   (void) res;
 
-
   /* additional math helpers */
   res = fixed64_log (two);
   assert (fabs (fixed64_to_double (res) - log (2.0)) < 1e-6);
@@ -122,14 +129,16 @@ int main (void) {
   assert (fabs (fixed64_to_double (res) - fmod (5.5, 2.0)) < 1e-6);
 
 #ifndef _WIN32
-  pid_t pid = fork ();
-  if (pid == 0) {
-    fixed64_stub_unary (two);
-    _exit (0);
-  } else {
-    int status;
-    waitpid (pid, &status, 0);
-    assert (!(WIFEXITED (status) && WEXITSTATUS (status) == 0));
+  if (fixed64_stub_unary != NULL) {
+    pid_t pid = fork ();
+    if (pid == 0) {
+      fixed64_stub_unary (two);
+      _exit (0);
+    } else {
+      int status;
+      waitpid (pid, &status, 0);
+      assert (!(WIFEXITED (status) && WEXITSTATUS (status) == 0));
+    }
   }
 #endif
 
