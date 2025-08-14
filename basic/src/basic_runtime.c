@@ -609,6 +609,36 @@ char *basic_chr (basic_num_t n) {
   return s;
 }
 
+/* Allocate a UTF-8 string for the given Unicode code point.
+   Caller must free with basic_free. */
+char *basic_unichar (basic_num_t n) {
+  uint32_t code = (uint32_t) basic_num_to_int (n);
+  char buf[4];
+  size_t len = 0;
+  if (code <= 0x7F) {
+    buf[0] = (char) code;
+    len = 1;
+  } else if (code <= 0x7FF) {
+    buf[0] = (char) (0xC0 | (code >> 6));
+    buf[1] = (char) (0x80 | (code & 0x3F));
+    len = 2;
+  } else if (code <= 0xFFFF) {
+    buf[0] = (char) (0xE0 | (code >> 12));
+    buf[1] = (char) (0x80 | ((code >> 6) & 0x3F));
+    buf[2] = (char) (0x80 | (code & 0x3F));
+    len = 3;
+  } else if (code <= 0x10FFFF) {
+    buf[0] = (char) (0xF0 | (code >> 18));
+    buf[1] = (char) (0x80 | ((code >> 12) & 0x3F));
+    buf[2] = (char) (0x80 | ((code >> 6) & 0x3F));
+    buf[3] = (char) (0x80 | (code & 0x3F));
+    len = 4;
+  }
+  char *s = basic_alloc_string (len);
+  if (s != NULL && len > 0) memcpy (s, buf, len);
+  return s;
+}
+
 /* Return a string of length N filled with the first character of S.
    Caller must free the result with basic_free. */
 char *basic_string (basic_num_t n, const char *s) {
