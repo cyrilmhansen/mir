@@ -6916,6 +6916,112 @@ typedef enum {
   REPL_TOK_PROFILE,
 } ReplToken;
 
+#define MAX_REPL_ABBREVS 32
+typedef struct {
+  char abbr[16];
+  char keyword[16];
+} ReplAbbrev;
+static ReplAbbrev repl_abbrevs[MAX_REPL_ABBREVS];
+static size_t repl_abbrev_cnt = 0;
+
+static void load_repl_abbrevs (const char *argv0) {
+  const char *cfg = getenv ("BASIC_ABBREV_CONFIG");
+  char path[1024];
+  if (cfg == NULL) {
+    if (argv0 != NULL) {
+      const char *slash = strrchr (argv0, '/');
+      if (slash != NULL) {
+        size_t len = slash - argv0 + 1;
+        if (len >= sizeof (path)) len = sizeof (path) - 1;
+        memcpy (path, argv0, len);
+        path[len] = '\0';
+        strncat (path, "abbrev.cfg", sizeof (path) - strlen (path) - 1);
+        cfg = path;
+      } else {
+        cfg = "abbrev.cfg";
+      }
+    } else {
+      cfg = "abbrev.cfg";
+    }
+  }
+  FILE *f = fopen (cfg, "r");
+  if (f == NULL) return;
+  char line[128];
+  while (fgets (line, sizeof (line), f) != NULL && repl_abbrev_cnt < MAX_REPL_ABBREVS) {
+    if (line[0] == '#' || line[0] == '\n') continue;
+    char abbr[32], keyword[32];
+    if (sscanf (line, "%31s %31s", abbr, keyword) == 2) {
+      strncpy (repl_abbrevs[repl_abbrev_cnt].abbr, abbr, sizeof (repl_abbrevs[0].abbr) - 1);
+      repl_abbrevs[repl_abbrev_cnt].abbr[sizeof (repl_abbrevs[0].abbr) - 1] = '\0';
+      strncpy (repl_abbrevs[repl_abbrev_cnt].keyword, keyword,
+               sizeof (repl_abbrevs[0].keyword) - 1);
+      repl_abbrevs[repl_abbrev_cnt].keyword[sizeof (repl_abbrevs[0].keyword) - 1] = '\0';
+      repl_abbrev_cnt++;
+    }
+  }
+  fclose (f);
+}
+
+static const char *expand_repl_abbrevs (const char *line) {
+  static char buf[512];
+  char *out = buf;
+  const char *p = line;
+  int in_string = 0;
+  int stmt_start = 1;
+
+  if (isdigit ((unsigned char) *p)) {
+    while (isdigit ((unsigned char) *p)) *out++ = *p++;
+    while (*p == ' ') *out++ = *p++;
+  }
+  while (*p) {
+    if (in_string) {
+      if (*p == '"') in_string = 0;
+      *out++ = *p++;
+      continue;
+    }
+    if (*p == '"') {
+      in_string = 1;
+      *out++ = *p++;
+      continue;
+    }
+    if (stmt_start) {
+      while (*p == ' ') {
+        *out++ = *p++;
+      }
+      size_t i;
+      for (i = 0; i < repl_abbrev_cnt; i++) {
+        const char *abbr = repl_abbrevs[i].abbr;
+        size_t len = strlen (abbr);
+        if (strncmp (p, abbr, len) == 0
+            && (p[len] == '\0' || p[len] == ':' || isspace ((unsigned char) p[len]))) {
+          const char *kw = repl_abbrevs[i].keyword;
+          size_t kwlen = strlen (kw);
+          memcpy (out, kw, kwlen);
+          out += kwlen;
+          p += len;
+          if (strcmp (kw, "REM") == 0) {
+            if (*p != ' ') *out++ = ' ';
+            strcpy (out, p);
+            return buf;
+          }
+          stmt_start = 0;
+          break;
+        }
+      }
+      if (i < repl_abbrev_cnt) continue;
+    }
+    if (*p == ':') {
+      *out++ = *p++;
+      stmt_start = 1;
+      continue;
+    }
+    if (!isspace ((unsigned char) *p)) stmt_start = 0;
+    *out++ = *p++;
+  }
+  *out = '\0';
+  return buf;
+}
+
 static ReplToken repl_next_token (Parser *p, Token *out) {
   Token t = next_token (p);
   ReplToken tok = REPL_TOK_NONE;
@@ -6940,6 +7046,8 @@ static ReplToken repl_next_token (Parser *p, Token *out) {
 }
 
 static int repl_process_line (LineVec *prog, const char *line) {
+  const char *expanded = expand_repl_abbrevs (line);
+  line = expanded;
   Parser p_obj = {0};
   Parser *p = &p_obj;
   p->cur = (char *) line;
@@ -7122,6 +7230,7 @@ int main (int argc, char **argv) {
 #endif
   arena_init (&ast_arena);
   basic_pool_reset ();
+  load_repl_abbrevs (argv[0]);
   int jit = 0, asm_p = 0, obj_p = 0, bin_p = 0, reduce_libs = 0;
   const char *fname = NULL, *out_name = NULL;
   for (int i = 1; i < argc; i++) {
