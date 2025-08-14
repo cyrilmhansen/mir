@@ -367,7 +367,7 @@ extern void basic_enable_line_tracking (basic_num_t);
 extern void basic_delay (basic_num_t);
 extern void basic_beep (void);
 extern void basic_sound (basic_num_t, basic_num_t);
-extern double basic_system (const char *);
+extern basic_num_t basic_system (const char *);
 extern char *basic_system_out (void);
 
 static int array_base = 0;
