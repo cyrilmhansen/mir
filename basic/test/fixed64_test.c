@@ -15,6 +15,16 @@ int main (void) {
   assert (fixed64_cmp (fixed64_from_int (1), two) < 0);
   assert (fixed64_cmp (two, fixed64_from_int (1)) > 0);
   assert (fixed64_cmp (two, two) == 0);
+  assert (fixed64_eq (two, fixed64_from_int (2)));
+  assert (!fixed64_eq (two, fixed64_from_int (3)));
+  assert (fixed64_ne (two, fixed64_from_int (3)));
+  assert (!fixed64_ne (two, fixed64_from_int (2)));
+  assert (fixed64_lt (fixed64_from_int (1), two));
+  assert (fixed64_le (fixed64_from_int (1), two));
+  assert (fixed64_le (two, two));
+  assert (fixed64_gt (two, fixed64_from_int (1)));
+  assert (fixed64_ge (two, fixed64_from_int (1)));
+  assert (fixed64_ge (two, two));
   assert (fixed64_to_int (two) == 2);
   fixed64_t res = fixed64_add (half, quarter);
   assert (res.hi == 0 && res.lo == ((1ULL << 63) + (1ULL << 62)));
