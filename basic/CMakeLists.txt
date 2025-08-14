@@ -90,5 +90,16 @@ if(BUILD_TESTING)
     target_link_libraries(basic_num_fixed64_test m)
   endif()
   add_test(NAME basic_num_fixed64_test COMMAND basic_num_fixed64_test)
+
+  add_executable(ld2s_test
+    test/ld2s_test.c
+    src/vendor/ryu/generic_128.c
+    src/vendor/ryu/ld2s.c)
+  target_include_directories(ld2s_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vendor)
+  if(UNIX)
+    target_link_libraries(ld2s_test m)
+  endif()
+  add_test(NAME ld2s_test COMMAND ld2s_test)
   add_test(NAME basic-tests COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/run-tests.sh $<TARGET_FILE:${BASICC_NAME}>)
 endif()
