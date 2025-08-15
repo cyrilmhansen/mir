@@ -26,35 +26,183 @@
 #define MIR_DBGE MIR_LDBGE
 #endif
 
+#if defined(BASIC_USE_FIXED64)
+#define BASIC_MIR_MOV MIR_MOV
+#else
 #define BASIC_MIR_MOV MIR_DMOV
+#endif
 
 static int safe_snprintf (char *buf, size_t size, const char *fmt, ...);
+
+#if defined(BASIC_USE_FIXED64)
+static MIR_op_t emit_fixed64_const (MIR_context_t ctx, basic_num_t v) {
+  basic_num_t *p = basic_pool_alloc (sizeof (basic_num_t));
+  *p = v;
+  MIR_item_t data_item = MIR_new_data (ctx, NULL, MIR_T_U8, sizeof (basic_num_t), p);
+  return MIR_new_ref_op (ctx, data_item);
+}
+#endif
 
 static MIR_op_t emit_num_const (MIR_context_t ctx, basic_num_t v) {
 #if defined(BASIC_USE_LONG_DOUBLE)
   return MIR_new_ldouble_op (ctx, v);
+#elif defined(BASIC_USE_FIXED64)
+  return emit_fixed64_const (ctx, v);
 #else
   return MIR_new_double_op (ctx, v);
 #endif
 }
 
+#if defined(BASIC_USE_FIXED64)
+static MIR_item_t fixed64_add_proto, fixed64_add_import, fixed64_sub_proto, fixed64_sub_import,
+  fixed64_mul_proto, fixed64_mul_import, fixed64_div_proto, fixed64_div_import, fixed64_eq_proto,
+  fixed64_eq_import, fixed64_ne_proto, fixed64_ne_import, fixed64_lt_proto, fixed64_lt_import,
+  fixed64_le_proto, fixed64_le_import, fixed64_gt_proto, fixed64_gt_import, fixed64_ge_proto,
+  fixed64_ge_import, fixed64_from_int_proto, fixed64_from_int_import, fixed64_from_string_proto,
+  fixed64_from_string_import, fixed64_to_int_proto, fixed64_to_int_import, fixed64_neg_proto,
+  fixed64_neg_import;
+#endif
+#if defined(BASIC_USE_FIXED64)
+static MIR_op_t basic_mem (MIR_context_t ctx, MIR_item_t func, MIR_op_t op, MIR_type_t t) {
+  MIR_reg_t r;
+  if (op.mode == MIR_OP_REG) {
+    r = op.u.reg;
+  } else {
+    char buf[32];
+    static int addr_id = 0;
+    safe_snprintf (buf, sizeof (buf), "$ba%d", addr_id++);
+    r = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+    MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, r), op));
+  }
+  return MIR_new_mem_op (ctx, t, sizeof (basic_num_t), r, 0, 1);
+}
+#endif
+
 static MIR_insn_t basic_mir_binop (MIR_context_t ctx, MIR_item_t func, MIR_insn_code_t code,
                                    MIR_op_t dst, MIR_op_t src1, MIR_op_t src2) {
+#if defined(BASIC_USE_FIXED64)
+  MIR_item_t proto = NULL, import = NULL;
+  switch (code) {
+  case MIR_DADD:
+    proto = fixed64_add_proto;
+    import = fixed64_add_import;
+    break;
+  case MIR_DSUB:
+    proto = fixed64_sub_proto;
+    import = fixed64_sub_import;
+    break;
+  case MIR_DMUL:
+    proto = fixed64_mul_proto;
+    import = fixed64_mul_import;
+    break;
+  case MIR_DDIV:
+    proto = fixed64_div_proto;
+    import = fixed64_div_import;
+    break;
+  case MIR_DEQ:
+    proto = fixed64_eq_proto;
+    import = fixed64_eq_import;
+    break;
+  case MIR_DNE:
+    proto = fixed64_ne_proto;
+    import = fixed64_ne_import;
+    break;
+  case MIR_DLT:
+    proto = fixed64_lt_proto;
+    import = fixed64_lt_import;
+    break;
+  case MIR_DLE:
+    proto = fixed64_le_proto;
+    import = fixed64_le_import;
+    break;
+  case MIR_DGT:
+    proto = fixed64_gt_proto;
+    import = fixed64_gt_import;
+    break;
+  case MIR_DGE:
+    proto = fixed64_ge_proto;
+    import = fixed64_ge_import;
+    break;
+  default: return MIR_new_insn (ctx, code, dst, src1, src2);
+  }
+  MIR_op_t dst_mem = basic_mem (ctx, func, dst, MIR_T_RBLK);
+  MIR_op_t src1_mem = basic_mem (ctx, func, src1, MIR_T_BLK);
+  MIR_op_t src2_mem = basic_mem (ctx, func, src2, MIR_T_BLK);
+  return MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, proto), MIR_new_ref_op (ctx, import),
+                            dst_mem, src1_mem, src2_mem);
+#else
   return MIR_new_insn (ctx, code, dst, src1, src2);
+#endif
 }
 
 static MIR_insn_t basic_mir_unop (MIR_context_t ctx, MIR_item_t func, MIR_insn_code_t code,
                                   MIR_op_t dst, MIR_op_t src) {
+#if defined(BASIC_USE_FIXED64)
+  if (code == MIR_DNEG) {
+    MIR_op_t dst_mem = basic_mem (ctx, func, dst, MIR_T_RBLK);
+    MIR_op_t src_mem = basic_mem (ctx, func, src, MIR_T_BLK);
+    return MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, fixed64_neg_proto),
+                              MIR_new_ref_op (ctx, fixed64_neg_import), dst_mem, src_mem);
+  }
   return MIR_new_insn (ctx, code, dst, src);
+#else
+  return MIR_new_insn (ctx, code, dst, src);
+#endif
 }
 
 static void basic_mir_bcmp (MIR_context_t ctx, MIR_item_t func, MIR_insn_code_t code,
                             MIR_op_t label, MIR_op_t src1, MIR_op_t src2) {
+#if defined(BASIC_USE_FIXED64)
+  MIR_item_t proto = NULL, import = NULL;
+  switch (code) {
+  case MIR_DBEQ:
+    proto = fixed64_eq_proto;
+    import = fixed64_eq_import;
+    break;
+  case MIR_DBNE:
+    proto = fixed64_ne_proto;
+    import = fixed64_ne_import;
+    break;
+  case MIR_DBLT:
+    proto = fixed64_lt_proto;
+    import = fixed64_lt_import;
+    break;
+  case MIR_DBLE:
+    proto = fixed64_le_proto;
+    import = fixed64_le_import;
+    break;
+  case MIR_DBGT:
+    proto = fixed64_gt_proto;
+    import = fixed64_gt_import;
+    break;
+  case MIR_DBGE:
+    proto = fixed64_ge_proto;
+    import = fixed64_ge_import;
+    break;
+  default: MIR_append_insn (ctx, func, MIR_new_insn (ctx, code, label, src1, src2)); return;
+  }
+  char buf[32];
+  static int btmp_id = 0;
+  safe_snprintf (buf, sizeof (buf), "$bcmp%d", btmp_id++);
+  MIR_reg_t tmp = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+  MIR_op_t src1_mem = basic_mem (ctx, func, src1, MIR_T_BLK);
+  MIR_op_t src2_mem = basic_mem (ctx, func, src2, MIR_T_BLK);
+  MIR_append_insn (ctx, func,
+                   MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, proto),
+                                      MIR_new_ref_op (ctx, import), MIR_new_reg_op (ctx, tmp),
+                                      src1_mem, src2_mem));
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_BNE, label, MIR_new_reg_op (ctx, tmp),
+                                 MIR_new_int_op (ctx, 0)));
+#else
   MIR_append_insn (ctx, func, MIR_new_insn (ctx, code, label, src1, src2));
+#endif
 }
 
 #if defined(BASIC_USE_LONG_DOUBLE)
 #define BASIC_MIR_NUM_T MIR_T_LD
+#elif defined(BASIC_USE_FIXED64)
+#define BASIC_MIR_NUM_T MIR_T_BLK
 #else
 #define BASIC_MIR_NUM_T MIR_T_D
 #endif
@@ -90,7 +238,11 @@ static void safe_fprintf (FILE *stream, const char *fmt, ...) {
 /* Runtime helpers defined in basic_runtime.c */
 extern void basic_print (basic_num_t);
 extern void basic_print_str (const char *);
+#if defined(BASIC_USE_FIXED64)
+extern void basic_input (basic_num_t *);
+#else
 extern basic_num_t basic_input (void);
+#endif
 extern char *basic_input_str (void);
 extern char *basic_get (void);
 
@@ -107,7 +259,11 @@ extern void basic_profile_func_exit (const char *);
 
 extern int basic_strcmp (const char *, const char *);
 
+#if defined(BASIC_USE_FIXED64)
+extern void basic_read (basic_num_t *);
+#else
 extern basic_num_t basic_read (void);
+#endif
 extern char *basic_read_str (void);
 extern void basic_restore (void);
 extern void basic_clear_array (void *, basic_num_t, basic_num_t);
@@ -127,7 +283,11 @@ extern size_t basic_data_pos;
 
 extern void basic_home (void);
 extern void basic_vtab (basic_num_t);
+#if defined(BASIC_USE_FIXED64)
+extern void basic_rnd (basic_num_t *, basic_num_t);
+#else
 extern basic_num_t basic_rnd (basic_num_t);
+#endif
 extern void basic_randomize (basic_num_t, basic_num_t);
 extern basic_num_t basic_abs (basic_num_t);
 extern basic_num_t basic_sgn (basic_num_t);
@@ -158,7 +318,11 @@ extern void basic_color (basic_num_t);
 extern void basic_key_off (void);
 extern void basic_locate (basic_num_t, basic_num_t);
 extern void basic_tab (basic_num_t);
+#if defined(BASIC_USE_FIXED64)
+extern void basic_pos (basic_num_t *);
+#else
 extern basic_num_t basic_pos (void);
+#endif
 extern void basic_text (void);
 extern void basic_inverse (void);
 extern void basic_normal (void);
@@ -227,11 +391,32 @@ extern void basic_open (basic_num_t, const char *);
 extern void basic_close (basic_num_t);
 extern void basic_print_hash (basic_num_t, basic_num_t);
 extern void basic_print_hash_str (basic_num_t, const char *);
+#if defined(BASIC_USE_FIXED64)
+extern void basic_input_hash (basic_num_t *, basic_num_t);
+#else
 extern basic_num_t basic_input_hash (basic_num_t);
+#endif
 extern char *basic_input_hash_str (basic_num_t);
 extern char *basic_get_hash (basic_num_t);
 extern void basic_put_hash (basic_num_t, const char *);
 extern basic_num_t basic_eof (basic_num_t);
+
+#if defined(BASIC_USE_FIXED64)
+extern basic_num_t fixed64_add (basic_num_t, basic_num_t);
+extern basic_num_t fixed64_sub (basic_num_t, basic_num_t);
+extern basic_num_t fixed64_mul (basic_num_t, basic_num_t);
+extern basic_num_t fixed64_div (basic_num_t, basic_num_t);
+extern basic_num_t fixed64_neg (basic_num_t);
+extern int fixed64_eq (basic_num_t, basic_num_t);
+extern int fixed64_ne (basic_num_t, basic_num_t);
+extern int fixed64_lt (basic_num_t, basic_num_t);
+extern int fixed64_le (basic_num_t, basic_num_t);
+extern int fixed64_gt (basic_num_t, basic_num_t);
+extern int fixed64_ge (basic_num_t, basic_num_t);
+extern basic_num_t fixed64_from_int (long);
+extern basic_num_t fixed64_from_string (const char *, char **);
+extern long fixed64_to_int (basic_num_t);
+#endif
 
 extern void basic_stop (void);
 
@@ -297,6 +482,23 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_put_hash")) return basic_put_hash;
   if (!strcmp (name, "basic_eval")) return basic_eval;
   if (!strcmp (name, "basic_eof")) return basic_eof;
+
+#if defined(BASIC_USE_FIXED64)
+  if (!strcmp (name, "fixed64_add")) return fixed64_add;
+  if (!strcmp (name, "fixed64_sub")) return fixed64_sub;
+  if (!strcmp (name, "fixed64_mul")) return fixed64_mul;
+  if (!strcmp (name, "fixed64_div")) return fixed64_div;
+  if (!strcmp (name, "fixed64_neg")) return fixed64_neg;
+  if (!strcmp (name, "fixed64_eq")) return fixed64_eq;
+  if (!strcmp (name, "fixed64_ne")) return fixed64_ne;
+  if (!strcmp (name, "fixed64_lt")) return fixed64_lt;
+  if (!strcmp (name, "fixed64_le")) return fixed64_le;
+  if (!strcmp (name, "fixed64_gt")) return fixed64_gt;
+  if (!strcmp (name, "fixed64_ge")) return fixed64_ge;
+  if (!strcmp (name, "fixed64_from_int")) return fixed64_from_int;
+  if (!strcmp (name, "fixed64_from_string")) return fixed64_from_string;
+  if (!strcmp (name, "fixed64_to_int")) return fixed64_to_int;
+#endif
 
   if (!strcmp (name, "basic_read")) return basic_read;
   if (!strcmp (name, "basic_read_str")) return basic_read_str;
@@ -442,6 +644,10 @@ static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, unichar_proto, u
 static MIR_insn_t basic_mir_i2n (MIR_context_t ctx, MIR_item_t func, MIR_op_t dst, MIR_op_t src) {
 #if defined(BASIC_USE_LONG_DOUBLE)
   return MIR_new_insn (ctx, MIR_I2LD, dst, src);
+#elif defined(BASIC_USE_FIXED64)
+  MIR_op_t dst_mem = basic_mem (ctx, func, dst, MIR_T_RBLK);
+  return MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, fixed64_from_int_proto),
+                            MIR_new_ref_op (ctx, fixed64_from_int_import), dst_mem, src);
 #else
   return MIR_new_insn (ctx, MIR_I2D, dst, src);
 #endif
@@ -450,6 +656,10 @@ static MIR_insn_t basic_mir_i2n (MIR_context_t ctx, MIR_item_t func, MIR_op_t ds
 static MIR_insn_t basic_mir_n2i (MIR_context_t ctx, MIR_item_t func, MIR_op_t dst, MIR_op_t src) {
 #if defined(BASIC_USE_LONG_DOUBLE)
   return MIR_new_insn (ctx, MIR_LD2I, dst, src);
+#elif defined(BASIC_USE_FIXED64)
+  MIR_op_t src_mem = basic_mem (ctx, func, src, MIR_T_BLK);
+  return MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, fixed64_to_int_proto),
+                            MIR_new_ref_op (ctx, fixed64_to_int_import), dst, src_mem);
 #else
   return MIR_new_insn (ctx, MIR_D2I, dst, src);
 #endif
@@ -6044,8 +6254,19 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   print_import = MIR_new_import (ctx, "basic_print");
   prints_proto = MIR_new_proto (ctx, "basic_print_str_p", 0, NULL, 1, MIR_T_P, "s");
   prints_import = MIR_new_import (ctx, "basic_print_str");
+#if defined(BASIC_USE_FIXED64)
+  MIR_type_t d = MIR_T_I64; /* placeholder for unused numeric results */
+  MIR_type_t blk = MIR_T_BLK;
+  MIR_type_t i64_ = MIR_T_I64;
+  MIR_var_t res_arg;
+  res_arg.name = "res";
+  res_arg.type = MIR_T_RBLK;
+  res_arg.size = sizeof (basic_num_t);
+  input_proto = MIR_new_proto_arr (ctx, "basic_input_p", 0, NULL, 1, &res_arg);
+#else
   MIR_type_t d = BASIC_MIR_NUM_T;
   input_proto = MIR_new_proto (ctx, "basic_input_p", 1, &d, 0);
+#endif
   input_import = MIR_new_import (ctx, "basic_input");
   MIR_type_t p = MIR_T_P;
   input_str_proto = MIR_new_proto (ctx, "basic_input_str_p", 1, &p, 0);
@@ -6054,6 +6275,75 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   get_import = MIR_new_import (ctx, "basic_get");
   put_proto = MIR_new_proto (ctx, "basic_put_p", 0, NULL, 1, MIR_T_P, "s");
   put_import = MIR_new_import (ctx, "basic_put");
+#if defined(BASIC_USE_FIXED64)
+  MIR_var_t bin_vars[3];
+  bin_vars[0] = res_arg;
+  bin_vars[1].name = "a";
+  bin_vars[1].type = MIR_T_BLK;
+  bin_vars[1].size = sizeof (basic_num_t);
+  bin_vars[2].name = "b";
+  bin_vars[2].type = MIR_T_BLK;
+  bin_vars[2].size = sizeof (basic_num_t);
+  fixed64_add_proto = MIR_new_proto_arr (ctx, "fixed64_add_p", 0, NULL, 3, bin_vars);
+  fixed64_add_import = MIR_new_import (ctx, "fixed64_add");
+  fixed64_sub_proto = MIR_new_proto_arr (ctx, "fixed64_sub_p", 0, NULL, 3, bin_vars);
+  fixed64_sub_import = MIR_new_import (ctx, "fixed64_sub");
+  fixed64_mul_proto = MIR_new_proto_arr (ctx, "fixed64_mul_p", 0, NULL, 3, bin_vars);
+  fixed64_mul_import = MIR_new_import (ctx, "fixed64_mul");
+  fixed64_div_proto = MIR_new_proto_arr (ctx, "fixed64_div_p", 0, NULL, 3, bin_vars);
+  fixed64_div_import = MIR_new_import (ctx, "fixed64_div");
+  MIR_var_t un_vars[2];
+  un_vars[0] = res_arg;
+  un_vars[1].name = "a";
+  un_vars[1].type = MIR_T_BLK;
+  un_vars[1].size = sizeof (basic_num_t);
+  fixed64_neg_proto = MIR_new_proto_arr (ctx, "fixed64_neg_p", 0, NULL, 2, un_vars);
+  fixed64_neg_import = MIR_new_import (ctx, "fixed64_neg");
+
+  MIR_var_t cmp_vars[2];
+  cmp_vars[0].name = "a";
+  cmp_vars[0].type = MIR_T_BLK;
+  cmp_vars[0].size = sizeof (basic_num_t);
+  cmp_vars[1].name = "b";
+  cmp_vars[1].type = MIR_T_BLK;
+  cmp_vars[1].size = sizeof (basic_num_t);
+  fixed64_eq_proto = MIR_new_proto_arr (ctx, "fixed64_eq_p", 1, &i64_, 2, cmp_vars);
+  fixed64_eq_import = MIR_new_import (ctx, "fixed64_eq");
+  fixed64_ne_proto = MIR_new_proto_arr (ctx, "fixed64_ne_p", 1, &i64_, 2, cmp_vars);
+  fixed64_ne_import = MIR_new_import (ctx, "fixed64_ne");
+  fixed64_lt_proto = MIR_new_proto_arr (ctx, "fixed64_lt_p", 1, &i64_, 2, cmp_vars);
+  fixed64_lt_import = MIR_new_import (ctx, "fixed64_lt");
+  fixed64_le_proto = MIR_new_proto_arr (ctx, "fixed64_le_p", 1, &i64_, 2, cmp_vars);
+  fixed64_le_import = MIR_new_import (ctx, "fixed64_le");
+  fixed64_gt_proto = MIR_new_proto_arr (ctx, "fixed64_gt_p", 1, &i64_, 2, cmp_vars);
+  fixed64_gt_import = MIR_new_import (ctx, "fixed64_gt");
+  fixed64_ge_proto = MIR_new_proto_arr (ctx, "fixed64_ge_p", 1, &i64_, 2, cmp_vars);
+  fixed64_ge_import = MIR_new_import (ctx, "fixed64_ge");
+
+  MIR_var_t int_vars[2];
+  int_vars[0] = res_arg;
+  int_vars[1].name = "i";
+  int_vars[1].type = MIR_T_I64;
+  fixed64_from_int_proto = MIR_new_proto_arr (ctx, "fixed64_from_int_p", 0, NULL, 2, int_vars);
+  fixed64_from_int_import = MIR_new_import (ctx, "fixed64_from_int");
+
+  MIR_var_t str_vars[3];
+  str_vars[0] = res_arg;
+  str_vars[1].name = "s";
+  str_vars[1].type = MIR_T_P;
+  str_vars[2].name = "end";
+  str_vars[2].type = MIR_T_P;
+  fixed64_from_string_proto
+    = MIR_new_proto_arr (ctx, "fixed64_from_string_p", 0, NULL, 3, str_vars);
+  fixed64_from_string_import = MIR_new_import (ctx, "fixed64_from_string");
+
+  MIR_var_t to_int_vars[1];
+  to_int_vars[0].name = "a";
+  to_int_vars[0].type = MIR_T_BLK;
+  to_int_vars[0].size = sizeof (basic_num_t);
+  fixed64_to_int_proto = MIR_new_proto_arr (ctx, "fixed64_to_int_p", 1, &i64_, 1, to_int_vars);
+  fixed64_to_int_import = MIR_new_import (ctx, "fixed64_to_int");
+#endif
   open_proto
     = MIR_new_proto (ctx, "basic_open_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n", MIR_T_P, "path");
   open_import = MIR_new_import (ctx, "basic_open");
@@ -6065,7 +6355,16 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   prinths_proto
     = MIR_new_proto (ctx, "basic_print_hash_str_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n", MIR_T_P, "s");
   prinths_import = MIR_new_import (ctx, "basic_print_hash_str");
+#if defined(BASIC_USE_FIXED64)
+  MIR_var_t hash_vars[2];
+  hash_vars[0] = res_arg;
+  hash_vars[1].name = "n";
+  hash_vars[1].type = MIR_T_BLK;
+  hash_vars[1].size = sizeof (basic_num_t);
+  input_hash_proto = MIR_new_proto_arr (ctx, "basic_input_hash_p", 0, NULL, 2, hash_vars);
+#else
   input_hash_proto = MIR_new_proto (ctx, "basic_input_hash_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
+#endif
   input_hash_import = MIR_new_import (ctx, "basic_input_hash");
   input_hash_str_proto
     = MIR_new_proto (ctx, "basic_input_hash_str_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
@@ -6184,7 +6483,16 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       = MIR_new_proto (ctx, "basic_profile_func_exit_p", 0, NULL, 1, MIR_T_P, "name");
     profile_func_exit_import = MIR_new_import (ctx, "basic_profile_func_exit");
   }
+#if defined(BASIC_USE_FIXED64)
+  MIR_var_t rnd_vars[2];
+  rnd_vars[0] = res_arg;
+  rnd_vars[1].name = "n";
+  rnd_vars[1].type = MIR_T_BLK;
+  rnd_vars[1].size = sizeof (basic_num_t);
+  rnd_proto = MIR_new_proto_arr (ctx, "basic_rnd_p", 0, NULL, 2, rnd_vars);
+#else
   rnd_proto = MIR_new_proto (ctx, "basic_rnd_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
+#endif
   rnd_import = MIR_new_import (ctx, "basic_rnd");
   chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
   chr_import = MIR_new_import (ctx, "basic_chr");
@@ -6215,7 +6523,13 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   peek_import = MIR_new_import (ctx, "basic_peek");
   eof_proto = MIR_new_proto (ctx, "basic_eof_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
   eof_import = MIR_new_import (ctx, "basic_eof");
+#if defined(BASIC_USE_FIXED64)
+  MIR_var_t pos_vars[1];
+  pos_vars[0] = res_arg;
+  pos_proto = MIR_new_proto_arr (ctx, "basic_pos_p", 0, NULL, 1, pos_vars);
+#else
   pos_proto = MIR_new_proto (ctx, "basic_pos_p", 1, &d, 0);
+#endif
   pos_import = MIR_new_import (ctx, "basic_pos");
 
   abs_proto = MIR_new_proto (ctx, "basic_abs_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
@@ -6316,12 +6630,38 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   mir_finish_proto = MIR_new_proto (ctx, "basic_mir_finish_p", 1, &d, 1, BASIC_MIR_NUM_T, "mod");
   mir_finish_import = MIR_new_import (ctx, "basic_mir_finish");
   {
+#if defined(BASIC_USE_FIXED64)
+    MIR_var_t run_args[6];
+    run_args[0] = res_arg;
+    run_args[1].name = "func";
+    run_args[2].name = "a1";
+    run_args[3].name = "a2";
+    run_args[4].name = "a3";
+    run_args[5].name = "a4";
+    for (int i = 1; i < 6; i++) {
+      run_args[i].type = MIR_T_BLK;
+      run_args[i].size = sizeof (basic_num_t);
+    }
+    mir_run_proto = MIR_new_proto_arr (ctx, "basic_mir_run_p", 0, NULL, 6, run_args);
+#else
     mir_run_proto
       = MIR_new_proto (ctx, "basic_mir_run_p", 1, &d, 5, BASIC_MIR_NUM_T, "func", BASIC_MIR_NUM_T,
                        "a1", BASIC_MIR_NUM_T, "a2", BASIC_MIR_NUM_T, "a3", BASIC_MIR_NUM_T, "a4");
+#endif
   }
   mir_run_import = MIR_new_import (ctx, "basic_mir_run");
+#if defined(BASIC_USE_FIXED64)
+  {
+    MIR_var_t dump_args[2];
+    dump_args[0] = res_arg;
+    dump_args[1].name = "func";
+    dump_args[1].type = MIR_T_BLK;
+    dump_args[1].size = sizeof (basic_num_t);
+    mir_dump_proto = MIR_new_proto_arr (ctx, "basic_mir_dump_p", 0, NULL, 2, dump_args);
+  }
+#else
   mir_dump_proto = MIR_new_proto (ctx, "basic_mir_dump_p", 1, &d, 1, BASIC_MIR_NUM_T, "func");
+#endif
   mir_dump_import = MIR_new_import (ctx, "basic_mir_dump");
 
   calloc_proto = MIR_new_proto (ctx, "calloc_p", 1, &p, 2, MIR_T_I64, "n", MIR_T_I64, "sz");
@@ -6335,7 +6675,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   MIR_type_t i64 = MIR_T_I64;
   strcmp_proto = MIR_new_proto (ctx, "basic_strcmp_p", 1, &i64, 2, MIR_T_P, "a", MIR_T_P, "b");
   strcmp_import = MIR_new_import (ctx, "basic_strcmp");
+#if defined(BASIC_USE_FIXED64)
+  read_proto = MIR_new_proto_arr (ctx, "basic_read_p", 0, NULL, 1, &res_arg);
+#else
   read_proto = MIR_new_proto (ctx, "basic_read_p", 1, &d, 0);
+#endif
   read_import = MIR_new_import (ctx, "basic_read");
   read_str_proto = MIR_new_proto (ctx, "basic_read_str_p", 1, &p, 0);
   read_str_import = MIR_new_import (ctx, "basic_read_str");
@@ -7008,6 +7352,8 @@ static void usage (const char *progname) {
 int main (int argc, char **argv) {
 #if defined(BASIC_USE_LONG_DOUBLE)
   basic_num_init (BASIC_NUM_MODE_LONG_DOUBLE);
+#elif defined(BASIC_USE_FIXED64)
+  basic_num_init (BASIC_NUM_MODE_FIXED64);
 #elif defined(BASIC_USE_MSFP)
   basic_num_init (BASIC_NUM_MODE_MSFP);
 #else
