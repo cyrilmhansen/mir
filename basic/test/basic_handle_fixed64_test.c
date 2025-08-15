@@ -25,9 +25,11 @@ int main (void) {
   basic_mir_emitlbl (func, lbl);
   basic_mir_emit (func, "DMOV", r1, basic_num_from_int (2), BASIC_ZERO);
   basic_mir_emit (func, "DMOV", r2, basic_num_from_int (3), BASIC_ZERO);
-  basic_mir_emit (func, "DADD", r3, r1, r2);
-  basic_mir_emit (func, "DNEG", r3, r3, BASIC_ZERO);
-  basic_mir_ret (func, r3);
+  basic_mir_emit (func, "MOV", r3, r1, BASIC_ZERO);
+  basic_mir_emit (func, "DADD", r3, r3, r2);
+  basic_mir_emit (func, "MOV", r1, r3, BASIC_ZERO);
+  basic_mir_emit (func, "DNEG", r1, r1, BASIC_ZERO);
+  basic_mir_ret (func, r1);
   basic_mir_finish (mod);
   basic_num_t res = basic_mir_run (func, BASIC_ZERO, BASIC_ZERO, BASIC_ZERO, BASIC_ZERO);
   assert (basic_num_eq (res, basic_num_neg (basic_num_from_int (5))));
