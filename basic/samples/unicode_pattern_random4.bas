@@ -22,6 +22,8 @@
 100  IF SPECIAL=1 THEN GOSUB 2000 ELSE IF SPECIAL=2 THEN GOSUB 3200 ELSE GOSUB 3000
 110  PRINT ESC$;"[0m"; : PRINT : PRINT
 120 NEXT SEC
+124 PRINT "*** TEST SUITE COMPLETE ***"
+125 PRINT "Three Unicode terminal art banners above pay homage to the spirit of the C64 one-liner era."
 130 END
 
 ' ---------- Load tile set ----------
