@@ -703,15 +703,16 @@ static void basic_mir_i2n (MIR_context_t ctx, MIR_item_t func, MIR_op_t dst, MIR
 #endif
 }
 
-static MIR_insn_t basic_mir_n2i (MIR_context_t ctx, MIR_item_t func, MIR_op_t dst, MIR_op_t src) {
+static void basic_mir_n2i (MIR_context_t ctx, MIR_item_t func, MIR_op_t dst, MIR_op_t src) {
 #if defined(BASIC_USE_LONG_DOUBLE)
-  return MIR_new_insn (ctx, MIR_LD2I, dst, src);
+  MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_LD2I, dst, src));
 #elif defined(BASIC_USE_FIXED64)
   MIR_op_t src_mem = basic_mem (ctx, func, src, MIR_T_BLK);
-  return MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, fixed64_to_int_proto),
-                            MIR_new_ref_op (ctx, fixed64_to_int_import), dst, src_mem);
+  MIR_append_insn (ctx, func,
+                   MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, fixed64_to_int_proto),
+                                      MIR_new_ref_op (ctx, fixed64_to_int_import), dst, src_mem));
 #else
-  return MIR_new_insn (ctx, MIR_D2I, dst, src);
+  MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_D2I, dst, src));
 #endif
 }
 
@@ -3672,9 +3673,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
         char buf[32];
         safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
         MIR_reg_t idx = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-        MIR_append_insn (ctx, func,
-                         basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, idx),
-                                        MIR_new_reg_op (ctx, idxd1)));
+        basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, idx), MIR_new_reg_op (ctx, idxd1));
         if (array_base != 0)
           MIR_append_insn (ctx, func,
                            MIR_new_insn (ctx, MIR_SUB, MIR_new_reg_op (ctx, idx),
@@ -3684,9 +3683,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
           MIR_reg_t idxd2 = gen_expr (ctx, func, vars, n->index2);
           safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
           MIR_reg_t idx2 = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-          MIR_append_insn (ctx, func,
-                           basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, idx2),
-                                          MIR_new_reg_op (ctx, idxd2)));
+          basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, idx2), MIR_new_reg_op (ctx, idxd2));
           if (array_base != 0)
             MIR_append_insn (ctx, func,
                              MIR_new_insn (ctx, MIR_SUB, MIR_new_reg_op (ctx, idx2),
@@ -3946,9 +3943,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       char buf[32];
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t idx = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (ctx, func,
-                       basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, idx),
-                                      MIR_new_reg_op (ctx, idxd1)));
+      basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, idx), MIR_new_reg_op (ctx, idxd1));
       if (array_base != 0)
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, MIR_SUB, MIR_new_reg_op (ctx, idx),
@@ -3958,9 +3953,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
         MIR_reg_t idxd2 = gen_expr (ctx, func, vars, n->index2);
         safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
         MIR_reg_t idx2 = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-        MIR_append_insn (ctx, func,
-                         basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, idx2),
-                                        MIR_new_reg_op (ctx, idxd2)));
+        basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, idx2), MIR_new_reg_op (ctx, idxd2));
         if (array_base != 0)
           MIR_append_insn (ctx, func,
                            MIR_new_insn (ctx, MIR_SUB, MIR_new_reg_op (ctx, idx2),
@@ -4510,14 +4503,10 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                || n->op == OP_SHL || n->op == OP_SHR) {
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t li = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (ctx, func,
-                       basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, li),
-                                      MIR_new_reg_op (ctx, l)));
+      basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, li), MIR_new_reg_op (ctx, l));
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t ri = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (ctx, func,
-                       basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, ri),
-                                      MIR_new_reg_op (ctx, r)));
+      basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, ri), MIR_new_reg_op (ctx, r));
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
       if (n->op == OP_SHL || n->op == OP_SHR) {
@@ -4596,14 +4585,10 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       if (n->op == OP_BACKSLASH || n->op == OP_MOD) {
         safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
         MIR_reg_t li = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-        MIR_append_insn (ctx, func,
-                         basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, li),
-                                        MIR_new_reg_op (ctx, l)));
+        basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, li), MIR_new_reg_op (ctx, l));
         safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
         MIR_reg_t ri = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-        MIR_append_insn (ctx, func,
-                         basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, ri),
-                                        MIR_new_reg_op (ctx, r)));
+        basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, ri), MIR_new_reg_op (ctx, r));
         safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
         MIR_reg_t resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
         MIR_insn_code_t iop = n->op == OP_BACKSLASH ? MIR_DIV : MIR_MOD;
@@ -4743,9 +4728,7 @@ static void gen_input (Stmt *s) {
       char buf[32];
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t idx = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (g_ctx, g_func,
-                       basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx),
-                                      MIR_new_reg_op (g_ctx, idxd1)));
+      basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx), MIR_new_reg_op (g_ctx, idxd1));
       if (array_base != 0)
         MIR_append_insn (g_ctx, g_func,
                          MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx),
@@ -4755,9 +4738,7 @@ static void gen_input (Stmt *s) {
         MIR_reg_t idxd2 = gen_expr (g_ctx, g_func, &g_vars, v->index2);
         safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
         MIR_reg_t idx2 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-        MIR_append_insn (g_ctx, g_func,
-                         basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx2),
-                                        MIR_new_reg_op (g_ctx, idxd2)));
+        basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx2), MIR_new_reg_op (g_ctx, idxd2));
         if (array_base != 0)
           MIR_append_insn (g_ctx, g_func,
                            MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx2),
@@ -4908,9 +4889,7 @@ static void gen_stmt (Stmt *s) {
       MIR_reg_t idxd1 = gen_expr (g_ctx, g_func, &g_vars, v1->index);
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t idx = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (g_ctx, g_func,
-                       basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx),
-                                      MIR_new_reg_op (g_ctx, idxd1)));
+      basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx), MIR_new_reg_op (g_ctx, idxd1));
       if (array_base != 0)
         MIR_append_insn (g_ctx, g_func,
                          MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx),
@@ -4920,9 +4899,7 @@ static void gen_stmt (Stmt *s) {
         MIR_reg_t idxd2 = gen_expr (g_ctx, g_func, &g_vars, v1->index2);
         safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
         MIR_reg_t idx2 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-        MIR_append_insn (g_ctx, g_func,
-                         basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx2),
-                                        MIR_new_reg_op (g_ctx, idxd2)));
+        basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx2), MIR_new_reg_op (g_ctx, idxd2));
         if (array_base != 0)
           MIR_append_insn (g_ctx, g_func,
                            MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx2),
@@ -4987,9 +4964,7 @@ static void gen_stmt (Stmt *s) {
       MIR_reg_t idxd1 = gen_expr (g_ctx, g_func, &g_vars, v2->index);
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t idx = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (g_ctx, g_func,
-                       basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx),
-                                      MIR_new_reg_op (g_ctx, idxd1)));
+      basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx), MIR_new_reg_op (g_ctx, idxd1));
       if (array_base != 0)
         MIR_append_insn (g_ctx, g_func,
                          MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx),
@@ -4999,9 +4974,7 @@ static void gen_stmt (Stmt *s) {
         MIR_reg_t idxd2 = gen_expr (g_ctx, g_func, &g_vars, v2->index2);
         safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
         MIR_reg_t idx2 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-        MIR_append_insn (g_ctx, g_func,
-                         basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx2),
-                                        MIR_new_reg_op (g_ctx, idxd2)));
+        basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx2), MIR_new_reg_op (g_ctx, idxd2));
         if (array_base != 0)
           MIR_append_insn (g_ctx, g_func,
                            MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx2),
@@ -5115,9 +5088,7 @@ static void gen_stmt (Stmt *s) {
         MIR_reg_t idxd1 = gen_expr (g_ctx, g_func, &g_vars, v->index);
         safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
         MIR_reg_t idx = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-        MIR_append_insn (g_ctx, g_func,
-                         basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx),
-                                        MIR_new_reg_op (g_ctx, idxd1)));
+        basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx), MIR_new_reg_op (g_ctx, idxd1));
         if (array_base != 0)
           MIR_append_insn (g_ctx, g_func,
                            MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx),
@@ -5127,9 +5098,8 @@ static void gen_stmt (Stmt *s) {
           MIR_reg_t idxd2 = gen_expr (g_ctx, g_func, &g_vars, v->index2);
           safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
           MIR_reg_t idx2 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-          MIR_append_insn (g_ctx, g_func,
-                           basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx2),
-                                          MIR_new_reg_op (g_ctx, idxd2)));
+          basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx2),
+                         MIR_new_reg_op (g_ctx, idxd2));
           if (array_base != 0)
             MIR_append_insn (g_ctx, g_func,
                              MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx2),
@@ -5467,9 +5437,7 @@ static void gen_stmt (Stmt *s) {
       char buf[32];
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t idx = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (g_ctx, g_func,
-                       basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx),
-                                      MIR_new_reg_op (g_ctx, idxd1)));
+      basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx), MIR_new_reg_op (g_ctx, idxd1));
       if (array_base != 0)
         MIR_append_insn (g_ctx, g_func,
                          MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx),
@@ -5479,9 +5447,7 @@ static void gen_stmt (Stmt *s) {
         MIR_reg_t idxd2 = gen_expr (g_ctx, g_func, &g_vars, s->u.let.var->index2);
         safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
         MIR_reg_t idx2 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-        MIR_append_insn (g_ctx, g_func,
-                         basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx2),
-                                        MIR_new_reg_op (g_ctx, idxd2)));
+        basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx2), MIR_new_reg_op (g_ctx, idxd2));
         if (array_base != 0)
           MIR_append_insn (g_ctx, g_func,
                            MIR_new_insn (g_ctx, MIR_SUB, MIR_new_reg_op (g_ctx, idx2),
@@ -5638,9 +5604,7 @@ static void gen_stmt (Stmt *s) {
     char buf[32];
     safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
     MIR_reg_t ri = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-    MIR_append_insn (g_ctx, g_func,
-                     basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, ri),
-                                    MIR_new_reg_op (g_ctx, r)));
+    basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, ri), MIR_new_reg_op (g_ctx, r));
     MIR_label_t end = MIR_new_label (g_ctx);
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_insn (g_ctx, MIR_BLT, MIR_new_label_op (g_ctx, end),
@@ -5667,9 +5631,7 @@ static void gen_stmt (Stmt *s) {
     char buf[32];
     safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
     MIR_reg_t ri = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-    MIR_append_insn (g_ctx, g_func,
-                     basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, ri),
-                                    MIR_new_reg_op (g_ctx, r)));
+    basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, ri), MIR_new_reg_op (g_ctx, r));
     MIR_label_t after = MIR_new_label (g_ctx);
     MIR_item_t after_ref = MIR_new_lref_data (g_ctx, NULL, after, NULL, 0);
     for (size_t k = 0; k < s->u.on_gosub.n_targets; k++) {
@@ -5710,18 +5672,14 @@ static void gen_stmt (Stmt *s) {
       MIR_reg_t x = gen_expr (g_ctx, g_func, &g_vars, s->u.hplot.xs[0]);
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t xi = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (g_ctx, g_func,
-                       basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, xi),
-                                      MIR_new_reg_op (g_ctx, x)));
+      basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, xi), MIR_new_reg_op (g_ctx, x));
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t xd = MIR_new_func_reg (g_ctx, g_func->u.func, BASIC_MIR_NUM_T, buf);
       basic_mir_i2n (g_ctx, g_func, MIR_new_reg_op (g_ctx, xd), MIR_new_reg_op (g_ctx, xi));
       MIR_reg_t y = gen_expr (g_ctx, g_func, &g_vars, s->u.hplot.ys[0]);
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t yi = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (g_ctx, g_func,
-                       basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, yi),
-                                      MIR_new_reg_op (g_ctx, y)));
+      basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, yi), MIR_new_reg_op (g_ctx, y));
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t yd = MIR_new_func_reg (g_ctx, g_func->u.func, BASIC_MIR_NUM_T, buf);
       basic_mir_i2n (g_ctx, g_func, MIR_new_reg_op (g_ctx, yd), MIR_new_reg_op (g_ctx, yi));
@@ -5736,18 +5694,14 @@ static void gen_stmt (Stmt *s) {
       MIR_reg_t x0 = gen_expr (g_ctx, g_func, &g_vars, s->u.hplot.xs[0]);
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t x0i = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (g_ctx, g_func,
-                       basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, x0i),
-                                      MIR_new_reg_op (g_ctx, x0)));
+      basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, x0i), MIR_new_reg_op (g_ctx, x0));
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       xprev = MIR_new_func_reg (g_ctx, g_func->u.func, BASIC_MIR_NUM_T, buf);
       basic_mir_i2n (g_ctx, g_func, MIR_new_reg_op (g_ctx, xprev), MIR_new_reg_op (g_ctx, x0i));
       MIR_reg_t y0 = gen_expr (g_ctx, g_func, &g_vars, s->u.hplot.ys[0]);
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t y0i = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (g_ctx, g_func,
-                       basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, y0i),
-                                      MIR_new_reg_op (g_ctx, y0)));
+      basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, y0i), MIR_new_reg_op (g_ctx, y0));
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       yprev = MIR_new_func_reg (g_ctx, g_func->u.func, BASIC_MIR_NUM_T, buf);
       basic_mir_i2n (g_ctx, g_func, MIR_new_reg_op (g_ctx, yprev), MIR_new_reg_op (g_ctx, y0i));
@@ -5762,18 +5716,14 @@ static void gen_stmt (Stmt *s) {
       MIR_reg_t x = gen_expr (g_ctx, g_func, &g_vars, s->u.hplot.xs[k]);
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t xi = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (g_ctx, g_func,
-                       basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, xi),
-                                      MIR_new_reg_op (g_ctx, x)));
+      basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, xi), MIR_new_reg_op (g_ctx, x));
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t xd = MIR_new_func_reg (g_ctx, g_func->u.func, BASIC_MIR_NUM_T, buf);
       basic_mir_i2n (g_ctx, g_func, MIR_new_reg_op (g_ctx, xd), MIR_new_reg_op (g_ctx, xi));
       MIR_reg_t y = gen_expr (g_ctx, g_func, &g_vars, s->u.hplot.ys[k]);
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t yi = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (g_ctx, g_func,
-                       basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, yi),
-                                      MIR_new_reg_op (g_ctx, y)));
+      basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, yi), MIR_new_reg_op (g_ctx, y));
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t yd = MIR_new_func_reg (g_ctx, g_func->u.func, BASIC_MIR_NUM_T, buf);
       basic_mir_i2n (g_ctx, g_func, MIR_new_reg_op (g_ctx, yd), MIR_new_reg_op (g_ctx, yi));
@@ -6072,9 +6022,7 @@ static void gen_stmt (Stmt *s) {
                                           MIR_new_reg_op (g_ctx, line)));
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t idx = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (g_ctx, g_func,
-                       basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx),
-                                      MIR_new_reg_op (g_ctx, line)));
+      basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, idx), MIR_new_reg_op (g_ctx, line));
       MIR_label_t after = MIR_new_label (g_ctx);
       for (size_t k = 0; k < g_prog->len; k++) {
         MIR_label_t next = k + 1 < g_prog->len ? MIR_new_label (g_ctx) : after;
@@ -6177,9 +6125,7 @@ static void gen_stmt (Stmt *s) {
       char buf[32];
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t size1 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (g_ctx, g_func,
-                       basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, size1),
-                                      MIR_new_reg_op (g_ctx, size1d)));
+      basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, size1), MIR_new_reg_op (g_ctx, size1d));
       if (1 - array_base != 0)
         MIR_append_insn (g_ctx, g_func,
                          MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, size1),
@@ -6190,9 +6136,8 @@ static void gen_stmt (Stmt *s) {
         MIR_reg_t size2d = gen_expr (g_ctx, g_func, &g_vars, s->u.dim.sizes2[k]);
         safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
         MIR_reg_t size2 = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-        MIR_append_insn (g_ctx, g_func,
-                         basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, size2),
-                                        MIR_new_reg_op (g_ctx, size2d)));
+        basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, size2),
+                       MIR_new_reg_op (g_ctx, size2d));
         if (1 - array_base != 0)
           MIR_append_insn (g_ctx, g_func,
                            MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, size2),
