@@ -3927,11 +3927,11 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
   if (n->kind == N_NUM) {
     char buf[32];
     safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-    MIR_reg_t r = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
+    MIR_reg_t addr = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
     MIR_append_insn (ctx, func,
-                     MIR_new_insn (ctx, BASIC_MIR_MOV, MIR_new_reg_op (ctx, r),
+                     MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, addr),
                                    emit_num_const (ctx, n->num)));
-    return r;
+    return addr;
   } else if (n->kind == N_VAR) {
     if (n->index != NULL) {
       MIR_reg_t base = get_array (vars, ctx, func, n->var, 0, 0, 0);
@@ -3987,17 +3987,13 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                        MIR_new_insn (ctx, MIR_ADD, MIR_new_reg_op (ctx, addr),
                                      MIR_new_reg_op (ctx, base), MIR_new_reg_op (ctx, off)));
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-      MIR_reg_t val = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
-      MIR_append_insn (ctx, func,
-                       MIR_new_insn (ctx, BASIC_MIR_MOV, MIR_new_reg_op (ctx, val),
-                                     MIR_new_mem_op (ctx, BASIC_MIR_NUM_T, 0, addr, 0, 1)));
       MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, ok)));
       MIR_append_insn (ctx, func, bad);
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 2, MIR_new_ref_op (ctx, stop_proto),
                                           MIR_new_ref_op (ctx, stop_import)));
       MIR_append_insn (ctx, func, ok);
-      return val;
+      return addr;
     } else {
       return get_var (vars, ctx, func, n->var);
     }
