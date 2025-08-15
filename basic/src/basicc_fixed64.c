@@ -4090,10 +4090,14 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
     MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
     if (strcasecmp (n->var, "RND") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+#if defined(BASIC_USE_FIXED64)
+      call_runtime_unary (ctx, func, rnd_proto, rnd_import, res, arg);
+#else
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, rnd_proto),
                                           MIR_new_ref_op (ctx, rnd_import),
                                           MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+#endif
     } else if (strcasecmp (n->var, "INT") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
       MIR_append_insn (ctx, func,
@@ -4287,17 +4291,42 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                               : emit_num_const (ctx, BASIC_ZERO);
       MIR_op_t a4 = n->arg4 ? MIR_new_reg_op (ctx, gen_expr (ctx, func, vars, n->arg4))
                             : emit_num_const (ctx, BASIC_ZERO);
+#if defined(BASIC_USE_FIXED64)
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t lo = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t hi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+      MIR_append_insn (ctx, func,
+                       MIR_new_call_insn (ctx, 9, MIR_new_ref_op (ctx, mir_run_proto),
+                                          MIR_new_ref_op (ctx, mir_run_import),
+                                          MIR_new_reg_op (ctx, lo), MIR_new_reg_op (ctx, hi),
+                                          MIR_new_reg_op (ctx, f), a1, a2, a3, a4));
+      MIR_op_t res_mem = basic_mem (ctx, func, MIR_new_reg_op (ctx, res), MIR_T_BLK);
+      MIR_append_insn (ctx, func,
+                       MIR_new_insn (ctx, MIR_MOV,
+                                     MIR_new_mem_op (ctx, MIR_T_I64, 0, res_mem.u.mem.base, 0, 1),
+                                     MIR_new_reg_op (ctx, lo)));
+      MIR_append_insn (ctx, func,
+                       MIR_new_insn (ctx, MIR_MOV,
+                                     MIR_new_mem_op (ctx, MIR_T_I64, 8, res_mem.u.mem.base, 0, 1),
+                                     MIR_new_reg_op (ctx, hi)));
+#else
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 8, MIR_new_ref_op (ctx, mir_run_proto),
                                           MIR_new_ref_op (ctx, mir_run_import),
                                           MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, f), a1,
                                           a2, a3, a4));
+#endif
     } else if (strcasecmp (n->var, "MIRDUMP") == 0) {
       MIR_reg_t f = gen_expr (ctx, func, vars, n->left);
+#if defined(BASIC_USE_FIXED64)
+      call_runtime_unary (ctx, func, mir_dump_proto, mir_dump_import, res, f);
+#else
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, mir_dump_proto),
                                           MIR_new_ref_op (ctx, mir_dump_import),
                                           MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, f)));
+#endif
     } else if (find_func (n->var) != NULL) {
       MIR_op_t args[3];
       size_t nargs = 0;
@@ -4350,10 +4379,14 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       }
 
     } else if (strcasecmp (n->var, "POS") == 0) {
+#if defined(BASIC_USE_FIXED64)
+      call_runtime_noarg (ctx, func, pos_proto, pos_import, res);
+#else
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, pos_proto),
                                           MIR_new_ref_op (ctx, pos_import),
                                           MIR_new_reg_op (ctx, res)));
+#endif
 
     } else if (strcasecmp (n->var, "INSTR") == 0) {
       MIR_reg_t s = gen_expr (ctx, func, vars, n->left);
@@ -4416,10 +4449,14 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       }
 
     } else if (strcasecmp (n->var, "POS") == 0) {
+#if defined(BASIC_USE_FIXED64)
+      call_runtime_noarg (ctx, func, pos_proto, pos_import, res);
+#else
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, pos_proto),
                                           MIR_new_ref_op (ctx, pos_import),
                                           MIR_new_reg_op (ctx, res)));
+#endif
 
     } else if (strcasecmp (n->var, "INSTR") == 0) {
       MIR_reg_t s = gen_expr (ctx, func, vars, n->left);
@@ -4704,7 +4741,11 @@ static void input_str_var (MIR_reg_t v) {
 }
 
 static void input_num_var (MIR_reg_t v) {
+#if defined(BASIC_USE_FIXED64)
+  call_runtime_noarg (g_ctx, g_func, input_proto, input_import, v);
+#else
   call1 (input_proto, input_import, MIR_new_reg_op (g_ctx, v));
+#endif
 }
 
 static void gen_input (Stmt *s) {
@@ -4799,8 +4840,12 @@ static void input_hash_str (MIR_reg_t v, MIR_reg_t fn) {
 }
 
 static void input_hash_num (MIR_reg_t v, MIR_reg_t fn) {
+#if defined(BASIC_USE_FIXED64)
+  call_runtime_unary (g_ctx, g_func, input_hash_proto, input_hash_import, v, fn);
+#else
   call2 (input_hash_proto, input_hash_import, MIR_new_reg_op (g_ctx, v),
          MIR_new_reg_op (g_ctx, fn));
+#endif
 }
 
 static void gen_input_hash (Stmt *s) {
@@ -5073,10 +5118,14 @@ static void gen_stmt (Stmt *s) {
       } else {
         safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
         res = MIR_new_func_reg (g_ctx, g_func->u.func, BASIC_MIR_NUM_T, buf);
+#if defined(BASIC_USE_FIXED64)
+        call_runtime_noarg (g_ctx, g_func, read_proto, read_import, res);
+#else
         MIR_append_insn (g_ctx, g_func,
                          MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, read_proto),
                                             MIR_new_ref_op (g_ctx, read_import),
                                             MIR_new_reg_op (g_ctx, res)));
+#endif
       }
       if (v->index != NULL) {
         MIR_reg_t base = get_array (&g_vars, g_ctx, g_func, v->var, 0, 0, v->is_str);
@@ -6218,13 +6267,9 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   prints_import = MIR_new_import (ctx, "basic_print_str");
 #if defined(BASIC_USE_FIXED64)
   MIR_type_t d = MIR_T_I64; /* placeholder for unused numeric results */
-  MIR_type_t blk = MIR_T_BLK;
   MIR_type_t i64_ = MIR_T_I64;
-  MIR_var_t res_arg;
-  res_arg.name = "res";
-  res_arg.type = MIR_T_RBLK;
-  res_arg.size = sizeof (basic_num_t);
-  input_proto = MIR_new_proto_arr (ctx, "basic_input_p", 0, NULL, 1, &res_arg);
+  MIR_type_t i64_pair[2] = {MIR_T_I64, MIR_T_I64}; /* two-register return */
+  input_proto = MIR_new_proto_arr (ctx, "basic_input_p", 2, i64_pair, 0, NULL);
 #else
   MIR_type_t d = BASIC_MIR_NUM_T;
   input_proto = MIR_new_proto (ctx, "basic_input_p", 1, &d, 0);
@@ -6238,7 +6283,6 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   put_proto = MIR_new_proto (ctx, "basic_put_p", 0, NULL, 1, MIR_T_P, "s");
   put_import = MIR_new_import (ctx, "basic_put");
 #if defined(BASIC_USE_FIXED64)
-  MIR_type_t i64_pair[2] = {MIR_T_I64, MIR_T_I64}; /* two-register return */
   MIR_var_t bin_vars[2];
   bin_vars[0].name = "a";
   bin_vars[0].type = MIR_T_BLK;
@@ -6315,12 +6359,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     = MIR_new_proto (ctx, "basic_print_hash_str_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n", MIR_T_P, "s");
   prinths_import = MIR_new_import (ctx, "basic_print_hash_str");
 #if defined(BASIC_USE_FIXED64)
-  MIR_var_t hash_vars[2];
-  hash_vars[0] = res_arg;
-  hash_vars[1].name = "n";
-  hash_vars[1].type = MIR_T_BLK;
-  hash_vars[1].size = sizeof (basic_num_t);
-  input_hash_proto = MIR_new_proto_arr (ctx, "basic_input_hash_p", 0, NULL, 2, hash_vars);
+  MIR_var_t hash_arg;
+  hash_arg.name = "n";
+  hash_arg.type = MIR_T_BLK;
+  hash_arg.size = sizeof (basic_num_t);
+  input_hash_proto = MIR_new_proto_arr (ctx, "basic_input_hash_p", 2, i64_pair, 1, &hash_arg);
 #else
   input_hash_proto = MIR_new_proto (ctx, "basic_input_hash_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
 #endif
@@ -6443,12 +6486,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     profile_func_exit_import = MIR_new_import (ctx, "basic_profile_func_exit");
   }
 #if defined(BASIC_USE_FIXED64)
-  MIR_var_t rnd_vars[2];
-  rnd_vars[0] = res_arg;
-  rnd_vars[1].name = "n";
-  rnd_vars[1].type = MIR_T_BLK;
-  rnd_vars[1].size = sizeof (basic_num_t);
-  rnd_proto = MIR_new_proto_arr (ctx, "basic_rnd_p", 0, NULL, 2, rnd_vars);
+  MIR_var_t rnd_arg;
+  rnd_arg.name = "n";
+  rnd_arg.type = MIR_T_BLK;
+  rnd_arg.size = sizeof (basic_num_t);
+  rnd_proto = MIR_new_proto_arr (ctx, "basic_rnd_p", 2, i64_pair, 1, &rnd_arg);
 #else
   rnd_proto = MIR_new_proto (ctx, "basic_rnd_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
 #endif
@@ -6483,9 +6525,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   eof_proto = MIR_new_proto (ctx, "basic_eof_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
   eof_import = MIR_new_import (ctx, "basic_eof");
 #if defined(BASIC_USE_FIXED64)
-  MIR_var_t pos_vars[1];
-  pos_vars[0] = res_arg;
-  pos_proto = MIR_new_proto_arr (ctx, "basic_pos_p", 0, NULL, 1, pos_vars);
+  pos_proto = MIR_new_proto_arr (ctx, "basic_pos_p", 2, i64_pair, 0, NULL);
 #else
   pos_proto = MIR_new_proto (ctx, "basic_pos_p", 1, &d, 0);
 #endif
@@ -6600,18 +6640,17 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   mir_finish_import = MIR_new_import (ctx, "basic_mir_finish");
   {
 #if defined(BASIC_USE_FIXED64)
-    MIR_var_t run_args[6];
-    run_args[0] = res_arg;
-    run_args[1].name = "func";
-    run_args[2].name = "a1";
-    run_args[3].name = "a2";
-    run_args[4].name = "a3";
-    run_args[5].name = "a4";
-    for (int i = 1; i < 6; i++) {
+    MIR_var_t run_args[5];
+    run_args[0].name = "func";
+    run_args[1].name = "a1";
+    run_args[2].name = "a2";
+    run_args[3].name = "a3";
+    run_args[4].name = "a4";
+    for (int i = 0; i < 5; i++) {
       run_args[i].type = MIR_T_BLK;
       run_args[i].size = sizeof (basic_num_t);
     }
-    mir_run_proto = MIR_new_proto_arr (ctx, "basic_mir_run_p", 0, NULL, 6, run_args);
+    mir_run_proto = MIR_new_proto_arr (ctx, "basic_mir_run_p", 2, i64_pair, 5, run_args);
 #else
     mir_run_proto
       = MIR_new_proto (ctx, "basic_mir_run_p", 1, &d, 5, BASIC_MIR_NUM_T, "func", BASIC_MIR_NUM_T,
@@ -6621,12 +6660,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   mir_run_import = MIR_new_import (ctx, "basic_mir_run");
 #if defined(BASIC_USE_FIXED64)
   {
-    MIR_var_t dump_args[2];
-    dump_args[0] = res_arg;
-    dump_args[1].name = "func";
-    dump_args[1].type = MIR_T_BLK;
-    dump_args[1].size = sizeof (basic_num_t);
-    mir_dump_proto = MIR_new_proto_arr (ctx, "basic_mir_dump_p", 0, NULL, 2, dump_args);
+    MIR_var_t dump_arg;
+    dump_arg.name = "func";
+    dump_arg.type = MIR_T_BLK;
+    dump_arg.size = sizeof (basic_num_t);
+    mir_dump_proto = MIR_new_proto_arr (ctx, "basic_mir_dump_p", 2, i64_pair, 1, &dump_arg);
   }
 #else
   mir_dump_proto = MIR_new_proto (ctx, "basic_mir_dump_p", 1, &d, 1, BASIC_MIR_NUM_T, "func");
@@ -6645,7 +6683,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   strcmp_proto = MIR_new_proto (ctx, "basic_strcmp_p", 1, &i64, 2, MIR_T_P, "a", MIR_T_P, "b");
   strcmp_import = MIR_new_import (ctx, "basic_strcmp");
 #if defined(BASIC_USE_FIXED64)
-  read_proto = MIR_new_proto_arr (ctx, "basic_read_p", 0, NULL, 1, &res_arg);
+  read_proto = MIR_new_proto_arr (ctx, "basic_read_p", 2, i64_pair, 0, NULL);
 #else
   read_proto = MIR_new_proto (ctx, "basic_read_p", 1, &d, 0);
 #endif
