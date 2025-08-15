@@ -551,8 +551,6 @@ basic-test: $(BUILD_DIR)/libmir.$(LIBSUFF) $(BUILD_DIR)/basic/basicc$(EXE) $(BUI
 run-basic-tests:
 	$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
 	$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc-ld$(EXE)
-run-basic-tests:
-	$(SRC_DIR)/basic/tests/run-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
 	$(SRC_DIR)/basic/test/run-mbasic-tests.sh $(BUILD_DIR)/basic/basicc$(EXE)
 	$(BUILD_DIR)/basic/dfp_test$(EXE) > $(BUILD_DIR)/basic/dfp_test.out
 	diff $(SRC_DIR)/basic/test/dfp_test.out $(BUILD_DIR)/basic/dfp_test.out
