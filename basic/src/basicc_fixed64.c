@@ -3634,6 +3634,75 @@ static void ensure_array_dim (VarVec *vars, MIR_context_t ctx, MIR_item_t func, 
   MIR_append_insn (ctx, func, done);
 }
 
+static void call_runtime_unary (MIR_context_t ctx, MIR_item_t func, MIR_item_t proto,
+                                MIR_item_t import, MIR_reg_t res, MIR_reg_t arg) {
+  MIR_op_t arg_mem = basic_mem (ctx, func, MIR_new_reg_op (ctx, arg), MIR_T_BLK);
+  char buf[32];
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t lo = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t hi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+  MIR_append_insn (ctx, func,
+                   MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, proto),
+                                      MIR_new_ref_op (ctx, import), MIR_new_reg_op (ctx, lo),
+                                      MIR_new_reg_op (ctx, hi), arg_mem));
+  MIR_op_t res_mem = basic_mem (ctx, func, MIR_new_reg_op (ctx, res), MIR_T_BLK);
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_MOV,
+                                 MIR_new_mem_op (ctx, MIR_T_I64, 0, res_mem.u.mem.base, 0, 1),
+                                 MIR_new_reg_op (ctx, lo)));
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_MOV,
+                                 MIR_new_mem_op (ctx, MIR_T_I64, 8, res_mem.u.mem.base, 0, 1),
+                                 MIR_new_reg_op (ctx, hi)));
+}
+
+static void call_runtime_binary (MIR_context_t ctx, MIR_item_t func, MIR_item_t proto,
+                                 MIR_item_t import, MIR_reg_t res, MIR_reg_t arg1, MIR_reg_t arg2) {
+  MIR_op_t arg1_mem = basic_mem (ctx, func, MIR_new_reg_op (ctx, arg1), MIR_T_BLK);
+  MIR_op_t arg2_mem = basic_mem (ctx, func, MIR_new_reg_op (ctx, arg2), MIR_T_BLK);
+  char buf[32];
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t lo = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t hi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+  MIR_append_insn (ctx, func,
+                   MIR_new_call_insn (ctx, 6, MIR_new_ref_op (ctx, proto),
+                                      MIR_new_ref_op (ctx, import), MIR_new_reg_op (ctx, lo),
+                                      MIR_new_reg_op (ctx, hi), arg1_mem, arg2_mem));
+  MIR_op_t res_mem = basic_mem (ctx, func, MIR_new_reg_op (ctx, res), MIR_T_BLK);
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_MOV,
+                                 MIR_new_mem_op (ctx, MIR_T_I64, 0, res_mem.u.mem.base, 0, 1),
+                                 MIR_new_reg_op (ctx, lo)));
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_MOV,
+                                 MIR_new_mem_op (ctx, MIR_T_I64, 8, res_mem.u.mem.base, 0, 1),
+                                 MIR_new_reg_op (ctx, hi)));
+}
+
+static void call_runtime_noarg (MIR_context_t ctx, MIR_item_t func, MIR_item_t proto,
+                                MIR_item_t import, MIR_reg_t res) {
+  char buf[32];
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t lo = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t hi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+  MIR_append_insn (ctx, func,
+                   MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, proto),
+                                      MIR_new_ref_op (ctx, import), MIR_new_reg_op (ctx, lo),
+                                      MIR_new_reg_op (ctx, hi)));
+  MIR_op_t res_mem = basic_mem (ctx, func, MIR_new_reg_op (ctx, res), MIR_T_BLK);
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_MOV,
+                                 MIR_new_mem_op (ctx, MIR_T_I64, 0, res_mem.u.mem.base, 0, 1),
+                                 MIR_new_reg_op (ctx, lo)));
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_MOV,
+                                 MIR_new_mem_op (ctx, MIR_T_I64, 8, res_mem.u.mem.base, 0, 1),
+                                 MIR_new_reg_op (ctx, hi)));
+}
+
 /* Expression code generation */
 static MIR_context_t g_ctx;
 static LineVec *g_prog;
@@ -4060,129 +4129,66 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                           MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
     } else if (strcasecmp (n->var, "ABS") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, abs_proto),
-                                          MIR_new_ref_op (ctx, abs_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, abs_proto, abs_import, res, arg);
     } else if (strcasecmp (n->var, "SGN") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, sgn_proto),
-                                          MIR_new_ref_op (ctx, sgn_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, sgn_proto, sgn_import, res, arg);
     } else if (strcasecmp (n->var, "SQR") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, sqr_proto),
-                                          MIR_new_ref_op (ctx, sqr_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, sqr_proto, sqr_import, res, arg);
     } else if (strcasecmp (n->var, "SIN") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, sin_proto),
-                                          MIR_new_ref_op (ctx, sin_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, sin_proto, sin_import, res, arg);
     } else if (strcasecmp (n->var, "COS") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, cos_proto),
-                                          MIR_new_ref_op (ctx, cos_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, cos_proto, cos_import, res, arg);
     } else if (strcasecmp (n->var, "TAN") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, tan_proto),
-                                          MIR_new_ref_op (ctx, tan_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, tan_proto, tan_import, res, arg);
     } else if (strcasecmp (n->var, "ATN") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, atn_proto),
-                                          MIR_new_ref_op (ctx, atn_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, atn_proto, atn_import, res, arg);
     } else if (strcasecmp (n->var, "SINH") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, sinh_proto),
-                                          MIR_new_ref_op (ctx, sinh_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, sinh_proto, sinh_import, res, arg);
     } else if (strcasecmp (n->var, "COSH") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, cosh_proto),
-                                          MIR_new_ref_op (ctx, cosh_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, cosh_proto, cosh_import, res, arg);
     } else if (strcasecmp (n->var, "TANH") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, tanh_proto),
-                                          MIR_new_ref_op (ctx, tanh_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, tanh_proto, tanh_import, res, arg);
     } else if (strcasecmp (n->var, "ASINH") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, asinh_proto),
-                                          MIR_new_ref_op (ctx, asinh_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, asinh_proto, asinh_import, res, arg);
     } else if (strcasecmp (n->var, "ACOSH") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, acosh_proto),
-                                          MIR_new_ref_op (ctx, acosh_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, acosh_proto, acosh_import, res, arg);
     } else if (strcasecmp (n->var, "ATANH") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, atanh_proto),
-                                          MIR_new_ref_op (ctx, atanh_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, atanh_proto, atanh_import, res, arg);
     } else if (strcasecmp (n->var, "ASIN") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, asin_proto),
-                                          MIR_new_ref_op (ctx, asin_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, asin_proto, asin_import, res, arg);
     } else if (strcasecmp (n->var, "ACOS") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, acos_proto),
-                                          MIR_new_ref_op (ctx, acos_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, acos_proto, acos_import, res, arg);
     } else if (strcasecmp (n->var, "LOG") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, log_proto),
-                                          MIR_new_ref_op (ctx, log_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, log_proto, log_import, res, arg);
     } else if (strcasecmp (n->var, "LOG2") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, log2_proto),
-                                          MIR_new_ref_op (ctx, log2_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, log2_proto, log2_import, res, arg);
     } else if (strcasecmp (n->var, "LOG10") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, log10_proto),
-                                          MIR_new_ref_op (ctx, log10_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, log10_proto, log10_import, res, arg);
     } else if (strcasecmp (n->var, "EXP") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, exp_proto),
-                                          MIR_new_ref_op (ctx, exp_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, exp_proto, exp_import, res, arg);
     } else if (strcasecmp (n->var, "FACT") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, fact_proto),
-                                          MIR_new_ref_op (ctx, fact_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+      call_runtime_unary (ctx, func, fact_proto, fact_import, res, arg);
     } else if (strcasecmp (n->var, "PI") == 0) {
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, pi_proto),
-                                          MIR_new_ref_op (ctx, pi_import),
-                                          MIR_new_reg_op (ctx, res)));
+      call_runtime_noarg (ctx, func, pi_proto, pi_import, res);
     } else if (strcasecmp (n->var, "LEN") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
       MIR_append_insn (ctx, func,
@@ -4590,11 +4596,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                        MIR_new_reg_op (ctx, li), MIR_new_reg_op (ctx, ri)));
         basic_mir_i2n (ctx, func, MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, resi));
       } else if (n->op == OP_POW) {
-        MIR_append_insn (ctx, func,
-                         MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, pow_proto),
-                                            MIR_new_ref_op (ctx, pow_import),
-                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, l),
-                                            MIR_new_reg_op (ctx, r)));
+        call_runtime_binary (ctx, func, pow_proto, pow_import, res, l, r);
       } else {
         MIR_insn_code_t op = MIR_DADD;
         switch (n->op) {
@@ -6489,50 +6491,60 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
 #endif
   pos_import = MIR_new_import (ctx, "basic_pos");
 
-  abs_proto = MIR_new_proto (ctx, "basic_abs_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  MIR_var_t x_arg;
+  x_arg.name = "x";
+  x_arg.type = MIR_T_BLK;
+  x_arg.size = sizeof (basic_num_t);
+  abs_proto = MIR_new_proto_arr (ctx, "basic_abs_p", 2, i64_pair, 1, &x_arg);
   abs_import = MIR_new_import (ctx, "basic_abs");
-  sgn_proto = MIR_new_proto (ctx, "basic_sgn_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  sgn_proto = MIR_new_proto_arr (ctx, "basic_sgn_p", 2, i64_pair, 1, &x_arg);
   sgn_import = MIR_new_import (ctx, "basic_sgn");
-  sqr_proto = MIR_new_proto (ctx, "basic_sqr_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  sqr_proto = MIR_new_proto_arr (ctx, "basic_sqr_p", 2, i64_pair, 1, &x_arg);
   sqr_import = MIR_new_import (ctx, "basic_sqr");
-  sin_proto = MIR_new_proto (ctx, "basic_sin_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  sin_proto = MIR_new_proto_arr (ctx, "basic_sin_p", 2, i64_pair, 1, &x_arg);
   sin_import = MIR_new_import (ctx, "basic_sin");
-  cos_proto = MIR_new_proto (ctx, "basic_cos_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  cos_proto = MIR_new_proto_arr (ctx, "basic_cos_p", 2, i64_pair, 1, &x_arg);
   cos_import = MIR_new_import (ctx, "basic_cos");
-  tan_proto = MIR_new_proto (ctx, "basic_tan_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  tan_proto = MIR_new_proto_arr (ctx, "basic_tan_p", 2, i64_pair, 1, &x_arg);
   tan_import = MIR_new_import (ctx, "basic_tan");
-  atn_proto = MIR_new_proto (ctx, "basic_atn_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  atn_proto = MIR_new_proto_arr (ctx, "basic_atn_p", 2, i64_pair, 1, &x_arg);
   atn_import = MIR_new_import (ctx, "basic_atn");
-  sinh_proto = MIR_new_proto (ctx, "basic_sinh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  sinh_proto = MIR_new_proto_arr (ctx, "basic_sinh_p", 2, i64_pair, 1, &x_arg);
   sinh_import = MIR_new_import (ctx, "basic_sinh");
-  cosh_proto = MIR_new_proto (ctx, "basic_cosh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  cosh_proto = MIR_new_proto_arr (ctx, "basic_cosh_p", 2, i64_pair, 1, &x_arg);
   cosh_import = MIR_new_import (ctx, "basic_cosh");
-  tanh_proto = MIR_new_proto (ctx, "basic_tanh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  tanh_proto = MIR_new_proto_arr (ctx, "basic_tanh_p", 2, i64_pair, 1, &x_arg);
   tanh_import = MIR_new_import (ctx, "basic_tanh");
-  asinh_proto = MIR_new_proto (ctx, "basic_asinh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  asinh_proto = MIR_new_proto_arr (ctx, "basic_asinh_p", 2, i64_pair, 1, &x_arg);
   asinh_import = MIR_new_import (ctx, "basic_asinh");
-  acosh_proto = MIR_new_proto (ctx, "basic_acosh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  acosh_proto = MIR_new_proto_arr (ctx, "basic_acosh_p", 2, i64_pair, 1, &x_arg);
   acosh_import = MIR_new_import (ctx, "basic_acosh");
-  atanh_proto = MIR_new_proto (ctx, "basic_atanh_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  atanh_proto = MIR_new_proto_arr (ctx, "basic_atanh_p", 2, i64_pair, 1, &x_arg);
   atanh_import = MIR_new_import (ctx, "basic_atanh");
-  asin_proto = MIR_new_proto (ctx, "basic_asin_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  asin_proto = MIR_new_proto_arr (ctx, "basic_asin_p", 2, i64_pair, 1, &x_arg);
   asin_import = MIR_new_import (ctx, "basic_asin");
-  acos_proto = MIR_new_proto (ctx, "basic_acos_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  acos_proto = MIR_new_proto_arr (ctx, "basic_acos_p", 2, i64_pair, 1, &x_arg);
   acos_import = MIR_new_import (ctx, "basic_acos");
-  log_proto = MIR_new_proto (ctx, "basic_log_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  log_proto = MIR_new_proto_arr (ctx, "basic_log_p", 2, i64_pair, 1, &x_arg);
   log_import = MIR_new_import (ctx, "basic_log");
-  log2_proto = MIR_new_proto (ctx, "basic_log2_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  log2_proto = MIR_new_proto_arr (ctx, "basic_log2_p", 2, i64_pair, 1, &x_arg);
   log2_import = MIR_new_import (ctx, "basic_log2");
-  log10_proto = MIR_new_proto (ctx, "basic_log10_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  log10_proto = MIR_new_proto_arr (ctx, "basic_log10_p", 2, i64_pair, 1, &x_arg);
   log10_import = MIR_new_import (ctx, "basic_log10");
-  exp_proto = MIR_new_proto (ctx, "basic_exp_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  exp_proto = MIR_new_proto_arr (ctx, "basic_exp_p", 2, i64_pair, 1, &x_arg);
   exp_import = MIR_new_import (ctx, "basic_exp");
-  fact_proto = MIR_new_proto (ctx, "basic_fact_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
+  fact_proto = MIR_new_proto_arr (ctx, "basic_fact_p", 2, i64_pair, 1, &x_arg);
   fact_import = MIR_new_import (ctx, "basic_fact");
-  pow_proto
-    = MIR_new_proto (ctx, "basic_pow_p", 1, &d, 2, BASIC_MIR_NUM_T, "x", BASIC_MIR_NUM_T, "y");
+  MIR_var_t xy_args[2];
+  xy_args[0].name = "x";
+  xy_args[0].type = MIR_T_BLK;
+  xy_args[0].size = sizeof (basic_num_t);
+  xy_args[1].name = "y";
+  xy_args[1].type = MIR_T_BLK;
+  xy_args[1].size = sizeof (basic_num_t);
+  pow_proto = MIR_new_proto_arr (ctx, "basic_pow_p", 2, i64_pair, 2, xy_args);
   pow_import = MIR_new_import (ctx, "basic_pow");
-  pi_proto = MIR_new_proto (ctx, "basic_pi_p", 1, &d, 0);
+  pi_proto = MIR_new_proto_arr (ctx, "basic_pi_p", 2, i64_pair, 0, NULL);
   pi_import = MIR_new_import (ctx, "basic_pi");
   left_proto = MIR_new_proto (ctx, "basic_left_p", 1, &p, 2, MIR_T_P, "s", BASIC_MIR_NUM_T, "n");
   left_import = MIR_new_import (ctx, "basic_left");
