@@ -3622,18 +3622,14 @@ static void ensure_array_dim (VarVec *vars, MIR_context_t ctx, MIR_item_t func, 
   MIR_append_insn (ctx, func,
                    MIR_new_insn (ctx, MIR_BNE, MIR_new_label_op (ctx, done),
                                  MIR_new_reg_op (ctx, base), MIR_new_int_op (ctx, 0)));
-  char buf[32];
-  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-  MIR_reg_t len = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
-  MIR_append_insn (ctx, func,
-                   MIR_new_insn (ctx, BASIC_MIR_MOV, MIR_new_reg_op (ctx, len),
-                                 emit_num_const (ctx, BASIC_FROM_INT (asize))));
+  MIR_op_t len_op = basic_mem (ctx, func, emit_num_const (ctx, BASIC_FROM_INT (asize)), MIR_T_BLK);
+  MIR_op_t is_str_op
+    = basic_mem (ctx, func, emit_num_const (ctx, BASIC_FROM_INT (is_str)), MIR_T_BLK);
   MIR_append_insn (ctx, func,
                    MIR_new_call_insn (ctx, 6, MIR_new_ref_op (ctx, dim_alloc_proto),
                                       MIR_new_ref_op (ctx, dim_alloc_import),
                                       MIR_new_reg_op (ctx, base), MIR_new_reg_op (ctx, base),
-                                      MIR_new_reg_op (ctx, len),
-                                      emit_num_const (ctx, BASIC_FROM_INT (is_str))));
+                                      len_op, is_str_op));
   MIR_append_insn (ctx, func, done);
 }
 
