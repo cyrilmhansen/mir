@@ -336,6 +336,23 @@ void basic_runtime_fixed64_init (MIR_context_t ctx) {
 int basic_mir_emit_fixed64 (MIR_context_t ctx, MIR_item_t func, MIR_insn_code_t code, MIR_op_t *ops,
                             size_t nops) {
   switch (code) {
+  case MIR_DMOV:
+  case MIR_MOV:
+    if ((ops[0].mode == MIR_OP_REG && MIR_reg_type (ctx, ops[0].u.reg, func->u.func) != MIR_T_BLK)
+        || (ops[1].mode == MIR_OP_REG
+            && MIR_reg_type (ctx, ops[1].u.reg, func->u.func) != MIR_T_BLK))
+      return 0;
+    MIR_op_t dst_mem = basic_mem (ctx, func, ops[0], MIR_T_BLK);
+    MIR_op_t src_mem = basic_mem (ctx, func, ops[1], MIR_T_BLK);
+    MIR_append_insn (ctx, func,
+                     MIR_new_insn (ctx, MIR_MOV,
+                                   MIR_new_mem_op (ctx, MIR_T_I64, 0, dst_mem.u.mem.base, 0, 1),
+                                   MIR_new_mem_op (ctx, MIR_T_I64, 0, src_mem.u.mem.base, 0, 1)));
+    MIR_append_insn (ctx, func,
+                     MIR_new_insn (ctx, MIR_MOV,
+                                   MIR_new_mem_op (ctx, MIR_T_I64, 8, dst_mem.u.mem.base, 0, 1),
+                                   MIR_new_mem_op (ctx, MIR_T_I64, 8, src_mem.u.mem.base, 0, 1)));
+    return 1;
   case MIR_DADD:
   case MIR_DSUB:
   case MIR_DMUL:
