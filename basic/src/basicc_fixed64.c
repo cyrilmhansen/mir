@@ -5921,25 +5921,15 @@ static void gen_stmt (Stmt *s) {
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, s1addr),
                                    MIR_new_reg_op (g_ctx, s1base), MIR_new_reg_op (g_ctx, off)));
-    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-    MIR_reg_t v1 = MIR_new_func_reg (g_ctx, g_func->u.func, BASIC_MIR_NUM_T, buf);
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_insn (g_ctx, BASIC_MIR_MOV, MIR_new_reg_op (g_ctx, v1),
-                                   MIR_new_mem_op (g_ctx, BASIC_MIR_NUM_T, 0, s1addr, 0, 1)));
-    MIR_reg_t res = v1;
     if (s2 != NULL) {
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t s2addr = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
       MIR_append_insn (g_ctx, g_func,
                        MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, s2addr),
                                      MIR_new_reg_op (g_ctx, s2base), MIR_new_reg_op (g_ctx, off)));
-      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-      MIR_reg_t v2 = MIR_new_func_reg (g_ctx, g_func->u.func, BASIC_MIR_NUM_T, buf);
-      MIR_append_insn (g_ctx, g_func,
-                       MIR_new_insn (g_ctx, BASIC_MIR_MOV, MIR_new_reg_op (g_ctx, v2),
-                                     MIR_new_mem_op (g_ctx, BASIC_MIR_NUM_T, 0, s2addr, 0, 1)));
-      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-      res = MIR_new_func_reg (g_ctx, g_func->u.func, BASIC_MIR_NUM_T, buf);
+      MIR_op_t dst_blk = basic_mem (g_ctx, g_func, MIR_new_reg_op (g_ctx, daddr), MIR_T_BLK);
+      MIR_op_t s1_blk = basic_mem (g_ctx, g_func, MIR_new_reg_op (g_ctx, s1addr), MIR_T_BLK);
+      MIR_op_t s2_blk = basic_mem (g_ctx, g_func, MIR_new_reg_op (g_ctx, s2addr), MIR_T_BLK);
       MIR_insn_code_t ic;
       switch (s->u.mat.op_type) {
       case OP_PLUS: ic = MIR_DADD; break;
@@ -5947,14 +5937,31 @@ static void gen_stmt (Stmt *s) {
       case OP_STAR: ic = MIR_DMUL; break;
       default: ic = MIR_DADD; break;
       }
+      basic_mir_binop (g_ctx, g_func, ic, dst_blk, s1_blk, s2_blk);
+    } else {
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t lo = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t hi = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
       MIR_append_insn (g_ctx, g_func,
-                       MIR_new_insn (g_ctx, ic, MIR_new_reg_op (g_ctx, res),
-                                     MIR_new_reg_op (g_ctx, v1), MIR_new_reg_op (g_ctx, v2)));
+                       MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, lo),
+                                     _MIR_new_var_mem_op (g_ctx, MIR_T_I64, 0, s1addr, MIR_NON_VAR,
+                                                          1)));
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_MOV, MIR_new_reg_op (g_ctx, hi),
+                                     _MIR_new_var_mem_op (g_ctx, MIR_T_I64, 8, s1addr, MIR_NON_VAR,
+                                                          1)));
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_MOV,
+                                     _MIR_new_var_mem_op (g_ctx, MIR_T_I64, 0, daddr, MIR_NON_VAR,
+                                                          1),
+                                     MIR_new_reg_op (g_ctx, lo)));
+      MIR_append_insn (g_ctx, g_func,
+                       MIR_new_insn (g_ctx, MIR_MOV,
+                                     _MIR_new_var_mem_op (g_ctx, MIR_T_I64, 8, daddr, MIR_NON_VAR,
+                                                          1),
+                                     MIR_new_reg_op (g_ctx, hi)));
     }
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_insn (g_ctx, BASIC_MIR_MOV,
-                                   MIR_new_mem_op (g_ctx, BASIC_MIR_NUM_T, 0, daddr, 0, 1),
-                                   MIR_new_reg_op (g_ctx, res)));
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_insn (g_ctx, MIR_ADD, MIR_new_reg_op (g_ctx, idx),
                                    MIR_new_reg_op (g_ctx, idx), MIR_new_int_op (g_ctx, 1)));
