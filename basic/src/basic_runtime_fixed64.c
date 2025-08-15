@@ -180,23 +180,24 @@ static void basic_mir_unop (MIR_context_t ctx, MIR_item_t func, MIR_insn_code_t 
     char buf[32];
     static int tmp_id = 0;
     snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-    MIR_reg_t lo = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+    MIR_reg_t res_lo = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
     snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-    MIR_reg_t hi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+    MIR_reg_t res_hi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+    /* fixed64_neg returns its 128-bit result in two I64 registers */
     MIR_append_insn (ctx, func,
                      MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, fixed64_neg_proto),
                                         MIR_new_ref_op (ctx, fixed64_neg_import),
-                                        MIR_new_reg_op (ctx, lo), MIR_new_reg_op (ctx, hi),
+                                        MIR_new_reg_op (ctx, res_lo), MIR_new_reg_op (ctx, res_hi),
                                         src_mem));
     MIR_op_t dst_mem = basic_mem (ctx, func, dst, MIR_T_BLK);
     MIR_append_insn (ctx, func,
                      MIR_new_insn (ctx, MIR_MOV,
                                    MIR_new_mem_op (ctx, MIR_T_I64, 0, dst_mem.u.mem.base, 0, 1),
-                                   MIR_new_reg_op (ctx, lo)));
+                                   MIR_new_reg_op (ctx, res_lo)));
     MIR_append_insn (ctx, func,
                      MIR_new_insn (ctx, MIR_MOV,
                                    MIR_new_mem_op (ctx, MIR_T_I64, 8, dst_mem.u.mem.base, 0, 1),
-                                   MIR_new_reg_op (ctx, hi)));
+                                   MIR_new_reg_op (ctx, res_hi)));
     return;
   }
   MIR_append_insn (ctx, func, MIR_new_insn (ctx, code, dst, src));
@@ -278,7 +279,7 @@ static void basic_mir_bcmp (MIR_context_t ctx, MIR_item_t func, MIR_insn_code_t 
 
 void basic_runtime_fixed64_init (MIR_context_t ctx) {
   MIR_type_t i64 = MIR_T_I64;
-  MIR_type_t res64[2] = {MIR_T_I64, MIR_T_I64};
+  MIR_type_t res64[2] = {MIR_T_I64, MIR_T_I64}; /* two-register return */
   MIR_var_t bin_vars[2];
   bin_vars[0].name = "a";
   bin_vars[0].type = MIR_T_BLK;
