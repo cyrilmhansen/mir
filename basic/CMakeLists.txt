@@ -9,6 +9,7 @@ set(BASIC_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(BASIC_SRCS
     src/basicc.c
     src/basic_runtime.c
+    src/basic_runtime_double.c
     src/basic_pool.c
     src/arena.c
 )
@@ -30,8 +31,10 @@ if(BASIC_NUM_MODE STREQUAL "long-double")
   add_compile_definitions(BASIC_USE_LONG_DOUBLE)
 elseif(BASIC_NUM_MODE STREQUAL "fixed64")
   list(REMOVE_ITEM BASIC_SRCS src/basicc.c)
+  list(REMOVE_ITEM BASIC_SRCS src/basic_runtime_double.c)
   list(APPEND BASIC_SRCS
        src/basicc_fixed64.c
+       src/basic_runtime_fixed64.c
        src/vendor/fixed64/fixed64.c
        src/vendor/kitty/kitty.c
        src/vendor/kitty/lodepng.c)

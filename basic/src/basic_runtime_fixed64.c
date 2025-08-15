@@ -1,20 +1,75 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <time.h>
 
 #include "basic_runtime_fixed64.h"
 #include "basic_runtime.h"
 #include "basic_num.h"
+#define BASIC_PRNG128 1
 
-extern int seeded;
+static int seeded = 0;
 #if defined(BASIC_PRNG128)
-extern uint64_t s[4];
-__uint128_t basic_next_u128 (void);
+static uint64_t s[4] = {0, 0, 0, 0};
+
+static uint64_t rotl (const uint64_t x, int k) { return (x << k) | (x >> (64 - k)); }
+
+static uint64_t xoshiro256ss_next (void) {
+  const uint64_t result = rotl (s[1] * 5, 7) * 9;
+  const uint64_t t = s[1] << 17;
+  s[2] ^= s[0];
+  s[3] ^= s[1];
+  s[1] ^= s[2];
+  s[0] ^= s[3];
+  s[2] ^= t;
+  s[3] = rotl (s[3], 45);
+  return result;
+}
+
+static __uint128_t basic_next_u128 (void) {
+  __uint128_t hi = (__uint128_t) xoshiro256ss_next () << 64;
+  return hi | xoshiro256ss_next ();
+}
+
+static uint64_t splitmix64 (uint64_t *x) {
+  uint64_t z = (*x += UINT64_C (0x9E3779B97F4A7C15));
+  z = (z ^ (z >> 30)) * UINT64_C (0xBF58476D1CE4E5B9);
+  z = (z ^ (z >> 27)) * UINT64_C (0x94D049BB133111EB);
+  return z ^ (z >> 31);
+}
+
+void basic_randomize (basic_num_t n, basic_num_t has_seed) {
+  uint64_t seed;
+  if (basic_num_ne (has_seed, BASIC_ZERO)) {
+    seed = (uint64_t) basic_num_to_int (n);
+  } else {
+    seed = (((uint64_t) time (NULL)) << 32) ^ (uint64_t) clock ();
+  }
+  uint64_t sm = seed;
+  for (int i = 0; i < 4; i++) s[i] = splitmix64 (&sm);
+  seeded = 1;
+}
 #else
-extern uint64_t rng_state;
-uint64_t basic_next_u64 (void);
+static uint64_t rng_state = 0;
+
+static uint64_t basic_next_u64 (void) {
+  uint64_t x = rng_state;
+  x ^= x >> 12;
+  x ^= x << 25;
+  x ^= x >> 27;
+  rng_state = x;
+  return x * UINT64_C (2685821657736338717);
+}
+
+void basic_randomize (basic_num_t n, basic_num_t has_seed) {
+  if (basic_num_ne (has_seed, BASIC_ZERO)) {
+    rng_state = (uint64_t) basic_num_to_int (n);
+  } else {
+    rng_state = (((uint64_t) time (NULL)) << 32) ^ (uint64_t) clock ();
+  }
+  seeded = 1;
+}
 #endif
-void basic_randomize (basic_num_t n, basic_num_t has_seed);
 
 extern int basic_pos_val;
 #define BASIC_MAX_FILES 16

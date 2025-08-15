@@ -78,15 +78,6 @@ static inline MIR_op_t BASIC_MIR_new_num_op (MIR_context_t ctx, basic_num_t v) {
 #endif
 #endif
 
-int seeded = 0;
-#if defined(BASIC_USE_LONG_DOUBLE) && !defined(BASIC_PRNG128)
-#define BASIC_PRNG128 1
-#endif
-#if defined(BASIC_PRNG128)
-uint64_t s[4] = {0, 0, 0, 0};
-#else
-uint64_t rng_state = 0;
-#endif
 int basic_pos_val = 1;
 static int basic_error_handler = 0;
 static int basic_line = 0;
@@ -306,14 +297,6 @@ static char *next_input_field (void) {
   }
 }
 
-#ifndef BASIC_USE_FIXED64
-basic_num_t basic_input (void) {
-  basic_num_t x = BASIC_ZERO;
-  if (!basic_num_scan (stdin, &x)) return BASIC_ZERO;
-  return x;
-}
-#endif
-
 void basic_print (basic_num_t x) {
   char buf[128];
   int len = basic_num_to_chars (x, buf, sizeof (buf));
@@ -326,10 +309,6 @@ void basic_print_str (const char *s) {
   for (const char *p = s; *p != '\0'; p++) basic_pos_val = *p == '\n' ? 1 : basic_pos_val + 1;
   fputs (s, stdout);
 }
-
-#ifndef BASIC_USE_FIXED64
-basic_num_t basic_pos (void) { return basic_num_from_int (basic_pos_val); }
-#endif
 
 /* Allocate a new string containing input from stdin.
    Caller must free the returned buffer with basic_free. */
@@ -415,16 +394,6 @@ void basic_print_hash_str (basic_num_t n, const char *s) {
   fputs (s, basic_files[idx]);
 }
 
-#ifndef BASIC_USE_FIXED64
-basic_num_t basic_input_hash (basic_num_t n) {
-  int idx = basic_num_to_int (n);
-  if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return BASIC_ZERO;
-  basic_num_t x = BASIC_ZERO;
-  if (!basic_num_scan (basic_files[idx], &x)) return BASIC_ZERO;
-  return x;
-}
-#endif
-
 /* Read a line from an open file and return a newly allocated string.
    Caller must free the result with basic_free. */
 char *basic_input_hash_str (basic_num_t n) {
@@ -488,14 +457,6 @@ typedef struct BasicData {
 BasicData *basic_data_items = NULL;
 size_t basic_data_len = 0;
 size_t basic_data_pos = 0;
-
-#ifndef BASIC_USE_FIXED64
-basic_num_t basic_read (void) {
-  if (basic_data_pos >= basic_data_len || basic_data_items[basic_data_pos].is_str)
-    return BASIC_ZERO;
-  return basic_data_items[basic_data_pos++].num;
-}
-#endif
 
 /* Return next DATA string as a newly allocated buffer.
    Caller must free the result with basic_free. */
@@ -562,100 +523,6 @@ void basic_locate (basic_num_t r, basic_num_t c) {
 
 void basic_tab (basic_num_t n) { printf ("\x1b[%ldG", basic_num_to_int (n)); }
 void basic_htab (basic_num_t n) { basic_tab (n); }
-
-#if defined(BASIC_PRNG128)
-static uint64_t rotl (const uint64_t x, int k) { return (x << k) | (x >> (64 - k)); }
-
-static uint64_t xoshiro256ss_next (void) {
-  const uint64_t result = rotl (s[1] * 5, 7) * 9;
-  const uint64_t t = s[1] << 17;
-  s[2] ^= s[0];
-  s[3] ^= s[1];
-  s[1] ^= s[2];
-  s[0] ^= s[3];
-  s[2] ^= t;
-  s[3] = rotl (s[3], 45);
-  return result;
-}
-
-__uint128_t basic_next_u128 (void) {
-  __uint128_t hi = (__uint128_t) xoshiro256ss_next () << 64;
-  return hi | xoshiro256ss_next ();
-}
-
-uint64_t splitmix64 (uint64_t *x) {
-  uint64_t z = (*x += UINT64_C (0x9E3779B97F4A7C15));
-  z = (z ^ (z >> 30)) * UINT64_C (0xBF58476D1CE4E5B9);
-  z = (z ^ (z >> 27)) * UINT64_C (0x94D049BB133111EB);
-  return z ^ (z >> 31);
-}
-
-void basic_randomize (basic_num_t n, basic_num_t has_seed) {
-  uint64_t seed;
-  if (basic_num_ne (has_seed, BASIC_ZERO)) {
-    seed = (uint64_t) basic_num_to_int (n);
-  } else {
-    seed = (((uint64_t) time (NULL)) << 32) ^ (uint64_t) clock ();
-  }
-  uint64_t sm = seed;
-  for (int i = 0; i < 4; i++) s[i] = splitmix64 (&sm);
-  seeded = 1;
-}
-
-#ifndef BASIC_USE_FIXED64
-basic_num_t basic_rnd (basic_num_t n) {
-  if (!seeded) {
-    basic_randomize (BASIC_ZERO, BASIC_ZERO);
-  }
-  __uint128_t r = basic_next_u128 ();
-  uint64_t hi = (uint64_t) (r >> 64);
-  uint64_t lo = (uint64_t) r;
-  basic_num_t base = basic_num_from_int ((long) (1ULL << 32));
-  basic_num_t base64 = basic_num_mul (base, base);
-  basic_num_t hi_num = basic_num_add (basic_num_mul (basic_num_from_int ((long) (hi >> 32)), base),
-                                      basic_num_from_int ((long) (hi & UINT32_MAX)));
-  basic_num_t lo_num = basic_num_add (basic_num_mul (basic_num_from_int ((long) (lo >> 32)), base),
-                                      basic_num_from_int ((long) (lo & UINT32_MAX)));
-  basic_num_t frac = basic_num_div (hi_num, base64);
-  basic_num_t base128 = basic_num_mul (base64, base64);
-  frac = basic_num_add (frac, basic_num_div (lo_num, base128));
-  return basic_num_mul (frac, n);
-}
-#endif
-#else
-uint64_t basic_next_u64 (void) {
-  uint64_t x = rng_state;
-  x ^= x >> 12;
-  x ^= x << 25;
-  x ^= x >> 27;
-  rng_state = x;
-  return x * UINT64_C (2685821657736338717);
-}
-
-void basic_randomize (basic_num_t n, basic_num_t has_seed) {
-  if (basic_num_ne (has_seed, BASIC_ZERO)) {
-    rng_state = (uint64_t) basic_num_to_int (n);
-  } else {
-    rng_state = (((uint64_t) time (NULL)) << 32) ^ (uint64_t) clock ();
-  }
-  seeded = 1;
-}
-
-#ifndef BASIC_USE_FIXED64
-basic_num_t basic_rnd (basic_num_t n) {
-  if (!seeded) {
-    basic_randomize (BASIC_ZERO, BASIC_ZERO);
-  }
-  uint64_t r = basic_next_u64 ();
-  basic_num_t hi = basic_num_from_int ((long) (r >> 32));
-  basic_num_t lo = basic_num_from_int ((long) (r & UINT32_MAX));
-  basic_num_t base = basic_num_from_int ((long) (1ULL << 32));
-  basic_num_t frac = basic_num_add (hi, basic_num_div (lo, base));
-  frac = basic_num_div (frac, base);
-  return basic_num_mul (frac, n);
-}
-#endif
-#endif
 
 basic_num_t basic_abs (basic_num_t x) { return basic_num_fabs (x); }
 
