@@ -1,5 +1,12 @@
 #include "basic_fixed64_hooks.h"
 
+MIR_item_t fixed64_add_proto, fixed64_add_import, fixed64_sub_proto, fixed64_sub_import,
+  fixed64_mul_proto, fixed64_mul_import, fixed64_div_proto, fixed64_div_import, fixed64_eq_proto,
+  fixed64_eq_import, fixed64_ne_proto, fixed64_ne_import, fixed64_lt_proto, fixed64_lt_import,
+  fixed64_le_proto, fixed64_le_import, fixed64_gt_proto, fixed64_gt_import, fixed64_ge_proto,
+  fixed64_ge_import, fixed64_from_int_proto, fixed64_from_int_import, fixed64_to_int_proto,
+  fixed64_to_int_import, fixed64_neg_proto, fixed64_neg_import;
+
 static int safe_snprintf (char *buf, size_t size, const char *fmt, ...) {
   va_list ap;
   int res;

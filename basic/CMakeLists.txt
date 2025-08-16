@@ -35,7 +35,7 @@ elseif(BASIC_NUM_MODE STREQUAL "fixed64")
   list(REMOVE_ITEM BASIC_SRCS src/basic_runtime_double.c)
   list(APPEND BASIC_SRCS
        src/basicc_fixed64.c
-       src/basic_fixed64_hooks.c
+       src/basic_fixed64_common.c
        src/basic_runtime_fixed64.c
        src/vendor/fixed64/fixed64.c
        src/vendor/kitty/kitty.c
