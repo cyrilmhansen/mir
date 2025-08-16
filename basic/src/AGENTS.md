@@ -77,6 +77,8 @@
 ## Built-in Functions
 LEN, INSTR, and ASC return integer values.
 
+Integer operands are represented as 64-bit signed integers (`int64_t`) when invoking runtime helpers.
+
 | Instruction | Description | Operands | Operand Types | Return |
 |---|---|---|---|---|
 | RND | random number | 1 | decimal | decimal |

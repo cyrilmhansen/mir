@@ -370,9 +370,9 @@ extern void basic_rect (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
 extern void basic_fill (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
 extern void basic_mode (basic_num_t);
 
-extern char *basic_chr (basic_num_t);
-extern char *basic_unichar (basic_num_t);
-extern char *basic_string (basic_num_t, const char *);
+extern char *basic_chr (int64_t);
+extern char *basic_unichar (int64_t);
+extern char *basic_string (int64_t, const char *);
 extern char *basic_concat (const char *, const char *);
 extern char *basic_upper (const char *);
 extern char *basic_lower (const char *);
@@ -3797,40 +3797,42 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
       if (strcasecmp (n->var, "CHR$") == 0) {
         MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+        char buf2[32];
+        safe_snprintf (buf2, sizeof (buf2), "$t%d", tmp_id++);
+        MIR_reg_t argi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf2);
+        basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, argi), MIR_new_reg_op (ctx, arg));
         MIR_append_insn (ctx, func,
                          MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, chr_proto),
                                             MIR_new_ref_op (ctx, chr_import),
-                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, argi)));
       } else if (strcasecmp (n->var, "UNICHAR$") == 0) {
         MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+        char buf2[32];
+        safe_snprintf (buf2, sizeof (buf2), "$t%d", tmp_id++);
+        MIR_reg_t argi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf2);
+        basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, argi), MIR_new_reg_op (ctx, arg));
         MIR_append_insn (ctx, func,
                          MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, unichar_proto),
                                             MIR_new_ref_op (ctx, unichar_import),
-                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, argi)));
       } else if (strcasecmp (n->var, "STRING$") == 0) {
         MIR_reg_t a1 = gen_expr (ctx, func, vars, n->left);
+        char buf2[32];
+        safe_snprintf (buf2, sizeof (buf2), "$t%d", tmp_id++);
+        MIR_reg_t a1i = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf2);
+        basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, a1i), MIR_new_reg_op (ctx, a1));
         MIR_reg_t a2 = gen_expr (ctx, func, vars, n->right);
         MIR_append_insn (ctx, func,
                          MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, string_proto),
                                             MIR_new_ref_op (ctx, string_import),
-                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, a1),
+                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, a1i),
                                             MIR_new_reg_op (ctx, a2)));
       } else if (strcasecmp (n->var, "SPC") == 0) {
         MIR_reg_t a1 = gen_expr (ctx, func, vars, n->left);
         char buf2[32];
         safe_snprintf (buf2, sizeof (buf2), "$t%d", tmp_id++);
-        MIR_reg_t space = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf2);
-        MIR_append_insn (ctx, func,
-                         MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, space),
-                                       MIR_new_str_op (ctx, (MIR_str_t) {2, " "})));
-        MIR_append_insn (ctx, func,
-                         MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, string_proto),
-                                            MIR_new_ref_op (ctx, string_import),
-                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, a1),
-                                            MIR_new_reg_op (ctx, space)));
-      } else if (strcasecmp (n->var, "SPACE$") == 0) {
-        MIR_reg_t a1 = gen_expr (ctx, func, vars, n->left);
-        char buf2[32];
+        MIR_reg_t a1i = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf2);
+        basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, a1i), MIR_new_reg_op (ctx, a1));
         safe_snprintf (buf2, sizeof (buf2), "$t%d", tmp_id++);
         MIR_reg_t space = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf2);
         MIR_append_insn (ctx, func,
@@ -3839,7 +3841,23 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
         MIR_append_insn (ctx, func,
                          MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, string_proto),
                                             MIR_new_ref_op (ctx, string_import),
-                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, a1),
+                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, a1i),
+                                            MIR_new_reg_op (ctx, space)));
+      } else if (strcasecmp (n->var, "SPACE$") == 0) {
+        MIR_reg_t a1 = gen_expr (ctx, func, vars, n->left);
+        char buf2[32];
+        safe_snprintf (buf2, sizeof (buf2), "$t%d", tmp_id++);
+        MIR_reg_t a1i = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf2);
+        basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, a1i), MIR_new_reg_op (ctx, a1));
+        safe_snprintf (buf2, sizeof (buf2), "$t%d", tmp_id++);
+        MIR_reg_t space = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf2);
+        MIR_append_insn (ctx, func,
+                         MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, space),
+                                       MIR_new_str_op (ctx, (MIR_str_t) {2, " "})));
+        MIR_append_insn (ctx, func,
+                         MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, string_proto),
+                                            MIR_new_ref_op (ctx, string_import),
+                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, a1i),
                                             MIR_new_reg_op (ctx, space)));
       } else if (strcasecmp (n->var, "INPUT$") == 0) {
         MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
@@ -6490,12 +6508,11 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   rnd_proto = MIR_new_proto (ctx, "basic_rnd_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
 #endif
   rnd_import = MIR_new_import (ctx, "basic_rnd");
-  chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
+  chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, MIR_T_I64, "n");
   chr_import = MIR_new_import (ctx, "basic_chr");
-  unichar_proto = MIR_new_proto (ctx, "basic_unichar_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
+  unichar_proto = MIR_new_proto (ctx, "basic_unichar_p", 1, &p, 1, MIR_T_I64, "n");
   unichar_import = MIR_new_import (ctx, "basic_unichar");
-  string_proto
-    = MIR_new_proto (ctx, "basic_string_p", 1, &p, 2, BASIC_MIR_NUM_T, "n", MIR_T_P, "s");
+  string_proto = MIR_new_proto (ctx, "basic_string_p", 1, &p, 2, MIR_T_I64, "n", MIR_T_P, "s");
   string_import = MIR_new_import (ctx, "basic_string");
   concat_proto = MIR_new_proto (ctx, "basic_concat_p", 1, &p, 2, MIR_T_P, "a", MIR_T_P, "b");
   concat_import = MIR_new_import (ctx, "basic_concat");
