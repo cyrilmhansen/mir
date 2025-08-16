@@ -85,4 +85,22 @@ static void basic_fixed64_init (MIR_context_t ctx) {
 }
 #define BASIC_NUM_INIT basic_fixed64_init
 
+static inline MIR_item_t basic_proto_num (MIR_context_t ctx, const char *name, size_t nargs,
+                                          MIR_var_t *vars) {
+  MIR_var_t all_vars[nargs + 1];
+  all_vars[0].type = MIR_T_P;
+  all_vars[0].name = "res";
+  for (size_t i = 0; i < nargs; ++i) {
+    all_vars[i + 1] = vars[i];
+    if (all_vars[i + 1].type == BASIC_MIR_NUM_T) {
+      all_vars[i + 1].type = MIR_T_BLK;
+      all_vars[i + 1].size = sizeof (basic_num_t);
+    }
+  }
+  return MIR_new_proto_arr (ctx, name, 0, NULL, nargs + 1, all_vars);
+}
+
+#define BASIC_PROTO_NUM(ctx, name, nargs, ...) \
+  basic_proto_num (ctx, name, nargs, (MIR_var_t[]) {__VA_ARGS__})
+
 #include "basicc.c"
