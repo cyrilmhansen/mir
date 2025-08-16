@@ -1,3 +1,10 @@
+## Numeric conventions
+
+When `BASIC_USE_FIXED64` is enabled, routines that produce numeric results
+return them through an output `basic_num_t*` instead of the function's return
+value. Statements such as `INPUT` and `READ` and functions like `RND` and `POS`
+follow this convention.
+
 ## Statements
 
 | Instruction | Description | Operands | Operand Types | Return |
@@ -80,40 +87,39 @@ LEN, INSTR, and ASC return integer values.
 Integer operands are represented as 64-bit signed integers (`int64_t`) when invoking runtime helpers.
 
 | Instruction | Description | Operands | Operand Types | Return |
-|---|---|---|---|---|
-| RND | random number | 1 | decimal | decimal |
-| INT | integer part | 1 | decimal | integer |
-| TIMER | system timer | 0 |  | integer |
+| RND | random number | 1 | decimal | decimal[^num] |
+| INT | integer part | 1 | decimal/integer | integer[^num] |
+| TIMER | system timer | 0 |  | integer[^num] |
 | TIME | current time | 0 |  | string |
 | DATE | current date | 0 |  | string |
-| PEEK | read memory | 1 | integer | integer |
-| EOF | end-of-file check | 1 | integer | integer |
-| POS | current position | 0 |  | integer |
-| ABS | absolute value | 1 | decimal/integer | decimal/integer |
-| SGN | sign of number | 1 | decimal/integer | integer |
-| SQR | square root | 1 | decimal | decimal |
-| SIN | sine | 1 | decimal | decimal |
-| COS | cosine | 1 | decimal | decimal |
-| TAN | tangent | 1 | decimal | decimal |
-| ATN | arctangent | 1 | decimal | decimal |
-| ASIN | arcsine | 1 | decimal | decimal |
-| ACOS | arccosine | 1 | decimal | decimal |
-| SINH | hyperbolic sine | 1 | decimal | decimal |
-| COSH | hyperbolic cosine | 1 | decimal | decimal |
-| TANH | hyperbolic tangent | 1 | decimal | decimal |
-| ASINH | inverse hyperbolic sine | 1 | decimal | decimal |
-| ACOSH | inverse hyperbolic cosine | 1 | decimal | decimal |
-| ATANH | inverse hyperbolic tangent | 1 | decimal | decimal |
-| LOG | natural logarithm | 1 | decimal | decimal |
-| LOG2 | log base 2 | 1 | decimal | decimal |
-| LOG10 | log base 10 | 1 | decimal | decimal |
-| EXP | exponential | 1 | decimal | decimal |
-| FACT | factorial | 1 | integer | integer |
-| PI | pi constant | 0 |  | decimal |
-| LEN | string length | 1 | string | integer |
-| VAL | string to number | 1 | string | decimal/integer |
-| ASC | character code | 1 | string | integer |
-| INSTR | substring position | 2 | string, string | integer |
+| PEEK | read memory | 1 | integer | integer[^num] |
+| EOF | end-of-file check | 1 | integer | integer[^num] |
+| POS | current position | 0 |  | integer[^num] |
+| ABS | absolute value | 1 | decimal/integer | decimal/integer[^num] |
+| SGN | sign of number | 1 | decimal/integer | integer[^num] |
+| SQR | square root | 1 | decimal | decimal[^num] |
+| SIN | sine | 1 | decimal | decimal[^num] |
+| COS | cosine | 1 | decimal | decimal[^num] |
+| TAN | tangent | 1 | decimal | decimal[^num] |
+| ATN | arctangent | 1 | decimal | decimal[^num] |
+| ASIN | arcsine | 1 | decimal | decimal[^num] |
+| ACOS | arccosine | 1 | decimal | decimal[^num] |
+| SINH | hyperbolic sine | 1 | decimal | decimal[^num] |
+| COSH | hyperbolic cosine | 1 | decimal | decimal[^num] |
+| TANH | hyperbolic tangent | 1 | decimal | decimal[^num] |
+| ASINH | inverse hyperbolic sine | 1 | decimal | decimal[^num] |
+| ACOSH | inverse hyperbolic cosine | 1 | decimal | decimal[^num] |
+| ATANH | inverse hyperbolic tangent | 1 | decimal | decimal[^num] |
+| LOG | natural logarithm | 1 | decimal | decimal[^num] |
+| LOG2 | log base 2 | 1 | decimal | decimal[^num] |
+| LOG10 | log base 10 | 1 | decimal | decimal[^num] |
+| EXP | exponential | 1 | decimal | decimal[^num] |
+| FACT | factorial | 1 | integer | integer[^num] |
+| PI | pi constant | 0 |  | decimal[^num] |
+| LEN | string length | 1 | string | integer[^num] |
+| VAL | string to number | 1 | string | decimal/integer[^num] |
+| ASC | character code | 1 | string | integer[^num] |
+| INSTR | substring position | 2 | string, string | integer[^num] |
 | MIRCTX | get MIR context | 0 |  | integer |
 | MIRMOD | create MIR module | 2 | integer, string | integer |
 | MIRFUNC | create MIR function | 3 | integer, string, decimal | integer |
@@ -142,3 +148,4 @@ Integer operands are represented as 64-bit signed integers (`int64_t`) when invo
 | MIRROR$ | reverse string | 1 | string | string |
 | UPPER$ | upper case | 1 | string | string |
 | LOWER$ | lower case | 1 | string | string |
+[^num]: Returns numeric result via an output `basic_num_t*` when `BASIC_USE_FIXED64` is enabled.
