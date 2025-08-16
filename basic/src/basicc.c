@@ -3479,6 +3479,71 @@ static size_t g_loop_len, g_loop_cap;
 static int g_line_tracking = 1;
 static int interp_mode = 0;
 static char *current_dir = NULL;
+
+static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Node *n);
+
+static MIR_reg_t gen_unop (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Node *n) {
+  MIR_reg_t v = gen_expr (ctx, func, vars, n->left);
+  char buf[32];
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  if (n->kind == N_NEG) {
+    MIR_reg_t r = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
+    MIR_append_insn (ctx, func,
+                     basic_mir_unop (ctx, func, MIR_DNEG, MIR_new_reg_op (ctx, r),
+                                     MIR_new_reg_op (ctx, v)));
+    return r;
+  } else {
+    MIR_reg_t resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+    MIR_append_insn (ctx, func,
+                     basic_mir_binop (ctx, func, MIR_DEQ, MIR_new_reg_op (ctx, resi),
+                                      MIR_new_reg_op (ctx, v), emit_num_const (ctx, BASIC_ZERO)));
+    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+    MIR_reg_t resd = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
+    MIR_append_insn (ctx, func,
+                     basic_mir_i2n (ctx, func, MIR_new_reg_op (ctx, resd),
+                                    MIR_new_reg_op (ctx, resi)));
+    return resd;
+  }
+}
+
+static MIR_reg_t gen_binop (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Node *n) {
+  MIR_reg_t l = gen_expr (ctx, func, vars, n->left);
+  MIR_reg_t r = gen_expr (ctx, func, vars, n->right);
+  char buf[32];
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
+  MIR_insn_code_t op = MIR_DADD;
+  switch (n->op) {
+  case OP_PLUS: op = MIR_DADD; break;
+  case OP_MINUS: op = MIR_DSUB; break;
+  case OP_STAR: op = MIR_DMUL; break;
+  case OP_SLASH: op = MIR_DDIV; break;
+  default: break;
+  }
+  MIR_append_insn (ctx, func,
+                   basic_mir_binop (ctx, func, op, MIR_new_reg_op (ctx, res),
+                                    MIR_new_reg_op (ctx, l), MIR_new_reg_op (ctx, r)));
+  return res;
+}
+
+static MIR_reg_t gen_call (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Node *n) {
+  char buf[32];
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
+  MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+  if (strcasecmp (n->var, "RND") == 0) {
+    MIR_append_insn (ctx, func,
+                     MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, rnd_proto),
+                                        MIR_new_ref_op (ctx, rnd_import), MIR_new_reg_op (ctx, res),
+                                        MIR_new_reg_op (ctx, arg)));
+  } else if (strcasecmp (n->var, "INT") == 0) {
+    MIR_append_insn (ctx, func,
+                     MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, int_proto),
+                                        MIR_new_ref_op (ctx, int_import), MIR_new_reg_op (ctx, res),
+                                        MIR_new_reg_op (ctx, arg)));
+  }
+  return res;
+}
 static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Node *n) {
   if (n == NULL) {
     report_parse_error_details (g_cur_line ? g_cur_line->line : 0,
@@ -3842,46 +3907,15 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
     } else {
       return get_var (vars, ctx, func, n->var);
     }
-  } else if (n->kind == N_NEG) {
-    MIR_reg_t v = gen_expr (ctx, func, vars, n->left);
-    char buf[32];
-    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-    MIR_reg_t r = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
-    MIR_append_insn (ctx, func,
-                     basic_mir_unop (ctx, func, MIR_DNEG, MIR_new_reg_op (ctx, r),
-                                     MIR_new_reg_op (ctx, v)));
-    return r;
-  } else if (n->kind == N_NOT) {
-    MIR_reg_t v = gen_expr (ctx, func, vars, n->left);
-    char buf[32];
-    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-    MIR_reg_t resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-    MIR_append_insn (ctx, func,
-                     basic_mir_binop (ctx, func, MIR_DEQ, MIR_new_reg_op (ctx, resi),
-                                      MIR_new_reg_op (ctx, v), emit_num_const (ctx, BASIC_ZERO)));
-    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-    MIR_reg_t resd = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
-    MIR_append_insn (ctx, func,
-                     basic_mir_i2n (ctx, func, MIR_new_reg_op (ctx, resd),
-                                    MIR_new_reg_op (ctx, resi)));
-    return resd;
+  } else if (n->kind == N_NEG || n->kind == N_NOT) {
+    return gen_unop (ctx, func, vars, n);
   } else if (n->kind == N_CALL) {
+    if (strcasecmp (n->var, "RND") == 0 || strcasecmp (n->var, "INT") == 0)
+      return gen_call (ctx, func, vars, n);
     char buf[32];
     safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
     MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
-    if (strcasecmp (n->var, "RND") == 0) {
-      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, rnd_proto),
-                                          MIR_new_ref_op (ctx, rnd_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
-    } else if (strcasecmp (n->var, "INT") == 0) {
-      MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, int_proto),
-                                          MIR_new_ref_op (ctx, int_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
-    } else if (strcasecmp (n->var, "TIMER") == 0) {
+    if (strcasecmp (n->var, "TIMER") == 0) {
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, timer_proto),
                                           MIR_new_ref_op (ctx, timer_import),
@@ -4311,170 +4345,84 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                           MIR_new_reg_op (ctx, sub)));
     }
     return res;
-  } else if (n->op == OP_AND) {
-    MIR_reg_t l = gen_expr (ctx, func, vars, n->left);
-    char buf[32];
-    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-    MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
-    MIR_label_t false_lab = MIR_new_label (ctx);
-    MIR_label_t end_lab = MIR_new_label (ctx);
-    basic_mir_bcmp (ctx, func, MIR_DBEQ, MIR_new_label_op (ctx, false_lab), MIR_new_reg_op (ctx, l),
-                    emit_num_const (ctx, BASIC_ZERO));
-    MIR_reg_t r = gen_expr (ctx, func, vars, n->right);
-    basic_mir_bcmp (ctx, func, MIR_DBEQ, MIR_new_label_op (ctx, false_lab), MIR_new_reg_op (ctx, r),
-                    emit_num_const (ctx, BASIC_ZERO));
-    MIR_append_insn (ctx, func,
-                     MIR_new_insn (ctx, BASIC_MIR_MOV, MIR_new_reg_op (ctx, res),
-                                   emit_num_const (ctx, BASIC_FROM_INT (1))));
-    MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, end_lab)));
-    MIR_append_insn (ctx, func, false_lab);
-    MIR_append_insn (ctx, func,
-                     MIR_new_insn (ctx, BASIC_MIR_MOV, MIR_new_reg_op (ctx, res),
-                                   emit_num_const (ctx, BASIC_ZERO)));
-    MIR_append_insn (ctx, func, end_lab);
-    return res;
-  } else if (n->op == OP_OR) {
-    MIR_reg_t l = gen_expr (ctx, func, vars, n->left);
-    char buf[32];
-    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-    MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
-    MIR_label_t true_lab = MIR_new_label (ctx);
-    MIR_label_t end_lab = MIR_new_label (ctx);
-    basic_mir_bcmp (ctx, func, MIR_DBNE, MIR_new_label_op (ctx, true_lab), MIR_new_reg_op (ctx, l),
-                    emit_num_const (ctx, BASIC_ZERO));
-    MIR_reg_t r = gen_expr (ctx, func, vars, n->right);
-    basic_mir_bcmp (ctx, func, MIR_DBNE, MIR_new_label_op (ctx, true_lab), MIR_new_reg_op (ctx, r),
-                    emit_num_const (ctx, BASIC_ZERO));
-    MIR_append_insn (ctx, func,
-                     MIR_new_insn (ctx, BASIC_MIR_MOV, MIR_new_reg_op (ctx, res),
-                                   emit_num_const (ctx, BASIC_ZERO)));
-    MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, end_lab)));
-    MIR_append_insn (ctx, func, true_lab);
-    MIR_append_insn (ctx, func,
-                     MIR_new_insn (ctx, BASIC_MIR_MOV, MIR_new_reg_op (ctx, res),
-                                   emit_num_const (ctx, BASIC_FROM_INT (1))));
-    MIR_append_insn (ctx, func, end_lab);
-    return res;
-  } else {
-    MIR_reg_t l = gen_expr (ctx, func, vars, n->left);
-    MIR_reg_t r = gen_expr (ctx, func, vars, n->right);
-    char buf[32];
-    if (n->op == OP_AND || n->op == OP_OR) {
+  } else if (n->kind == N_BIN) {
+    if (n->op == OP_PLUS || n->op == OP_MINUS || n->op == OP_STAR || n->op == OP_SLASH)
+      return gen_binop (ctx, func, vars, n);
+    else if (n->op == OP_AND) {
+      MIR_reg_t l = gen_expr (ctx, func, vars, n->left);
+      char buf[32];
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-      MIR_reg_t li = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+      MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
+      MIR_label_t false_lab = MIR_new_label (ctx);
+      MIR_label_t end_lab = MIR_new_label (ctx);
+      basic_mir_bcmp (ctx, func, MIR_DBEQ, MIR_new_label_op (ctx, false_lab),
+                      MIR_new_reg_op (ctx, l), emit_num_const (ctx, BASIC_ZERO));
+      MIR_reg_t r = gen_expr (ctx, func, vars, n->right);
+      basic_mir_bcmp (ctx, func, MIR_DBEQ, MIR_new_label_op (ctx, false_lab),
+                      MIR_new_reg_op (ctx, r), emit_num_const (ctx, BASIC_ZERO));
       MIR_append_insn (ctx, func,
-                       basic_mir_binop (ctx, func, MIR_DNE, MIR_new_reg_op (ctx, li),
-                                        MIR_new_reg_op (ctx, l), emit_num_const (ctx, BASIC_ZERO)));
-      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-      MIR_reg_t ri = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+                       MIR_new_insn (ctx, BASIC_MIR_MOV, MIR_new_reg_op (ctx, res),
+                                     emit_num_const (ctx, BASIC_FROM_INT (1))));
+      MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, end_lab)));
+      MIR_append_insn (ctx, func, false_lab);
       MIR_append_insn (ctx, func,
-                       basic_mir_binop (ctx, func, MIR_DNE, MIR_new_reg_op (ctx, ri),
-                                        MIR_new_reg_op (ctx, r), emit_num_const (ctx, BASIC_ZERO)));
+                       MIR_new_insn (ctx, BASIC_MIR_MOV, MIR_new_reg_op (ctx, res),
+                                     emit_num_const (ctx, BASIC_ZERO)));
+      MIR_append_insn (ctx, func, end_lab);
+      return res;
+    } else if (n->op == OP_OR) {
+      MIR_reg_t l = gen_expr (ctx, func, vars, n->left);
+      char buf[32];
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-      MIR_reg_t resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-      MIR_insn_code_t bop = n->op == OP_AND ? MIR_AND : MIR_OR;
+      MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
+      MIR_label_t true_lab = MIR_new_label (ctx);
+      MIR_label_t end_lab = MIR_new_label (ctx);
+      basic_mir_bcmp (ctx, func, MIR_DBNE, MIR_new_label_op (ctx, true_lab),
+                      MIR_new_reg_op (ctx, l), emit_num_const (ctx, BASIC_ZERO));
+      MIR_reg_t r = gen_expr (ctx, func, vars, n->right);
+      basic_mir_bcmp (ctx, func, MIR_DBNE, MIR_new_label_op (ctx, true_lab),
+                      MIR_new_reg_op (ctx, r), emit_num_const (ctx, BASIC_ZERO));
       MIR_append_insn (ctx, func,
-                       MIR_new_insn (ctx, bop, MIR_new_reg_op (ctx, resi), MIR_new_reg_op (ctx, li),
-                                     MIR_new_reg_op (ctx, ri)));
-      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-      MIR_reg_t resd = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
+                       MIR_new_insn (ctx, BASIC_MIR_MOV, MIR_new_reg_op (ctx, res),
+                                     emit_num_const (ctx, BASIC_ZERO)));
+      MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_JMP, MIR_new_label_op (ctx, end_lab)));
+      MIR_append_insn (ctx, func, true_lab);
       MIR_append_insn (ctx, func,
-                       basic_mir_i2n (ctx, func, MIR_new_reg_op (ctx, resd),
-                                      MIR_new_reg_op (ctx, resi)));
-      return resd;
-    } else if (n->op == OP_BIT || n->op == OP_XOR || n->op == OP_NAND || n->op == OP_NOR
-               || n->op == OP_SHL || n->op == OP_SHR) {
-      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-      MIR_reg_t li = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (ctx, func,
-                       basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, li),
-                                      MIR_new_reg_op (ctx, l)));
-      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-      MIR_reg_t ri = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-      MIR_append_insn (ctx, func,
-                       basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, ri),
-                                      MIR_new_reg_op (ctx, r)));
-      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-      MIR_reg_t resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-      if (n->op == OP_SHL || n->op == OP_SHR) {
-        MIR_insn_code_t sop = n->op == OP_SHL ? MIR_LSH : MIR_URSH;
+                       MIR_new_insn (ctx, BASIC_MIR_MOV, MIR_new_reg_op (ctx, res),
+                                     emit_num_const (ctx, BASIC_FROM_INT (1))));
+      MIR_append_insn (ctx, func, end_lab);
+      return res;
+    } else {
+      MIR_reg_t l = gen_expr (ctx, func, vars, n->left);
+      MIR_reg_t r = gen_expr (ctx, func, vars, n->right);
+      char buf[32];
+      if (n->op == OP_AND || n->op == OP_OR) {
+        safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+        MIR_reg_t li = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
         MIR_append_insn (ctx, func,
-                         MIR_new_insn (ctx, sop, MIR_new_reg_op (ctx, resi),
-                                       MIR_new_reg_op (ctx, li), MIR_new_reg_op (ctx, ri)));
-      } else {
-        MIR_insn_code_t bop = MIR_AND;
-        switch (n->op) {
-        case OP_BIT: bop = MIR_AND; break;
-        case OP_XOR: bop = MIR_XOR; break;
-        case OP_NAND: bop = MIR_AND; break;
-        case OP_NOR: bop = MIR_OR; break;
-        default: break;
-        }
+                         basic_mir_binop (ctx, func, MIR_DNE, MIR_new_reg_op (ctx, li),
+                                          MIR_new_reg_op (ctx, l),
+                                          emit_num_const (ctx, BASIC_ZERO)));
+        safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+        MIR_reg_t ri = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+        MIR_append_insn (ctx, func,
+                         basic_mir_binop (ctx, func, MIR_DNE, MIR_new_reg_op (ctx, ri),
+                                          MIR_new_reg_op (ctx, r),
+                                          emit_num_const (ctx, BASIC_ZERO)));
+        safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+        MIR_reg_t resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+        MIR_insn_code_t bop = n->op == OP_AND ? MIR_AND : MIR_OR;
         MIR_append_insn (ctx, func,
                          MIR_new_insn (ctx, bop, MIR_new_reg_op (ctx, resi),
                                        MIR_new_reg_op (ctx, li), MIR_new_reg_op (ctx, ri)));
-        if (n->op == OP_NAND || n->op == OP_NOR)
-          MIR_append_insn (ctx, func,
-                           MIR_new_insn (ctx, MIR_XOR, MIR_new_reg_op (ctx, resi),
-                                         MIR_new_reg_op (ctx, resi), MIR_new_int_op (ctx, -1)));
-      }
-      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-      MIR_reg_t resd = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
-      MIR_append_insn (ctx, func,
-                       basic_mir_i2n (ctx, func, MIR_new_reg_op (ctx, resd),
-                                      MIR_new_reg_op (ctx, resi)));
-      return resd;
-    } else if (n->op == OP_EQ || n->op == OP_NE || n->op == OP_LT || n->op == OP_GT
-               || n->op == OP_LE || n->op == OP_GE) {
-      MIR_insn_code_t cmp_code;
-      MIR_reg_t resi;
-      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-      if (n->left->is_str || n->right->is_str) {
-        MIR_reg_t cmp = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-        MIR_append_insn (ctx, func,
-                         MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, strcmp_proto),
-                                            MIR_new_ref_op (ctx, strcmp_import),
-                                            MIR_new_reg_op (ctx, cmp), MIR_new_reg_op (ctx, l),
-                                            MIR_new_reg_op (ctx, r)));
         safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-        resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-        cmp_code = MIR_EQ;
-        switch (n->op) {
-        case OP_EQ: cmp_code = MIR_EQ; break;
-        case OP_NE: cmp_code = MIR_NE; break;
-        case OP_LT: cmp_code = MIR_LT; break;
-        case OP_LE: cmp_code = MIR_LE; break;
-        case OP_GT: cmp_code = MIR_GT; break;
-        case OP_GE: cmp_code = MIR_GE; break;
-        }
+        MIR_reg_t resd = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
         MIR_append_insn (ctx, func,
-                         MIR_new_insn (ctx, cmp_code, MIR_new_reg_op (ctx, resi),
-                                       MIR_new_reg_op (ctx, cmp), MIR_new_int_op (ctx, 0)));
-      } else {
-        resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-        switch (n->op) {
-        case OP_EQ: cmp_code = MIR_DEQ; break;
-        case OP_NE: cmp_code = MIR_DNE; break;
-        case OP_LT: cmp_code = MIR_DLT; break;
-        case OP_LE: cmp_code = MIR_DLE; break;
-        case OP_GT: cmp_code = MIR_DGT; break;
-        case OP_GE: cmp_code = MIR_DGE; break;
-        default: cmp_code = MIR_DEQ; break;
-        }
-        MIR_append_insn (ctx, func,
-                         basic_mir_binop (ctx, func, cmp_code, MIR_new_reg_op (ctx, resi),
-                                          MIR_new_reg_op (ctx, l), MIR_new_reg_op (ctx, r)));
-      }
-      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-      MIR_reg_t resd = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
-      MIR_append_insn (ctx, func,
-                       basic_mir_i2n (ctx, func, MIR_new_reg_op (ctx, resd),
-                                      MIR_new_reg_op (ctx, resi)));
-      return resd;
-    } else {
-      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
-      MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
-      if (n->op == OP_BACKSLASH || n->op == OP_MOD) {
+                         basic_mir_i2n (ctx, func, MIR_new_reg_op (ctx, resd),
+                                        MIR_new_reg_op (ctx, resi)));
+        return resd;
+      } else if (n->op == OP_BIT || n->op == OP_XOR || n->op == OP_NAND || n->op == OP_NOR
+                 || n->op == OP_SHL || n->op == OP_SHR) {
         safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
         MIR_reg_t li = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
         MIR_append_insn (ctx, func,
@@ -4487,32 +4435,124 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                         MIR_new_reg_op (ctx, r)));
         safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
         MIR_reg_t resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-        MIR_insn_code_t iop = n->op == OP_BACKSLASH ? MIR_DIV : MIR_MOD;
-        MIR_append_insn (ctx, func,
-                         MIR_new_insn (ctx, iop, MIR_new_reg_op (ctx, resi),
-                                       MIR_new_reg_op (ctx, li), MIR_new_reg_op (ctx, ri)));
-        MIR_append_insn (ctx, func,
-                         basic_mir_i2n (ctx, func, MIR_new_reg_op (ctx, res),
-                                        MIR_new_reg_op (ctx, resi)));
-      } else if (n->op == OP_POW) {
-        MIR_append_insn (ctx, func,
-                         MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, pow_proto),
-                                            MIR_new_ref_op (ctx, pow_import),
-                                            MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, l),
-                                            MIR_new_reg_op (ctx, r)));
-      } else {
-        MIR_insn_code_t op = MIR_DADD;
-        switch (n->op) {
-        case OP_PLUS: op = MIR_DADD; break;
-        case OP_MINUS: op = MIR_DSUB; break;
-        case OP_STAR: op = MIR_DMUL; break;
-        case OP_SLASH: op = MIR_DDIV; break;
+        if (n->op == OP_SHL || n->op == OP_SHR) {
+          MIR_insn_code_t sop = n->op == OP_SHL ? MIR_LSH : MIR_URSH;
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, sop, MIR_new_reg_op (ctx, resi),
+                                         MIR_new_reg_op (ctx, li), MIR_new_reg_op (ctx, ri)));
+        } else {
+          MIR_insn_code_t bop = MIR_AND;
+          switch (n->op) {
+          case OP_BIT: bop = MIR_AND; break;
+          case OP_XOR: bop = MIR_XOR; break;
+          case OP_NAND: bop = MIR_AND; break;
+          case OP_NOR: bop = MIR_OR; break;
+          default: break;
+          }
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, bop, MIR_new_reg_op (ctx, resi),
+                                         MIR_new_reg_op (ctx, li), MIR_new_reg_op (ctx, ri)));
+          if (n->op == OP_NAND || n->op == OP_NOR)
+            MIR_append_insn (ctx, func,
+                             MIR_new_insn (ctx, MIR_XOR, MIR_new_reg_op (ctx, resi),
+                                           MIR_new_reg_op (ctx, resi), MIR_new_int_op (ctx, -1)));
         }
+        safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+        MIR_reg_t resd = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
         MIR_append_insn (ctx, func,
-                         basic_mir_binop (ctx, func, op, MIR_new_reg_op (ctx, res),
-                                          MIR_new_reg_op (ctx, l), MIR_new_reg_op (ctx, r)));
+                         basic_mir_i2n (ctx, func, MIR_new_reg_op (ctx, resd),
+                                        MIR_new_reg_op (ctx, resi)));
+        return resd;
+      } else if (n->op == OP_EQ || n->op == OP_NE || n->op == OP_LT || n->op == OP_GT
+                 || n->op == OP_LE || n->op == OP_GE) {
+        MIR_insn_code_t cmp_code;
+        MIR_reg_t resi;
+        safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+        if (n->left->is_str || n->right->is_str) {
+          MIR_reg_t cmp = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+          MIR_append_insn (ctx, func,
+                           MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, strcmp_proto),
+                                              MIR_new_ref_op (ctx, strcmp_import),
+                                              MIR_new_reg_op (ctx, cmp), MIR_new_reg_op (ctx, l),
+                                              MIR_new_reg_op (ctx, r)));
+          safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+          resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+          cmp_code = MIR_EQ;
+          switch (n->op) {
+          case OP_EQ: cmp_code = MIR_EQ; break;
+          case OP_NE: cmp_code = MIR_NE; break;
+          case OP_LT: cmp_code = MIR_LT; break;
+          case OP_LE: cmp_code = MIR_LE; break;
+          case OP_GT: cmp_code = MIR_GT; break;
+          case OP_GE: cmp_code = MIR_GE; break;
+          }
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, cmp_code, MIR_new_reg_op (ctx, resi),
+                                         MIR_new_reg_op (ctx, cmp), MIR_new_int_op (ctx, 0)));
+        } else {
+          resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+          switch (n->op) {
+          case OP_EQ: cmp_code = MIR_DEQ; break;
+          case OP_NE: cmp_code = MIR_DNE; break;
+          case OP_LT: cmp_code = MIR_DLT; break;
+          case OP_LE: cmp_code = MIR_DLE; break;
+          case OP_GT: cmp_code = MIR_DGT; break;
+          case OP_GE: cmp_code = MIR_DGE; break;
+          default: cmp_code = MIR_DEQ; break;
+          }
+          MIR_append_insn (ctx, func,
+                           basic_mir_binop (ctx, func, cmp_code, MIR_new_reg_op (ctx, resi),
+                                            MIR_new_reg_op (ctx, l), MIR_new_reg_op (ctx, r)));
+        }
+        safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+        MIR_reg_t resd = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
+        MIR_append_insn (ctx, func,
+                         basic_mir_i2n (ctx, func, MIR_new_reg_op (ctx, resd),
+                                        MIR_new_reg_op (ctx, resi)));
+        return resd;
+      } else {
+        safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+        MIR_reg_t res = MIR_new_func_reg (ctx, func->u.func, BASIC_MIR_NUM_T, buf);
+        if (n->op == OP_BACKSLASH || n->op == OP_MOD) {
+          safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+          MIR_reg_t li = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+          MIR_append_insn (ctx, func,
+                           basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, li),
+                                          MIR_new_reg_op (ctx, l)));
+          safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+          MIR_reg_t ri = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+          MIR_append_insn (ctx, func,
+                           basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, ri),
+                                          MIR_new_reg_op (ctx, r)));
+          safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+          MIR_reg_t resi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+          MIR_insn_code_t iop = n->op == OP_BACKSLASH ? MIR_DIV : MIR_MOD;
+          MIR_append_insn (ctx, func,
+                           MIR_new_insn (ctx, iop, MIR_new_reg_op (ctx, resi),
+                                         MIR_new_reg_op (ctx, li), MIR_new_reg_op (ctx, ri)));
+          MIR_append_insn (ctx, func,
+                           basic_mir_i2n (ctx, func, MIR_new_reg_op (ctx, res),
+                                          MIR_new_reg_op (ctx, resi)));
+        } else if (n->op == OP_POW) {
+          MIR_append_insn (ctx, func,
+                           MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, pow_proto),
+                                              MIR_new_ref_op (ctx, pow_import),
+                                              MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, l),
+                                              MIR_new_reg_op (ctx, r)));
+        } else {
+          MIR_insn_code_t op = MIR_DADD;
+          switch (n->op) {
+          case OP_PLUS: op = MIR_DADD; break;
+          case OP_MINUS: op = MIR_DSUB; break;
+          case OP_STAR: op = MIR_DMUL; break;
+          case OP_SLASH: op = MIR_DDIV; break;
+          }
+          MIR_append_insn (ctx, func,
+                           basic_mir_binop (ctx, func, op, MIR_new_reg_op (ctx, res),
+                                            MIR_new_reg_op (ctx, l), MIR_new_reg_op (ctx, r)));
+        }
+        return res;
       }
-      return res;
     }
   }
 }
@@ -7201,7 +7241,8 @@ static void usage (const char *progname) {
   safe_fprintf (stdout, "  -S                 Emit MIR text (.mir) and binary (.bmir) files\n");
   safe_fprintf (stdout, "  -c                 Emit MIR text (.mir) and binary (.bmir) files\n");
   safe_fprintf (stdout,
-                "  -r                 Emit only a binary (.bmir) file for use with mir-bin-run\n");
+                "  -r                 Emit only a binary (.bmir) file for use with "
+                "mir-bin-run\n");
   safe_fprintf (stdout, "  -b                 Build a standalone executable\n");
   safe_fprintf (stdout, "  -l                 Reduce linked libraries when building executables\n");
   safe_fprintf (stdout,
