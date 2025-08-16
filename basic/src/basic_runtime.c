@@ -359,8 +359,8 @@ int basic_strcmp (const char *a, const char *b) {
 #define BASIC_MAX_FILES 16
 FILE *basic_files[BASIC_MAX_FILES];
 
-void basic_open (basic_num_t n, const char *path) {
-  int idx = basic_num_to_int (n);
+void basic_open (int64_t n, const char *path) {
+  int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES) return;
   if (basic_files[idx] != NULL) {
     fclose (basic_files[idx]);
@@ -371,8 +371,8 @@ void basic_open (basic_num_t n, const char *path) {
   basic_files[idx] = f;
 }
 
-void basic_close (basic_num_t n) {
-  int idx = basic_num_to_int (n);
+void basic_close (int64_t n) {
+  int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES) return;
   if (basic_files[idx] != NULL) {
     fclose (basic_files[idx]);
@@ -380,24 +380,24 @@ void basic_close (basic_num_t n) {
   }
 }
 
-void basic_print_hash (basic_num_t n, basic_num_t x) {
-  int idx = basic_num_to_int (n);
+void basic_print_hash (int64_t n, basic_num_t x) {
+  int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return;
   char buf[128];
   basic_num_to_chars (x, buf, sizeof (buf));
   fputs (buf, basic_files[idx]);
 }
 
-void basic_print_hash_str (basic_num_t n, const char *s) {
-  int idx = basic_num_to_int (n);
+void basic_print_hash_str (int64_t n, const char *s) {
+  int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return;
   fputs (s, basic_files[idx]);
 }
 
 /* Read a line from an open file and return a newly allocated string.
    Caller must free the result with basic_free. */
-char *basic_input_hash_str (basic_num_t n) {
-  int idx = basic_num_to_int (n);
+char *basic_input_hash_str (int64_t n) {
+  int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) {
     char *res = basic_alloc_string (0);
     if (res == NULL) return NULL;
@@ -421,8 +421,8 @@ char *basic_input_hash_str (basic_num_t n) {
 
 /* Read a single character from an open file and return it as a
    newly allocated string. Caller must free the result with basic_free. */
-char *basic_get_hash (basic_num_t n) {
-  int idx = basic_num_to_int (n);
+char *basic_get_hash (int64_t n) {
+  int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) {
     char *s = basic_alloc_string (1);
     if (s != NULL) s[0] = 0;
@@ -435,15 +435,15 @@ char *basic_get_hash (basic_num_t n) {
   return s;
 }
 
-void basic_put_hash (basic_num_t n, const char *s) {
-  int idx = basic_num_to_int (n);
+void basic_put_hash (int64_t n, const char *s) {
+  int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return;
   int c = s != NULL && s[0] != '\0' ? (unsigned char) s[0] : 0;
   fputc (c, basic_files[idx]);
 }
 
-basic_num_t basic_eof (basic_num_t n) {
-  int idx = basic_num_to_int (n);
+basic_num_t basic_eof (int64_t n) {
+  int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return basic_num_from_int (-1);
   return feof (basic_files[idx]) ? basic_num_from_int (-1) : BASIC_ZERO;
 }

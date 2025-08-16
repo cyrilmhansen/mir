@@ -226,15 +226,15 @@ extern char *basic_input_chr (basic_num_t);
 extern basic_num_t basic_peek (basic_num_t);
 extern void basic_poke (basic_num_t, basic_num_t);
 
-extern void basic_open (basic_num_t, const char *);
-extern void basic_close (basic_num_t);
-extern void basic_print_hash (basic_num_t, basic_num_t);
-extern void basic_print_hash_str (basic_num_t, const char *);
-extern basic_num_t basic_input_hash (basic_num_t);
-extern char *basic_input_hash_str (basic_num_t);
-extern char *basic_get_hash (basic_num_t);
-extern void basic_put_hash (basic_num_t, const char *);
-extern basic_num_t basic_eof (basic_num_t);
+extern void basic_open (int64_t, const char *);
+extern void basic_close (int64_t);
+extern void basic_print_hash (int64_t, basic_num_t);
+extern void basic_print_hash_str (int64_t, const char *);
+extern basic_num_t basic_input_hash (int64_t);
+extern char *basic_input_hash_str (int64_t);
+extern char *basic_get_hash (int64_t);
+extern void basic_put_hash (int64_t, const char *);
+extern basic_num_t basic_eof (int64_t);
 
 extern void basic_stop (void);
 
@@ -4154,10 +4154,16 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                                           MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
     } else if (strcasecmp (n->var, "EOF") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
+      char buf[32];
+      safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+      MIR_reg_t argi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+      MIR_append_insn (ctx, func,
+                       basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, argi),
+                                      MIR_new_reg_op (ctx, arg)));
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, eof_proto),
                                           MIR_new_ref_op (ctx, eof_import),
-                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, arg)));
+                                          MIR_new_reg_op (ctx, res), MIR_new_reg_op (ctx, argi)));
     } else if (strcasecmp (n->var, "ABS") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
       if (n->left->is_int) {
@@ -4646,10 +4652,16 @@ static void gen_print (Stmt *s) {
 
 static void gen_print_hash (Stmt *s) {
   MIR_reg_t fn = gen_expr (g_ctx, g_func, &g_vars, s->u.printhash.num);
+  char buf[32];
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t fni = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+  MIR_append_insn (g_ctx, g_func,
+                   basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni),
+                                  MIR_new_reg_op (g_ctx, fn)));
   for (size_t k = 0; k < s->u.printhash.n; k++)
-    print_hash_item (fn, s->u.printhash.items[k],
+    print_hash_item (fni, s->u.printhash.items[k],
                      k + 1 < s->u.printhash.n ? s->u.printhash.items[k + 1] : NULL);
-  if (!s->u.printhash.no_nl) print_hash_str (fn, (MIR_str_t) {2, "\n"});
+  if (!s->u.printhash.no_nl) print_hash_str (fni, (MIR_str_t) {2, "\n"});
 }
 
 static void input_str_var (MIR_reg_t v) {
@@ -4763,8 +4775,14 @@ static void input_hash_num (MIR_reg_t v, MIR_reg_t fn) {
 
 static void gen_input_hash (Stmt *s) {
   MIR_reg_t fn = gen_expr (g_ctx, g_func, &g_vars, s->u.inputhash.num);
+  char buf[32];
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t fni = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+  MIR_append_insn (g_ctx, g_func,
+                   basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni),
+                                  MIR_new_reg_op (g_ctx, fn)));
   MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.inputhash.var);
-  (s->u.inputhash.is_str ? input_hash_str : input_hash_num) (v, fn);
+  (s->u.inputhash.is_str ? input_hash_str : input_hash_num) (v, fni);
 }
 
 static void gen_get (Stmt *s) {
@@ -4774,8 +4792,14 @@ static void gen_get (Stmt *s) {
 
 static void gen_get_hash (Stmt *s) {
   MIR_reg_t fn = gen_expr (g_ctx, g_func, &g_vars, s->u.gethash.num);
+  char buf[32];
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t fni = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+  MIR_append_insn (g_ctx, g_func,
+                   basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni),
+                                  MIR_new_reg_op (g_ctx, fn)));
   MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.gethash.var);
-  call2 (get_hash_proto, get_hash_import, MIR_new_reg_op (g_ctx, v), MIR_new_reg_op (g_ctx, fn));
+  call2 (get_hash_proto, get_hash_import, MIR_new_reg_op (g_ctx, v), MIR_new_reg_op (g_ctx, fni));
 }
 
 static void gen_put (Stmt *s) {
@@ -4785,8 +4809,14 @@ static void gen_put (Stmt *s) {
 
 static void gen_put_hash (Stmt *s) {
   MIR_reg_t fn = gen_expr (g_ctx, g_func, &g_vars, s->u.puthash.num);
+  char buf[32];
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t fni = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+  MIR_append_insn (g_ctx, g_func,
+                   basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni),
+                                  MIR_new_reg_op (g_ctx, fn)));
   MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.puthash.expr);
-  call2 (put_hash_proto, put_hash_import, MIR_new_reg_op (g_ctx, fn), MIR_new_reg_op (g_ctx, r));
+  call2 (put_hash_proto, put_hash_import, MIR_new_reg_op (g_ctx, fni), MIR_new_reg_op (g_ctx, r));
 }
 
 static void gen_poke (Stmt *s) {
@@ -5275,19 +5305,31 @@ static void gen_stmt_default (Stmt *s) {
   }
   case ST_OPEN: {
     MIR_reg_t fn = gen_expr (g_ctx, g_func, &g_vars, s->u.open.num);
+    char buf[32];
+    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+    MIR_reg_t fni = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+    MIR_append_insn (g_ctx, g_func,
+                     basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni),
+                                    MIR_new_reg_op (g_ctx, fn)));
     MIR_reg_t path = gen_expr (g_ctx, g_func, &g_vars, s->u.open.path);
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, open_proto),
                                         MIR_new_ref_op (g_ctx, open_import),
-                                        MIR_new_reg_op (g_ctx, fn), MIR_new_reg_op (g_ctx, path)));
+                                        MIR_new_reg_op (g_ctx, fni), MIR_new_reg_op (g_ctx, path)));
     break;
   }
   case ST_CLOSE: {
     MIR_reg_t fn = gen_expr (g_ctx, g_func, &g_vars, s->u.close.num);
+    char buf[32];
+    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+    MIR_reg_t fni = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+    MIR_append_insn (g_ctx, g_func,
+                     basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni),
+                                    MIR_new_reg_op (g_ctx, fn)));
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, close_proto),
                                         MIR_new_ref_op (g_ctx, close_import),
-                                        MIR_new_reg_op (g_ctx, fn)));
+                                        MIR_new_reg_op (g_ctx, fni)));
     break;
   }
   case ST_TEXT: {
@@ -6308,26 +6350,24 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   get_import = MIR_new_import (ctx, "basic_get");
   put_proto = MIR_new_proto (ctx, "basic_put_p", 0, NULL, 1, MIR_T_P, "s");
   put_import = MIR_new_import (ctx, "basic_put");
-  open_proto
-    = MIR_new_proto (ctx, "basic_open_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n", MIR_T_P, "path");
+  open_proto = MIR_new_proto (ctx, "basic_open_p", 0, NULL, 2, MIR_T_I64, "n", MIR_T_P, "path");
   open_import = MIR_new_import (ctx, "basic_open");
-  close_proto = MIR_new_proto (ctx, "basic_close_p", 0, NULL, 1, BASIC_MIR_NUM_T, "n");
+  close_proto = MIR_new_proto (ctx, "basic_close_p", 0, NULL, 1, MIR_T_I64, "n");
   close_import = MIR_new_import (ctx, "basic_close");
-  printh_proto = MIR_new_proto (ctx, "basic_print_hash_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n",
-                                BASIC_MIR_NUM_T, "x");
+  printh_proto
+    = MIR_new_proto (ctx, "basic_print_hash_p", 0, NULL, 2, MIR_T_I64, "n", BASIC_MIR_NUM_T, "x");
   printh_import = MIR_new_import (ctx, "basic_print_hash");
   prinths_proto
-    = MIR_new_proto (ctx, "basic_print_hash_str_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n", MIR_T_P, "s");
+    = MIR_new_proto (ctx, "basic_print_hash_str_p", 0, NULL, 2, MIR_T_I64, "n", MIR_T_P, "s");
   prinths_import = MIR_new_import (ctx, "basic_print_hash_str");
-  input_hash_proto = MIR_new_proto (ctx, "basic_input_hash_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
+  input_hash_proto = MIR_new_proto (ctx, "basic_input_hash_p", 1, &d, 1, MIR_T_I64, "n");
   input_hash_import = MIR_new_import (ctx, "basic_input_hash");
-  input_hash_str_proto
-    = MIR_new_proto (ctx, "basic_input_hash_str_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
+  input_hash_str_proto = MIR_new_proto (ctx, "basic_input_hash_str_p", 1, &p, 1, MIR_T_I64, "n");
   input_hash_str_import = MIR_new_import (ctx, "basic_input_hash_str");
-  get_hash_proto = MIR_new_proto (ctx, "basic_get_hash_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
+  get_hash_proto = MIR_new_proto (ctx, "basic_get_hash_p", 1, &p, 1, MIR_T_I64, "n");
   get_hash_import = MIR_new_import (ctx, "basic_get_hash");
   put_hash_proto
-    = MIR_new_proto (ctx, "basic_put_hash_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n", MIR_T_P, "s");
+    = MIR_new_proto (ctx, "basic_put_hash_p", 0, NULL, 2, MIR_T_I64, "n", MIR_T_P, "s");
   put_hash_import = MIR_new_import (ctx, "basic_put_hash");
   home_proto = MIR_new_proto (ctx, "basic_home_p", 0, NULL, 0);
   home_import = MIR_new_import (ctx, "basic_home");
@@ -6467,7 +6507,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   inkey_import = MIR_new_import (ctx, "basic_inkey");
   peek_proto = MIR_new_proto (ctx, "basic_peek_p", 1, &d, 1, BASIC_MIR_NUM_T, "addr");
   peek_import = MIR_new_import (ctx, "basic_peek");
-  eof_proto = MIR_new_proto (ctx, "basic_eof_p", 1, &d, 1, BASIC_MIR_NUM_T, "n");
+  eof_proto = MIR_new_proto (ctx, "basic_eof_p", 1, &d, 1, MIR_T_I64, "n");
   eof_import = MIR_new_import (ctx, "basic_eof");
   pos_proto = MIR_new_proto (ctx, "basic_pos_p", 1, &d, 0);
   pos_import = MIR_new_import (ctx, "basic_pos");
