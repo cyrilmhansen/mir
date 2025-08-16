@@ -9,10 +9,8 @@
 #include "basic_runtime_shared.h"
 
 /* Declarations moved to basic_runtime_shared.h */
-#define BASIC_PRNG128 1
 
 static int seeded = 0;
-#if defined(BASIC_PRNG128)
 static uint64_t s[4] = {0, 0, 0, 0};
 
 static uint64_t rotl (const uint64_t x, int k) { return (x << k) | (x >> (64 - k)); }
@@ -52,27 +50,6 @@ void basic_randomize (basic_num_t n, basic_num_t has_seed) {
   for (int i = 0; i < 4; i++) s[i] = splitmix64 (&sm);
   seeded = 1;
 }
-#else
-static uint64_t rng_state = 0;
-
-static uint64_t basic_next_u64 (void) {
-  uint64_t x = rng_state;
-  x ^= x >> 12;
-  x ^= x << 25;
-  x ^= x >> 27;
-  rng_state = x;
-  return x * UINT64_C (2685821657736338717);
-}
-
-void basic_randomize (basic_num_t n, basic_num_t has_seed) {
-  if (basic_num_ne (has_seed, BASIC_ZERO)) {
-    rng_state = (uint64_t) basic_num_to_int (n);
-  } else {
-    rng_state = (((uint64_t) time (NULL)) << 32) ^ (uint64_t) clock ();
-  }
-  seeded = 1;
-}
-#endif
 
 extern int basic_pos_val;
 #define BASIC_MAX_FILES 16
@@ -395,7 +372,6 @@ void basic_read (basic_num_t *res) {
   *res = basic_data_items[basic_data_pos++].num;
 }
 
-#if defined(BASIC_PRNG128)
 void basic_rnd (basic_num_t *res, basic_num_t n) {
   if (!seeded) {
     basic_randomize (BASIC_ZERO, BASIC_ZERO);
@@ -414,20 +390,6 @@ void basic_rnd (basic_num_t *res, basic_num_t n) {
   frac = basic_num_add (frac, basic_num_div (lo_num, base128));
   *res = basic_num_mul (frac, n);
 }
-#else
-void basic_rnd (basic_num_t *res, basic_num_t n) {
-  if (!seeded) {
-    basic_randomize (BASIC_ZERO, BASIC_ZERO);
-  }
-  uint64_t r = basic_next_u64 ();
-  basic_num_t hi = basic_num_from_int ((long) (r >> 32));
-  basic_num_t lo = basic_num_from_int ((long) (r & UINT32_MAX));
-  basic_num_t base = basic_num_from_int ((long) (1ULL << 32));
-  basic_num_t frac = basic_num_add (hi, basic_num_div (lo, base));
-  frac = basic_num_div (frac, base);
-  *res = basic_num_mul (frac, n);
-}
-#endif
 
 /* Wrappers to match integer parameter helpers. */
 char *basic_chr_wrap (int64_t n) { return basic_chr (n); }
