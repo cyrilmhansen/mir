@@ -4705,7 +4705,116 @@ static void gen_poke (Stmt *s) {
   call2 (poke_proto, poke_import, MIR_new_reg_op (g_ctx, addr), MIR_new_reg_op (g_ctx, val));
 }
 
-static void gen_stmt (Stmt *s) {
+typedef void (*gen_stmt_fn) (Stmt *);
+typedef void (*stmt_profile_hook) (Stmt *);
+static stmt_profile_hook stmt_profile;
+
+#define STMT_PROFILE(s)                 \
+  do {                                  \
+    if (stmt_profile) stmt_profile (s); \
+  } while (0)
+
+static void gen_stmt_print (Stmt *s) {
+  STMT_PROFILE (s);
+  gen_print (s);
+}
+
+static void gen_stmt_print_hash (Stmt *s) {
+  STMT_PROFILE (s);
+  gen_print_hash (s);
+}
+
+static void gen_stmt_input (Stmt *s) {
+  STMT_PROFILE (s);
+  gen_input (s);
+}
+
+static void gen_stmt_input_hash (Stmt *s) {
+  STMT_PROFILE (s);
+  gen_input_hash (s);
+}
+
+static void gen_stmt_get (Stmt *s) {
+  STMT_PROFILE (s);
+  gen_get (s);
+}
+
+static void gen_stmt_get_hash (Stmt *s) {
+  STMT_PROFILE (s);
+  gen_get_hash (s);
+}
+
+static void gen_stmt_put (Stmt *s) {
+  STMT_PROFILE (s);
+  gen_put (s);
+}
+
+static void gen_stmt_put_hash (Stmt *s) {
+  STMT_PROFILE (s);
+  gen_put_hash (s);
+}
+
+static void gen_stmt_poke (Stmt *s) {
+  STMT_PROFILE (s);
+  gen_poke (s);
+}
+
+static void gen_stmt_for (Stmt *s) {
+  STMT_PROFILE (s);
+  MIR_reg_t var = get_var (&g_vars, g_ctx, g_func, s->u.forto.var);
+  MIR_reg_t start = gen_expr (g_ctx, g_func, &g_vars, s->u.forto.start);
+  MIR_reg_t end = gen_expr (g_ctx, g_func, &g_vars, s->u.forto.end);
+  MIR_reg_t step = gen_expr (g_ctx, g_func, &g_vars, s->u.forto.step);
+  MIR_append_insn (g_ctx, g_func,
+                   MIR_new_insn (g_ctx, BASIC_MIR_MOV, MIR_new_reg_op (g_ctx, var),
+                                 MIR_new_reg_op (g_ctx, start)));
+  MIR_label_t start_label = MIR_new_label (g_ctx);
+  MIR_label_t end_label = MIR_new_label (g_ctx);
+  if (g_loop_len == g_loop_cap) {
+    size_t new_cap = g_loop_cap ? 2 * g_loop_cap : 16;
+    LoopInfo *tmp
+      = pool_realloc (g_loop_stack, g_loop_cap * sizeof (LoopInfo), new_cap * sizeof (LoopInfo));
+    if (tmp == NULL) return;
+    g_loop_stack = tmp;
+    g_loop_cap = new_cap;
+  }
+  g_loop_stack[g_loop_len++] = (LoopInfo) {var, end, step, start_label, end_label, LOOP_FOR};
+  MIR_append_insn (g_ctx, g_func, start_label);
+  MIR_label_t neg_step = MIR_new_label (g_ctx);
+  MIR_label_t after_cmp = MIR_new_label (g_ctx);
+  basic_mir_bcmp (g_ctx, g_func, MIR_DBLT, MIR_new_label_op (g_ctx, neg_step),
+                  MIR_new_reg_op (g_ctx, step), emit_num_const (g_ctx, BASIC_ZERO));
+  basic_mir_bcmp (g_ctx, g_func, MIR_DBGT, MIR_new_label_op (g_ctx, end_label),
+                  MIR_new_reg_op (g_ctx, var), MIR_new_reg_op (g_ctx, end));
+  MIR_append_insn (g_ctx, g_func,
+                   MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, after_cmp)));
+  MIR_append_insn (g_ctx, g_func, neg_step);
+  basic_mir_bcmp (g_ctx, g_func, MIR_DBLT, MIR_new_label_op (g_ctx, end_label),
+                  MIR_new_reg_op (g_ctx, var), MIR_new_reg_op (g_ctx, end));
+  MIR_append_insn (g_ctx, g_func, after_cmp);
+}
+
+static void gen_stmt_default (Stmt *s);
+
+static gen_stmt_fn stmt_generators[ST_EVAL + 1] = {
+  [0 ... ST_EVAL] = gen_stmt_default,
+  [ST_PRINT] = gen_stmt_print,
+  [ST_PRINT_HASH] = gen_stmt_print_hash,
+  [ST_INPUT] = gen_stmt_input,
+  [ST_INPUT_HASH] = gen_stmt_input_hash,
+  [ST_GET] = gen_stmt_get,
+  [ST_GET_HASH] = gen_stmt_get_hash,
+  [ST_PUT] = gen_stmt_put,
+  [ST_PUT_HASH] = gen_stmt_put_hash,
+  [ST_POKE] = gen_stmt_poke,
+  [ST_FOR] = gen_stmt_for,
+};
+
+static void gen_stmt (Stmt *s) { stmt_generators[s->kind](s); }
+
+void set_stmt_profile_hook (stmt_profile_hook hook) { stmt_profile = hook; }
+
+static void gen_stmt_default (Stmt *s) {
   switch (s->kind) {
   case ST_DEF:
     /* no code generation needed */
@@ -4734,13 +4843,13 @@ static void gen_stmt (Stmt *s) {
     }
     break;
   }
-  case ST_PRINT: gen_print (s); break;
-  case ST_PRINT_HASH: gen_print_hash (s); break;
-  case ST_INPUT: gen_input (s); break;
-  case ST_INPUT_HASH: gen_input_hash (s); break;
-  case ST_GET: gen_get (s); break;
-  case ST_GET_HASH: gen_get_hash (s); break;
-  case ST_PUT: gen_put (s); break;
+  case ST_PRINT: gen_stmt_print (s); break;
+  case ST_PRINT_HASH: gen_stmt_print_hash (s); break;
+  case ST_INPUT: gen_stmt_input (s); break;
+  case ST_INPUT_HASH: gen_stmt_input_hash (s); break;
+  case ST_GET: gen_stmt_get (s); break;
+  case ST_GET_HASH: gen_stmt_get_hash (s); break;
+  case ST_PUT: gen_stmt_put (s); break;
   case ST_SWAP: {
     Node *v1 = s->u.swap.var1, *v2 = s->u.swap.var2;
     char buf[32];
@@ -4929,8 +5038,8 @@ static void gen_stmt (Stmt *s) {
                                      MIR_new_reg_op (g_ctx, val1)));
     break;
   }
-  case ST_PUT_HASH: gen_put_hash (s); break;
-  case ST_POKE: gen_poke (s); break;
+  case ST_PUT_HASH: gen_stmt_put_hash (s); break;
+  case ST_POKE: gen_stmt_poke (s); break;
   case ST_DATA:
     /* DATA values are processed at parse time, no code generation needed */
     break;
@@ -5170,40 +5279,7 @@ static void gen_stmt (Stmt *s) {
                                         MIR_new_ref_op (g_ctx, hgr2_import)));
     break;
   }
-  case ST_FOR: {
-    MIR_reg_t var = get_var (&g_vars, g_ctx, g_func, s->u.forto.var);
-    MIR_reg_t start = gen_expr (g_ctx, g_func, &g_vars, s->u.forto.start);
-    MIR_reg_t end = gen_expr (g_ctx, g_func, &g_vars, s->u.forto.end);
-    MIR_reg_t step = gen_expr (g_ctx, g_func, &g_vars, s->u.forto.step);
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_insn (g_ctx, BASIC_MIR_MOV, MIR_new_reg_op (g_ctx, var),
-                                   MIR_new_reg_op (g_ctx, start)));
-    MIR_label_t start_label = MIR_new_label (g_ctx);
-    MIR_label_t end_label = MIR_new_label (g_ctx);
-    if (g_loop_len == g_loop_cap) {
-      size_t new_cap = g_loop_cap ? 2 * g_loop_cap : 16;
-      LoopInfo *tmp
-        = pool_realloc (g_loop_stack, g_loop_cap * sizeof (LoopInfo), new_cap * sizeof (LoopInfo));
-      if (tmp == NULL) return;
-      g_loop_stack = tmp;
-      g_loop_cap = new_cap;
-    }
-    g_loop_stack[g_loop_len++] = (LoopInfo) {var, end, step, start_label, end_label, LOOP_FOR};
-    MIR_append_insn (g_ctx, g_func, start_label);
-    MIR_label_t neg_step = MIR_new_label (g_ctx);
-    MIR_label_t after_cmp = MIR_new_label (g_ctx);
-    basic_mir_bcmp (g_ctx, g_func, MIR_DBLT, MIR_new_label_op (g_ctx, neg_step),
-                    MIR_new_reg_op (g_ctx, step), emit_num_const (g_ctx, BASIC_ZERO));
-    basic_mir_bcmp (g_ctx, g_func, MIR_DBGT, MIR_new_label_op (g_ctx, end_label),
-                    MIR_new_reg_op (g_ctx, var), MIR_new_reg_op (g_ctx, end));
-    MIR_append_insn (g_ctx, g_func,
-                     MIR_new_insn (g_ctx, MIR_JMP, MIR_new_label_op (g_ctx, after_cmp)));
-    MIR_append_insn (g_ctx, g_func, neg_step);
-    basic_mir_bcmp (g_ctx, g_func, MIR_DBLT, MIR_new_label_op (g_ctx, end_label),
-                    MIR_new_reg_op (g_ctx, var), MIR_new_reg_op (g_ctx, end));
-    MIR_append_insn (g_ctx, g_func, after_cmp);
-    break;
-  }
+  case ST_FOR: gen_stmt_for (s); break;
   case ST_NEXT: {
     if (g_loop_len == 0) break;
     LoopInfo info = g_loop_stack[--g_loop_len];
