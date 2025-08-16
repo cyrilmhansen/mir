@@ -4,19 +4,11 @@
 
 #include "basic_runtime.h"
 #include "basic_num.h"
+#include "basic_runtime_shared.h"
 
 extern int basic_pos_val;
 #define BASIC_MAX_FILES 16
 extern FILE *basic_files[];
-
-typedef struct BasicData {
-  int is_str;
-  basic_num_t num;
-  char *str;
-} BasicData;
-extern BasicData *basic_data_items;
-extern size_t basic_data_len;
-extern size_t basic_data_pos;
 
 static int seeded = 0;
 static uint64_t rng_state = 0;

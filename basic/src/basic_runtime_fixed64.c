@@ -6,15 +6,9 @@
 #include "basic_runtime_fixed64.h"
 #include "basic_runtime.h"
 #include "basic_num.h"
+#include "basic_runtime_shared.h"
 
-/* Declarations for common helpers from basic_runtime.c */
-char *basic_chr (int64_t);
-char *basic_unichar (int64_t);
-char *basic_string (int64_t, const char *);
-char *basic_left (const char *, int64_t);
-char *basic_right (const char *, int64_t);
-char *basic_mid (const char *, int64_t, int64_t);
-char *basic_input_chr (int64_t);
+/* Declarations moved to basic_runtime_shared.h */
 #define BASIC_PRNG128 1
 
 static int seeded = 0;
@@ -83,14 +77,6 @@ void basic_randomize (basic_num_t n, basic_num_t has_seed) {
 extern int basic_pos_val;
 #define BASIC_MAX_FILES 16
 extern FILE *basic_files[];
-typedef struct BasicData {
-  int is_str;
-  basic_num_t num;
-  char *str;
-} BasicData;
-extern BasicData *basic_data_items;
-extern size_t basic_data_len;
-extern size_t basic_data_pos;
 
 static MIR_item_t fixed64_add_proto, fixed64_add_import, fixed64_sub_proto, fixed64_sub_import,
   fixed64_mul_proto, fixed64_mul_import, fixed64_div_proto, fixed64_div_import, fixed64_eq_proto,

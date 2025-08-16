@@ -23,6 +23,7 @@
 #include "basic_runtime.h"
 #include "basic_pool.h"
 #include "basic_runtime_fixed64.h"
+#include "basic_runtime_shared.h"
 
 #if defined(BASIC_USE_LONG_DOUBLE)
 #define BASIC_MIR_NUM_T MIR_T_LD
@@ -447,12 +448,6 @@ basic_num_t basic_eof (int64_t n) {
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return basic_num_from_int (-1);
   return feof (basic_files[idx]) ? basic_num_from_int (-1) : BASIC_ZERO;
 }
-
-typedef struct BasicData {
-  int is_str;
-  basic_num_t num;
-  char *str;
-} BasicData;
 
 BasicData *basic_data_items = NULL;
 size_t basic_data_len = 0;

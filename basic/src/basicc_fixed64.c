@@ -4,6 +4,8 @@
 #include "basic_runtime.h"
 #include "arena.h"
 #include "basic_pool.h"
+#include "basic_runtime_fixed64.h"
+#include "basic_runtime_shared.h"
 
 #if defined(BASIC_USE_LONG_DOUBLE)
 #define MIR_DMOV MIR_LDMOV
@@ -270,124 +272,6 @@ static void safe_fprintf (FILE *stream, const char *fmt, ...) {
   va_end (ap);
 }
 
-/* Runtime helpers defined in basic_runtime.c */
-extern void basic_print (basic_num_t);
-extern void basic_print_str (const char *);
-#if defined(BASIC_USE_FIXED64)
-extern void basic_input (basic_num_t *);
-#else
-extern basic_num_t basic_input (void);
-#endif
-extern char *basic_input_str (void);
-extern char *basic_get (void);
-
-extern char *basic_inkey (void);
-
-extern void basic_put (const char *);
-extern void basic_return_error (void);
-
-extern void basic_profile_reset (void);
-extern void basic_profile_dump (void);
-extern void basic_profile_line (basic_num_t);
-extern void basic_profile_func_enter (const char *);
-extern void basic_profile_func_exit (const char *);
-
-extern int basic_strcmp (const char *, const char *);
-
-#if defined(BASIC_USE_FIXED64)
-extern void basic_read (basic_num_t *);
-#else
-extern basic_num_t basic_read (void);
-#endif
-extern char *basic_read_str (void);
-extern void basic_restore (void);
-extern void basic_clear_array (void *, basic_num_t, basic_num_t);
-extern void *basic_dim_alloc (void *, basic_num_t, basic_num_t);
-extern char *basic_strdup (const char *);
-extern void basic_free (char *);
-
-typedef struct BasicData {
-  int is_str;
-  basic_num_t num;
-  char *str;
-} BasicData;
-
-extern BasicData *basic_data_items;
-extern size_t basic_data_len;
-extern size_t basic_data_pos;
-
-extern void basic_home (void);
-extern void basic_vtab (int64_t);
-extern void basic_rnd (basic_num_t *, basic_num_t);
-extern void basic_randomize (basic_num_t, basic_num_t);
-extern basic_num_t basic_abs (basic_num_t);
-extern basic_num_t basic_sgn (basic_num_t);
-extern basic_num_t basic_sqr (basic_num_t);
-extern basic_num_t basic_sin (basic_num_t);
-extern basic_num_t basic_cos (basic_num_t);
-extern basic_num_t basic_tan (basic_num_t);
-extern basic_num_t basic_atn (basic_num_t);
-extern basic_num_t basic_sinh (basic_num_t);
-extern basic_num_t basic_cosh (basic_num_t);
-extern basic_num_t basic_tanh (basic_num_t);
-extern basic_num_t basic_asinh (basic_num_t);
-extern basic_num_t basic_acosh (basic_num_t);
-extern basic_num_t basic_atanh (basic_num_t);
-extern basic_num_t basic_asin (basic_num_t);
-extern basic_num_t basic_acos (basic_num_t);
-extern basic_num_t basic_log (basic_num_t);
-extern basic_num_t basic_log2 (basic_num_t);
-extern basic_num_t basic_log10 (basic_num_t);
-extern basic_num_t basic_exp (basic_num_t);
-extern basic_num_t basic_fact (basic_num_t);
-extern basic_num_t basic_pow (basic_num_t, basic_num_t);
-extern basic_num_t basic_pi (void);
-#endif
-
-extern void basic_screen (int64_t);
-extern void basic_cls (void);
-extern void basic_color (int64_t);
-extern void basic_key_off (void);
-extern void basic_locate (int64_t, int64_t);
-extern void basic_tab (int64_t);
-extern void basic_htab (int64_t);
-#if defined(BASIC_USE_FIXED64)
-extern void basic_pos (basic_num_t *);
-#else
-extern basic_num_t basic_pos (void);
-#endif
-extern void basic_text (void);
-extern void basic_inverse (void);
-extern void basic_normal (void);
-extern void basic_hgr2 (void);
-extern void basic_hcolor (basic_num_t);
-extern void basic_hplot (basic_num_t, basic_num_t);
-extern void basic_hplot_to (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
-extern void basic_hplot_to_current (basic_num_t, basic_num_t);
-extern void basic_move (basic_num_t, basic_num_t);
-extern void basic_draw (basic_num_t, basic_num_t);
-extern void basic_draw_line (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
-extern void basic_circle (basic_num_t, basic_num_t, basic_num_t);
-extern void basic_rect (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
-extern void basic_fill (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
-extern void basic_mode (basic_num_t);
-
-extern char *basic_chr_wrap (int64_t);
-extern char *basic_unichar_wrap (int64_t);
-extern char *basic_string_wrap (int64_t, const char *);
-extern char *basic_concat (const char *, const char *);
-extern char *basic_upper (const char *);
-extern char *basic_lower (const char *);
-extern char *basic_left_wrap (const char *, int64_t);
-extern char *basic_right_wrap (const char *, int64_t);
-extern char *basic_mid_wrap (const char *, int64_t, int64_t);
-extern char *basic_mirror (const char *);
-extern long basic_len (const char *);
-extern basic_num_t basic_val (const char *);
-extern char *basic_str (basic_num_t);
-extern long basic_asc (const char *);
-extern long basic_instr (const char *, const char *);
-
 static int kitty_graphics_available (void) {
   const char *id = getenv ("KITTY_WINDOW_ID");
   const char *term = getenv ("TERM");
@@ -410,59 +294,6 @@ static void *pool_realloc (void *ptr, size_t old_size, size_t new_size) {
   }
   return res;
 }
-extern basic_num_t basic_int (basic_num_t);
-extern basic_num_t basic_timer (void);
-extern char *basic_time_str (void);
-extern char *basic_date_str (void);
-extern char *basic_input_chr_wrap (int64_t);
-extern basic_num_t basic_peek (basic_num_t);
-extern void basic_poke (int64_t, int64_t);
-
-extern void basic_open (int64_t, const char *);
-extern void basic_close (int64_t);
-extern void basic_print_hash (int64_t, basic_num_t);
-extern void basic_print_hash_str (int64_t, const char *);
-#if defined(BASIC_USE_FIXED64)
-extern void basic_input_hash (basic_num_t *, int64_t);
-#else
-extern basic_num_t basic_input_hash (int64_t);
-#endif
-extern char *basic_input_hash_str (int64_t);
-extern char *basic_get_hash (int64_t);
-extern void basic_put_hash (int64_t, const char *);
-extern basic_num_t basic_eof (int64_t);
-
-#if defined(BASIC_USE_FIXED64)
-extern basic_num_t fixed64_add (basic_num_t, basic_num_t);
-extern basic_num_t fixed64_sub (basic_num_t, basic_num_t);
-extern basic_num_t fixed64_mul (basic_num_t, basic_num_t);
-extern basic_num_t fixed64_div (basic_num_t, basic_num_t);
-extern basic_num_t fixed64_neg (basic_num_t);
-extern int fixed64_eq (basic_num_t, basic_num_t);
-extern int fixed64_ne (basic_num_t, basic_num_t);
-extern int fixed64_lt (basic_num_t, basic_num_t);
-extern int fixed64_le (basic_num_t, basic_num_t);
-extern int fixed64_gt (basic_num_t, basic_num_t);
-extern int fixed64_ge (basic_num_t, basic_num_t);
-extern basic_num_t fixed64_from_int (long);
-extern basic_num_t fixed64_from_string (const char *, char **);
-extern long fixed64_to_int (basic_num_t);
-#endif
-
-extern void basic_stop (void);
-
-extern void basic_set_error_handler (basic_num_t);
-extern basic_num_t basic_get_error_handler (void);
-extern void basic_set_line (basic_num_t);
-extern basic_num_t basic_get_line (void);
-extern void basic_enable_line_tracking (basic_num_t);
-
-extern void basic_delay (int64_t);
-extern void basic_beep (void);
-extern void basic_sound (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
-extern void basic_sound_off (void);
-extern basic_num_t basic_system (const char *);
-extern char *basic_system_out (void);
 
 static int array_base = 0;
 #define DEFAULT_ARRAY_DIM 11
@@ -4173,8 +4004,7 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       char buf[32];
       safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
       MIR_reg_t argi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-      basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, argi),
-                     MIR_new_reg_op (ctx, arg));
+      basic_mir_n2i (ctx, func, MIR_new_reg_op (ctx, argi), MIR_new_reg_op (ctx, arg));
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 4, MIR_new_ref_op (ctx, eof_proto),
                                           MIR_new_ref_op (ctx, eof_import),
@@ -4796,8 +4626,7 @@ static void gen_print_hash (Stmt *s) {
   char buf[32];
   safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
   MIR_reg_t fni = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-  basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni),
-                 MIR_new_reg_op (g_ctx, fn));
+  basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni), MIR_new_reg_op (g_ctx, fn));
   for (size_t k = 0; k < s->u.printhash.n; k++)
     print_hash_item (fni, s->u.printhash.items[k],
                      k + 1 < s->u.printhash.n ? s->u.printhash.items[k + 1] : NULL);
@@ -4922,8 +4751,7 @@ static void gen_input_hash (Stmt *s) {
   char buf[32];
   safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
   MIR_reg_t fni = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-  basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni),
-                 MIR_new_reg_op (g_ctx, fn));
+  basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni), MIR_new_reg_op (g_ctx, fn));
   MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.inputhash.var);
   (s->u.inputhash.is_str ? input_hash_str : input_hash_num) (v, fni);
 }
@@ -4938,8 +4766,7 @@ static void gen_get_hash (Stmt *s) {
   char buf[32];
   safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
   MIR_reg_t fni = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-  basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni),
-                 MIR_new_reg_op (g_ctx, fn));
+  basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni), MIR_new_reg_op (g_ctx, fn));
   MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.gethash.var);
   call2 (get_hash_proto, get_hash_import, MIR_new_reg_op (g_ctx, v), MIR_new_reg_op (g_ctx, fni));
 }
@@ -4954,8 +4781,7 @@ static void gen_put_hash (Stmt *s) {
   char buf[32];
   safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
   MIR_reg_t fni = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-  basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni),
-                 MIR_new_reg_op (g_ctx, fn));
+  basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni), MIR_new_reg_op (g_ctx, fn));
   MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.puthash.expr);
   call2 (put_hash_proto, put_hash_import, MIR_new_reg_op (g_ctx, fni), MIR_new_reg_op (g_ctx, r));
 }
@@ -5340,8 +5166,7 @@ static void gen_stmt (Stmt *s) {
     char buf[32];
     safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
     MIR_reg_t fni = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-    basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni),
-                   MIR_new_reg_op (g_ctx, fn));
+    basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni), MIR_new_reg_op (g_ctx, fn));
     MIR_reg_t path = gen_expr (g_ctx, g_func, &g_vars, s->u.open.path);
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, open_proto),
@@ -5354,8 +5179,7 @@ static void gen_stmt (Stmt *s) {
     char buf[32];
     safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
     MIR_reg_t fni = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
-    basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni),
-                   MIR_new_reg_op (g_ctx, fn));
+    basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, fni), MIR_new_reg_op (g_ctx, fn));
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, close_proto),
                                         MIR_new_ref_op (g_ctx, close_import),
