@@ -419,7 +419,7 @@ endif
 
 $(BUILD_DIR)/basic/basicc$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
         $(SRC_DIR)/basic/src/basicc.c $(SRC_DIR)/basic/src/basic_runtime.c \
-        $(SRC_DIR)/basic/src/basic_runtime_double.c \
+        $(SRC_DIR)/basic/src/basic_runtime_double.c $(SRC_DIR)/basic/src/basic_runtime_resolve.c \
         $(SRC_DIR)/basic/src/basic_pool.c $(SRC_DIR)/basic/src/arena.c \
         $(SRC_DIR)/basic/src/vendor/libdfp/decContext.c \
         $(SRC_DIR)/basic/src/vendor/libdfp/decNumber.c \
@@ -428,7 +428,7 @@ $(BUILD_DIR)/basic/basicc$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-ge
         $(SRC_DIR)/basic/src/vendor/kitty/kitty.c $(SRC_DIR)/basic/src/vendor/kitty/lodepng.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/libdfp -DBASIC_SRC_DIR=\"$(SRC_DIR)\" -DDECNUMDIGITS=34 $^ -lm $(EXEO)$@
 $(BUILD_DIR)/basic/basicc_ld$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
         $(SRC_DIR)/basic/src/basicc.c $(SRC_DIR)/basic/src/basic_runtime.c \
-        $(SRC_DIR)/basic/src/basic_runtime_double.c \
+        $(SRC_DIR)/basic/src/basic_runtime_double.c $(SRC_DIR)/basic/src/basic_runtime_resolve.c \
         $(SRC_DIR)/basic/src/basic_pool.c $(SRC_DIR)/basic/src/arena.c \
         $(SRC_DIR)/basic/src/vendor/libdfp/decContext.c \
         $(SRC_DIR)/basic/src/vendor/libdfp/decNumber.c \
@@ -439,7 +439,7 @@ $(BUILD_DIR)/basic/basicc_ld$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir
 
 $(BUILD_DIR)/basic/basicc-ld$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
         $(SRC_DIR)/basic/src/basicc.c $(SRC_DIR)/basic/src/basic_runtime.c \
-        $(SRC_DIR)/basic/src/basic_runtime_double.c \
+        $(SRC_DIR)/basic/src/basic_runtime_double.c $(SRC_DIR)/basic/src/basic_runtime_resolve.c \
         $(SRC_DIR)/basic/src/basic_pool.c $(SRC_DIR)/basic/src/arena.c \
         $(SRC_DIR)/basic/src/vendor/libdfp/decContext.c \
         $(SRC_DIR)/basic/src/vendor/libdfp/decNumber.c \
@@ -451,7 +451,7 @@ $(BUILD_DIR)/basic/basicc-ld$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir
 
 $(BUILD_DIR)/basic/basicc-fix$(EXE): $(BUILD_DIR)/mir.$(OBJSUFF) $(BUILD_DIR)/mir-gen.$(OBJSUFF) \
         $(SRC_DIR)/basic/src/basicc_fixed64.c $(SRC_DIR)/basic/src/basic_runtime.c \
-        $(SRC_DIR)/basic/src/basic_runtime_fixed64.c $(SRC_DIR)/basic/src/basic_pool.c $(SRC_DIR)/basic/src/arena.c \
+        $(SRC_DIR)/basic/src/basic_runtime_fixed64.c $(SRC_DIR)/basic/src/basic_runtime_resolve.c $(SRC_DIR)/basic/src/basic_pool.c $(SRC_DIR)/basic/src/arena.c \
         $(SRC_DIR)/basic/src/vendor/fixed64/fixed64.c \
         $(SRC_DIR)/basic/src/vendor/kitty/kitty.c $(SRC_DIR)/basic/src/vendor/kitty/lodepng.c ; mkdir -p $(BUILD_DIR)/basic; $(COMPILE_AND_LINK) -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/basic/src -I$(SRC_DIR)/basic/src/vendor -I$(SRC_DIR)/basic/src/vendor/fixed64 -DBASIC_SRC_DIR=\"$(SRC_DIR)\" -DBASIC_USE_FIXED64 $^ -lm $(EXEO)$@
 
