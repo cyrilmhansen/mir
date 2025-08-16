@@ -81,8 +81,8 @@
 | RND | random number | 1 | decimal | decimal |
 | INT | integer part | 1 | decimal | integer |
 | TIMER | system timer | 0 |  | integer |
-| TIME | current time | 0 |  | decimal |
-| DATE | current date | 0 |  | decimal |
+| TIME | current time | 0 |  | string |
+| DATE | current date | 0 |  | string |
 | PEEK | read memory | 1 | integer | integer |
 | EOF | end-of-file check | 1 | integer | integer |
 | POS | current position | 0 |  | integer |
