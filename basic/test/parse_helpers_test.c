@@ -14,6 +14,20 @@ int main (void) {
   if (!ok) return 1;
   assert (l.stmts.len == 1);
   assert (l.stmts.data[0].kind == ST_PRINT);
+  assert (l.stmts.data[0].u.print.n == 1);
+
+  ok = parse_line (&p, "PRINT 1,2;", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_PRINT);
+  assert (l.stmts.data[0].u.print.n == 2);
+  assert (l.stmts.data[0].u.print.no_nl);
+
+  ok = parse_line (&p, "PRINT#1,1;2", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_PRINT_HASH);
+  assert (l.stmts.data[0].u.printhash.n == 2);
 
   ok = parse_line (&p, "INPUT A", &l);
   if (!ok) return 1;
@@ -47,6 +61,7 @@ int main (void) {
   assert (l.stmts.data[0].kind == ST_IF);
   assert (l.stmts.data[0].u.iff.then_stmts.len == 1);
   assert (l.stmts.data[0].u.iff.then_stmts.data[0].kind == ST_PRINT);
+  assert (l.stmts.data[0].u.iff.then_stmts.data[0].u.print.n == 1);
 
   ok = parse_line (&p, "DIM A(10)", &l);
   if (!ok) return 1;

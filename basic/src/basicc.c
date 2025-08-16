@@ -1953,6 +1953,42 @@ static int parse_print_stmt (Parser *p, Stmt *out) {
   out->u.print.items = NULL;
   out->u.print.n = 0;
   out->u.print.no_nl = 0;
+  size_t cap = 0;
+  while (1) {
+    Token t = peek_token (p);
+    if (t.type == TOK_COLON || t.type == TOK_EOF || t.type == TOK_ENDIF || t.type == TOK_ELSE
+        || t.type == TOK_ELSEIF)
+      break;
+    Node *e;
+    PARSE_EXPR_OR_ERROR (e);
+    if (out->u.print.n == cap) {
+      size_t new_cap = cap ? cap * 2 : 4;
+      Node **tmp
+        = pool_realloc (out->u.print.items, cap * sizeof (Node *), new_cap * sizeof (Node *));
+      if (tmp == NULL) return 0;
+      out->u.print.items = tmp;
+      cap = new_cap;
+    }
+    out->u.print.items[out->u.print.n++] = e;
+    t = peek_token (p);
+    if (t.type == TOK_SEMICOLON || t.type == TOK_COMMA) {
+      next_token (p);
+      t = peek_token (p);
+      if (t.type == TOK_COLON || t.type == TOK_EOF || t.type == TOK_ENDIF || t.type == TOK_ELSE
+          || t.type == TOK_ELSEIF) {
+        out->u.print.no_nl = 1;
+        break;
+      }
+      continue;
+    }
+    if (t.type == TOK_COLON || t.type == TOK_EOF || t.type == TOK_ENDIF || t.type == TOK_ELSE
+        || t.type == TOK_ELSEIF)
+      break;
+  }
+  Node **items = arena_alloc (&ast_arena, out->u.print.n * sizeof (Node *));
+  memcpy (items, out->u.print.items, out->u.print.n * sizeof (Node *));
+  basic_pool_free (out->u.print.items);
+  out->u.print.items = items;
   return 1;
 }
 
@@ -2240,6 +2276,42 @@ static int parse_print_hash_stmt (Parser *p, Stmt *out) {
   out->u.printhash.items = NULL;
   out->u.printhash.n = 0;
   out->u.printhash.no_nl = 0;
+  size_t cap = 0;
+  while (1) {
+    Token t = peek_token (p);
+    if (t.type == TOK_COLON || t.type == TOK_EOF || t.type == TOK_ENDIF || t.type == TOK_ELSE
+        || t.type == TOK_ELSEIF)
+      break;
+    Node *e;
+    PARSE_EXPR_OR_ERROR (e);
+    if (out->u.printhash.n == cap) {
+      size_t new_cap = cap ? cap * 2 : 4;
+      Node **tmp
+        = pool_realloc (out->u.printhash.items, cap * sizeof (Node *), new_cap * sizeof (Node *));
+      if (tmp == NULL) return 0;
+      out->u.printhash.items = tmp;
+      cap = new_cap;
+    }
+    out->u.printhash.items[out->u.printhash.n++] = e;
+    t = peek_token (p);
+    if (t.type == TOK_SEMICOLON || t.type == TOK_COMMA) {
+      next_token (p);
+      t = peek_token (p);
+      if (t.type == TOK_COLON || t.type == TOK_EOF || t.type == TOK_ENDIF || t.type == TOK_ELSE
+          || t.type == TOK_ELSEIF) {
+        out->u.printhash.no_nl = 1;
+        break;
+      }
+      continue;
+    }
+    if (t.type == TOK_COLON || t.type == TOK_EOF || t.type == TOK_ENDIF || t.type == TOK_ELSE
+        || t.type == TOK_ELSEIF)
+      break;
+  }
+  Node **items = arena_alloc (&ast_arena, out->u.printhash.n * sizeof (Node *));
+  memcpy (items, out->u.printhash.items, out->u.printhash.n * sizeof (Node *));
+  basic_pool_free (out->u.printhash.items);
+  out->u.printhash.items = items;
   return 1;
 }
 
@@ -3077,76 +3149,6 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
     } else {
       p->has_peek = 0;
       if (!parse_stmt (p, &bs)) return 0;
-      if (bs.kind == ST_PRINT || bs.kind == ST_PRINT_HASH) {
-        size_t cap = 0;
-        if (bs.kind == ST_PRINT) {
-          bs.u.print.items = NULL;
-          bs.u.print.n = 0;
-          bs.u.print.no_nl = 0;
-        } else {
-          bs.u.printhash.items = NULL;
-          bs.u.printhash.n = 0;
-          bs.u.printhash.no_nl = 0;
-        }
-        while (1) {
-          t = peek_token (p);
-          if (t.type == TOK_COLON || t.type == TOK_EOF || t.type == TOK_ENDIF
-              || (stop_on_else && (t.type == TOK_ELSE || t.type == TOK_ELSEIF)))
-            break;
-          Node *e;
-          PARSE_EXPR_OR_ERROR (e);
-          if (bs.kind == ST_PRINT) {
-            if (bs.u.print.n == cap) {
-              size_t new_cap = cap ? cap * 2 : 4;
-              Node **tmp
-                = pool_realloc (bs.u.print.items, cap * sizeof (Node *), new_cap * sizeof (Node *));
-              if (tmp == NULL) return 0;
-              bs.u.print.items = tmp;
-              cap = new_cap;
-            }
-            bs.u.print.items[bs.u.print.n++] = e;
-          } else {
-            if (bs.u.printhash.n == cap) {
-              size_t new_cap = cap ? cap * 2 : 4;
-              Node **tmp = pool_realloc (bs.u.printhash.items, cap * sizeof (Node *),
-                                         new_cap * sizeof (Node *));
-              if (tmp == NULL) return 0;
-              bs.u.printhash.items = tmp;
-              cap = new_cap;
-            }
-            bs.u.printhash.items[bs.u.printhash.n++] = e;
-          }
-          t = peek_token (p);
-          if (t.type == TOK_SEMICOLON || t.type == TOK_COMMA) {
-            next_token (p);
-            t = peek_token (p);
-            if (t.type == TOK_COLON || t.type == TOK_EOF || t.type == TOK_ENDIF
-                || (stop_on_else && (t.type == TOK_ELSE || t.type == TOK_ELSEIF))) {
-              if (bs.kind == ST_PRINT)
-                bs.u.print.no_nl = 1;
-              else
-                bs.u.printhash.no_nl = 1;
-              break;
-            }
-            continue;
-          }
-          if (t.type == TOK_COLON || t.type == TOK_EOF || t.type == TOK_ENDIF
-              || (stop_on_else && (t.type == TOK_ELSE || t.type == TOK_ELSEIF)))
-            break;
-          continue;
-        }
-        if (bs.kind == ST_PRINT) {
-          Node **items = arena_alloc (&ast_arena, bs.u.print.n * sizeof (Node *));
-          memcpy (items, bs.u.print.items, bs.u.print.n * sizeof (Node *));
-          basic_pool_free (bs.u.print.items);
-          bs.u.print.items = items;
-        } else {
-          Node **items = arena_alloc (&ast_arena, bs.u.printhash.n * sizeof (Node *));
-          memcpy (items, bs.u.printhash.items, bs.u.printhash.n * sizeof (Node *));
-          basic_pool_free (bs.u.printhash.items);
-          bs.u.printhash.items = items;
-        }
-      }
     }
     stmt_vec_push (vec, bs);
     t = peek_token (p);
@@ -3219,60 +3221,6 @@ static int parse_line (Parser *p, char *line, Line *out) {
     if (t.type == TOK_EOF) break;
     Stmt s;
     if (!parse_stmt (p, &s)) return parse_error (p);
-    if (s.kind == ST_PRINT || s.kind == ST_PRINT_HASH) {
-      size_t cap = 0;
-      if (s.kind == ST_PRINT) {
-        s.u.print.items = NULL;
-        s.u.print.n = 0;
-        s.u.print.no_nl = 0;
-      } else {
-        s.u.printhash.items = NULL;
-        s.u.printhash.n = 0;
-        s.u.printhash.no_nl = 0;
-      }
-      while (1) {
-        t = peek_token (p);
-        if (t.type == TOK_COLON || t.type == TOK_EOF) break;
-        Node *e;
-        PARSE_EXPR_OR_ERROR (e);
-        if (s.kind == ST_PRINT) {
-          if (s.u.print.n == cap) {
-            size_t new_cap = cap ? cap * 2 : 4;
-            Node **tmp
-              = pool_realloc (s.u.print.items, cap * sizeof (Node *), new_cap * sizeof (Node *));
-            if (tmp == NULL) return 0;
-            s.u.print.items = tmp;
-            cap = new_cap;
-          }
-          s.u.print.items[s.u.print.n++] = e;
-        } else {
-          if (s.u.printhash.n == cap) {
-            size_t new_cap = cap ? cap * 2 : 4;
-            Node **tmp = pool_realloc (s.u.printhash.items, cap * sizeof (Node *),
-                                       new_cap * sizeof (Node *));
-            if (tmp == NULL) return 0;
-            s.u.printhash.items = tmp;
-            cap = new_cap;
-          }
-          s.u.printhash.items[s.u.printhash.n++] = e;
-        }
-        t = peek_token (p);
-        if (t.type == TOK_SEMICOLON || t.type == TOK_COMMA) {
-          next_token (p);
-          t = peek_token (p);
-          if (t.type == TOK_COLON || t.type == TOK_EOF) {
-            if (s.kind == ST_PRINT)
-              s.u.print.no_nl = 1;
-            else
-              s.u.printhash.no_nl = 1;
-            break;
-          }
-          continue;
-        }
-        if (t.type == TOK_COLON || t.type == TOK_EOF) break;
-        continue;
-      }
-    }
     if (s.kind != ST_REM) {
       t = peek_token (p);
       if (t.type != TOK_EOF && t.type != TOK_COLON) return parse_error (p);
