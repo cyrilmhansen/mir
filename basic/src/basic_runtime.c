@@ -587,16 +587,16 @@ basic_num_t basic_pow (basic_num_t x, basic_num_t y) { return basic_num_pow (x, 
 basic_num_t basic_pi (void) { return basic_num_acos (basic_num_neg (basic_num_from_int (1))); }
 
 /* Allocate a one-character string. Caller must free with basic_free. */
-char *basic_chr (basic_num_t n) {
+char *basic_chr (int64_t n) {
   char *s = basic_alloc_string (1);
-  if (s != NULL) s[0] = (char) basic_num_to_int (n);
+  if (s != NULL) s[0] = (char) n;
   return s;
 }
 
 /* Allocate a UTF-8 string for the given Unicode code point.
    Caller must free with basic_free. */
-char *basic_unichar (basic_num_t n) {
-  uint32_t code = (uint32_t) basic_num_to_int (n);
+char *basic_unichar (int64_t n) {
+  uint32_t code = (uint32_t) n;
   char buf[4];
   size_t len = 0;
   if (code <= 0x7F) {
@@ -625,8 +625,8 @@ char *basic_unichar (basic_num_t n) {
 
 /* Return a string of length N filled with the first character of S.
    Caller must free the result with basic_free. */
-char *basic_string (basic_num_t n, const char *s) {
-  int len = basic_num_to_int (n);
+char *basic_string (int64_t n, const char *s) {
+  int len = (int) n;
   char ch = s != NULL && s[0] != '\0' ? s[0] : '\0';
   char *res = basic_alloc_string ((size_t) len);
   if (res != NULL) {
@@ -729,13 +729,13 @@ char *basic_mirror (const char *s) {
   return res;
 }
 
-basic_num_t basic_instr (const char *s, const char *sub) {
-  if (s == NULL || sub == NULL || *sub == '\0') return BASIC_ZERO;
+long basic_instr (const char *s, const char *sub) {
+  if (s == NULL || sub == NULL || *sub == '\0') return 0;
   const char *p = strstr (s, sub);
-  return p == NULL ? BASIC_ZERO : basic_num_from_int (p - s + 1);
+  return p == NULL ? 0 : p - s + 1;
 }
 
-basic_num_t basic_len (const char *s) { return basic_num_from_int (s != NULL ? strlen (s) : 0); }
+long basic_len (const char *s) { return s != NULL ? (long) strlen (s) : 0; }
 
 basic_num_t basic_val (const char *s) {
   if (s == NULL) return BASIC_ZERO;
@@ -753,9 +753,7 @@ char *basic_str (basic_num_t n) {
   return res;
 }
 
-basic_num_t basic_asc (const char *s) {
-  return s == NULL || s[0] == '\0' ? BASIC_ZERO : basic_num_from_int ((unsigned char) s[0]);
-}
+long basic_asc (const char *s) { return s == NULL || s[0] == '\0' ? 0 : (unsigned char) s[0]; }
 
 basic_num_t basic_int (basic_num_t x) { return basic_num_floor (x); }
 

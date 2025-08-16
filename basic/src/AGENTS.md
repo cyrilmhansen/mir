@@ -82,14 +82,16 @@ follow this convention.
 | EVAL | evaluate expression | 1 | string | none |
 
 ## Built-in Functions
+LEN, INSTR, and ASC return integer values.
+
+Integer operands are represented as 64-bit signed integers (`int64_t`) when invoking runtime helpers.
 
 | Instruction | Description | Operands | Operand Types | Return |
-|---|---|---|---|---|
 | RND | random number | 1 | decimal | decimal[^num] |
 | INT | integer part | 1 | decimal/integer | integer[^num] |
 | TIMER | system timer | 0 |  | integer[^num] |
-| TIME | current time | 0 |  | decimal[^num] |
-| DATE | current date | 0 |  | decimal[^num] |
+| TIME | current time | 0 |  | string |
+| DATE | current date | 0 |  | string |
 | PEEK | read memory | 1 | integer | integer[^num] |
 | EOF | end-of-file check | 1 | integer | integer[^num] |
 | POS | current position | 0 |  | integer[^num] |

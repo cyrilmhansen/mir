@@ -12,6 +12,10 @@ typedef struct BasicRuntimeSymbol {
 
 size_t basic_runtime_symbols (BasicRuntimeSymbol **syms);
 
+long basic_len (const char *s);
+long basic_instr (const char *s, const char *sub);
+long basic_asc (const char *s);
+
 basic_num_t basic_mir_ctx (void);
 basic_num_t basic_mir_mod (basic_num_t ctx, const char *name);
 basic_num_t basic_mir_func (basic_num_t mod, const char *name, basic_num_t nargs);
