@@ -2002,15 +2002,77 @@ static int parse_goto_stmt (Parser *p, Stmt *out) {
   return 1;
 }
 
+static int parse_let_stmt (Parser *p, Stmt *out) {
+  Node *v = parse_factor (p);
+  if (v == NULL) return parse_error (p);
+  if (peek_token (p).type == TOK_EQ) next_token (p);
+  Node *e;
+  PARSE_EXPR_OR_ERROR (e);
+  out->kind = ST_LET;
+  out->u.let.var = v;
+  out->u.let.expr = e;
+  out->u.let.is_str = v->is_str;
+  return 1;
+}
+
+static int parse_inc_stmt (Parser *p, Stmt *out) {
+  Node *v = parse_factor (p);
+  if (v == NULL || v->kind != N_VAR || v->index != NULL || v->index2 != NULL || v->is_str)
+    return parse_error (p);
+  out->kind = ST_INC;
+  out->u.inc.var = v;
+  return 1;
+}
+
+static int parse_dec_stmt (Parser *p, Stmt *out) {
+  Node *v = parse_factor (p);
+  if (v == NULL || v->kind != N_VAR || v->index != NULL || v->index2 != NULL || v->is_str)
+    return parse_error (p);
+  out->kind = ST_DEC;
+  out->u.inc.var = v;
+  return 1;
+}
+
+static int parse_if_stmt (Parser *p, Stmt *out) {
+  Stmt s;
+  s.kind = ST_IF;
+  PARSE_EXPR_OR_ERROR (s.u.iff.cond);
+  Token tt = next_token (p);
+  if (tt.type != TOK_THEN) return 0;
+  s.u.iff.then_stmts = (StmtVec) {0};
+  if (!parse_if_part (p, &s.u.iff.then_stmts, 1)) return 0;
+  s.u.iff.elseifs = (ElseIfVec) {0};
+  Token et = peek_token (p);
+  while (et.type == TOK_ELSEIF) {
+    ElseIf ei;
+    next_token (p);
+    PARSE_EXPR_OR_ERROR (ei.cond);
+    if (next_token (p).type != TOK_THEN) return 0;
+    ei.stmts = (StmtVec) {0};
+    if (!parse_if_part (p, &ei.stmts, 1)) return 0;
+    elseif_vec_push (&s.u.iff.elseifs, ei);
+    et = peek_token (p);
+  }
+  s.u.iff.else_stmts = (StmtVec) {0};
+  if (et.type == TOK_ELSE) {
+    next_token (p);
+    if (!parse_if_part (p, &s.u.iff.else_stmts, 0)) return 0;
+    et = peek_token (p);
+  }
+  if (et.type == TOK_ENDIF) next_token (p);
+  *out = s;
+  return 1;
+}
+
 typedef struct {
   TokenType tok;
   StmtParser fn;
 } StmtDispatch;
 
 static const StmtDispatch stmt_dispatch[] = {
-  {TOK_PRINT, parse_print_stmt},
-  {TOK_INPUT, parse_input_stmt},
-  {TOK_GOTO, parse_goto_stmt},
+  {TOK_PRINT, parse_print_stmt}, {TOK_INPUT, parse_input_stmt}, {TOK_GOTO, parse_goto_stmt},
+  {TOK_LET, parse_let_stmt},     {TOK_INC, parse_inc_stmt},     {TOK_DEC, parse_dec_stmt},
+  {TOK_IF, parse_if_stmt},
 };
 
 static int parse_stmt (Parser *p, Stmt *out) {
@@ -2606,57 +2668,6 @@ static int parse_stmt (Parser *p, Stmt *out) {
     if (next_token (p).type != TOK_COMMA) return 0;
     PARSE_EXPR_OR_ERROR (out->u.fill.y1);
     return 1;
-  case TOK_LET: {
-    Node *v = parse_factor (p);
-    if (v == NULL) return parse_error (p);
-    if (peek_token (p).type == TOK_EQ) next_token (p);
-    Node *e;
-    PARSE_EXPR_OR_ERROR (e);
-    out->kind = ST_LET;
-    out->u.let.var = v;
-    out->u.let.expr = e;
-    out->u.let.is_str = v->is_str;
-    return 1;
-  }
-  case TOK_INC:
-  case TOK_DEC: {
-    Node *v = parse_factor (p);
-    if (v == NULL || v->kind != N_VAR || v->index != NULL || v->index2 != NULL || v->is_str)
-      return parse_error (p);
-    out->kind = tok.type == TOK_INC ? ST_INC : ST_DEC;
-    out->u.inc.var = v;
-    return 1;
-  }
-  case TOK_IF: {
-    Stmt s;
-    s.kind = ST_IF;
-    PARSE_EXPR_OR_ERROR (s.u.iff.cond);
-    Token tt = next_token (p);
-    if (tt.type != TOK_THEN) return 0;
-    s.u.iff.then_stmts = (StmtVec) {0};
-    if (!parse_if_part (p, &s.u.iff.then_stmts, 1)) return 0;
-    s.u.iff.elseifs = (ElseIfVec) {0};
-    Token et = peek_token (p);
-    while (et.type == TOK_ELSEIF) {
-      ElseIf ei;
-      next_token (p);
-      PARSE_EXPR_OR_ERROR (ei.cond);
-      if (next_token (p).type != TOK_THEN) return 0;
-      ei.stmts = (StmtVec) {0};
-      if (!parse_if_part (p, &ei.stmts, 1)) return 0;
-      elseif_vec_push (&s.u.iff.elseifs, ei);
-      et = peek_token (p);
-    }
-    s.u.iff.else_stmts = (StmtVec) {0};
-    if (et.type == TOK_ELSE) {
-      next_token (p);
-      if (!parse_if_part (p, &s.u.iff.else_stmts, 0)) return 0;
-      et = peek_token (p);
-    }
-    if (et.type == TOK_ENDIF) next_token (p);
-    *out = s;
-    return 1;
-  }
   case TOK_FOR:
     out->kind = ST_FOR;
     out->u.forto.var = parse_id (p);
