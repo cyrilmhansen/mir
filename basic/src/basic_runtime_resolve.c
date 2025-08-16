@@ -27,6 +27,8 @@
 #define basic_val basic_val_wrap
 #define basic_int basic_int_wrap
 #define basic_timer basic_timer_wrap
+#define basic_time basic_time_wrap
+#define basic_date basic_date_wrap
 #define basic_peek basic_peek_wrap
 #define basic_eof basic_eof_wrap
 #define basic_system basic_system_wrap
@@ -137,7 +139,9 @@ static BasicRuntimeSymbol runtime_symbols[] = {
   {"basic_asc", basic_asc},
   {"basic_int", basic_int},
   {"basic_timer", basic_timer},
+  {"basic_time", basic_time},
   {"basic_time_str", basic_time_str},
+  {"basic_date", basic_date},
   {"basic_date_str", basic_date_str},
   {"basic_input_chr", basic_input_chr},
   {"basic_peek", basic_peek},
