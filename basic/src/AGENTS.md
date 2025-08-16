@@ -30,16 +30,16 @@ follow this convention.
 | READ | read DATA | var | string/integer/decimal | none |
 | RESTORE | reset DATA | 0 |  | none |
 | CLEAR | clear state | 0 |  | none |
-| SCREEN | set screen | 1 | integer | none |
+| SCREEN | set screen | 1 | int | none |
 | CLS | clear screen | 0 |  | none |
-| COLOR | set color | 1 | integer | none |
+| COLOR | set color | 1 | int | none |
 | KEYOFF | disable key | 0 |  | none |
-| LOCATE | set cursor | 2 | integer, integer | none |
-| HTAB | horizontal tab | 1 | integer | none |
-| POKE | write memory | 2 | integer, integer | none |
+| LOCATE | set cursor | 2 | int, int | none |
+| HTAB | horizontal tab | 1 | int | none |
+| POKE | write memory | 2 | int, int | none |
 | HOME | home cursor | 0 |  | none |
-| VTAB | vertical tab | 1 | integer | none |
-| DELAY | pause | 1 | integer | none |
+| VTAB | vertical tab | 1 | int | none |
+| DELAY | pause | 1 | int | none |
 | BEEP | beep | 0 |  | none |
 | SOUND | sound | 3 | decimal, decimal, decimal | none |
 | SYSTEM | shell command | 1 | string | none |

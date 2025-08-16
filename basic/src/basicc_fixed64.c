@@ -317,7 +317,8 @@ extern size_t basic_data_len;
 extern size_t basic_data_pos;
 
 extern void basic_home (void);
-extern void basic_vtab (basic_num_t);
+extern void basic_vtab (int64_t);
+#if defined(BASIC_USE_FIXED64)
 extern void basic_rnd (basic_num_t *, basic_num_t);
 extern void basic_randomize (basic_num_t, basic_num_t);
 extern basic_num_t basic_abs (basic_num_t);
@@ -343,12 +344,13 @@ extern basic_num_t basic_fact (basic_num_t);
 extern basic_num_t basic_pow (basic_num_t, basic_num_t);
 extern basic_num_t basic_pi (void);
 
-extern void basic_screen (basic_num_t);
+extern void basic_screen (int64_t);
 extern void basic_cls (void);
-extern void basic_color (basic_num_t);
+extern void basic_color (int64_t);
 extern void basic_key_off (void);
-extern void basic_locate (basic_num_t, basic_num_t);
-extern void basic_tab (basic_num_t);
+extern void basic_locate (int64_t, int64_t);
+extern void basic_tab (int64_t);
+extern void basic_htab (int64_t);
 #if defined(BASIC_USE_FIXED64)
 extern void basic_pos (basic_num_t *);
 #else
@@ -414,7 +416,7 @@ extern char *basic_time_str (void);
 extern char *basic_date_str (void);
 extern char *basic_input_chr (basic_num_t);
 extern basic_num_t basic_peek (basic_num_t);
-extern void basic_poke (basic_num_t, basic_num_t);
+extern void basic_poke (int64_t, int64_t);
 
 extern void basic_open (basic_num_t, const char *);
 extern void basic_close (basic_num_t);
@@ -455,7 +457,7 @@ extern void basic_set_line (basic_num_t);
 extern basic_num_t basic_get_line (void);
 extern void basic_enable_line_tracking (basic_num_t);
 
-extern void basic_delay (basic_num_t);
+extern void basic_delay (int64_t);
 extern void basic_beep (void);
 extern void basic_sound (basic_num_t, basic_num_t, basic_num_t, basic_num_t);
 extern void basic_sound_off (void);
@@ -568,7 +570,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_key_off")) return basic_key_off;
   if (!strcmp (name, "basic_locate")) return basic_locate;
   if (!strcmp (name, "basic_tab")) return basic_tab;
-  if (!strcmp (name, "basic_htab")) return basic_tab;
+  if (!strcmp (name, "basic_htab")) return basic_htab;
   if (!strcmp (name, "basic_pos")) return basic_pos;
   if (!strcmp (name, "basic_text")) return basic_text;
   if (!strcmp (name, "basic_inverse")) return basic_inverse;
@@ -4710,10 +4712,14 @@ static void print_str (MIR_str_t str) {
 static void print_item (Node *e, Node *next) {
   if (e->kind == N_TAB) {
     MIR_reg_t n = gen_expr (g_ctx, g_func, &g_vars, e->left);
+    char buf[32];
+    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+    MIR_reg_t ni = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+    basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, ni), MIR_new_reg_op (g_ctx, n));
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, tab_proto),
                                         MIR_new_ref_op (g_ctx, tab_import),
-                                        MIR_new_reg_op (g_ctx, n)));
+                                        MIR_new_reg_op (g_ctx, ni)));
     return;
   }
   MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, e);
@@ -4891,7 +4897,14 @@ static void gen_put_hash (Stmt *s) {
 static void gen_poke (Stmt *s) {
   MIR_reg_t addr = gen_expr (g_ctx, g_func, &g_vars, s->u.poke.addr);
   MIR_reg_t val = gen_expr (g_ctx, g_func, &g_vars, s->u.poke.value);
-  call2 (poke_proto, poke_import, MIR_new_reg_op (g_ctx, addr), MIR_new_reg_op (g_ctx, val));
+  char buf[32];
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t addri = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+  basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, addri), MIR_new_reg_op (g_ctx, addr));
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t vali = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+  basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, vali), MIR_new_reg_op (g_ctx, val));
+  call2 (poke_proto, poke_import, MIR_new_reg_op (g_ctx, addri), MIR_new_reg_op (g_ctx, vali));
 }
 
 static void gen_stmt (Stmt *s) {
@@ -5295,18 +5308,26 @@ static void gen_stmt (Stmt *s) {
   }
   case ST_HTAB: {
     MIR_reg_t n = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    char buf[32];
+    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+    MIR_reg_t ni = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+    basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, ni), MIR_new_reg_op (g_ctx, n));
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, tab_proto),
                                         MIR_new_ref_op (g_ctx, tab_import),
-                                        MIR_new_reg_op (g_ctx, n)));
+                                        MIR_new_reg_op (g_ctx, ni)));
     break;
   }
   case ST_SCREEN: {
     MIR_reg_t m = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    char buf[32];
+    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+    MIR_reg_t mi = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+    basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, mi), MIR_new_reg_op (g_ctx, m));
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, screen_proto),
                                         MIR_new_ref_op (g_ctx, screen_import),
-                                        MIR_new_reg_op (g_ctx, m)));
+                                        MIR_new_reg_op (g_ctx, mi)));
     break;
   }
   case ST_CLS: {
@@ -5317,10 +5338,14 @@ static void gen_stmt (Stmt *s) {
   }
   case ST_COLOR: {
     MIR_reg_t c = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    char buf[32];
+    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+    MIR_reg_t ci = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+    basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, ci), MIR_new_reg_op (g_ctx, c));
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, color_proto),
                                         MIR_new_ref_op (g_ctx, color_import),
-                                        MIR_new_reg_op (g_ctx, c)));
+                                        MIR_new_reg_op (g_ctx, ci)));
     break;
   }
   case ST_KEYOFF: {
@@ -5332,18 +5357,29 @@ static void gen_stmt (Stmt *s) {
   case ST_LOCATE: {
     MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, s->u.locate.row);
     MIR_reg_t c = gen_expr (g_ctx, g_func, &g_vars, s->u.locate.col);
+    char buf[32];
+    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+    MIR_reg_t ri = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+    basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, ri), MIR_new_reg_op (g_ctx, r));
+    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+    MIR_reg_t ci = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+    basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, ci), MIR_new_reg_op (g_ctx, c));
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 4, MIR_new_ref_op (g_ctx, locate_proto),
                                         MIR_new_ref_op (g_ctx, locate_import),
-                                        MIR_new_reg_op (g_ctx, r), MIR_new_reg_op (g_ctx, c)));
+                                        MIR_new_reg_op (g_ctx, ri), MIR_new_reg_op (g_ctx, ci)));
     break;
   }
   case ST_VTAB: {
     MIR_reg_t n = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    char buf[32];
+    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+    MIR_reg_t ni = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+    basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, ni), MIR_new_reg_op (g_ctx, n));
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, vtab_proto),
                                         MIR_new_ref_op (g_ctx, vtab_import),
-                                        MIR_new_reg_op (g_ctx, n)));
+                                        MIR_new_reg_op (g_ctx, ni)));
     break;
   }
   case ST_HGR2: {
@@ -5873,10 +5909,14 @@ static void gen_stmt (Stmt *s) {
   }
   case ST_DELAY: {
     MIR_reg_t ms = gen_expr (g_ctx, g_func, &g_vars, s->u.expr);
+    char buf[32];
+    safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+    MIR_reg_t msi = MIR_new_func_reg (g_ctx, g_func->u.func, MIR_T_I64, buf);
+    basic_mir_n2i (g_ctx, g_func, MIR_new_reg_op (g_ctx, msi), MIR_new_reg_op (g_ctx, ms));
     MIR_append_insn (g_ctx, g_func,
                      MIR_new_call_insn (g_ctx, 3, MIR_new_ref_op (g_ctx, delay_proto),
                                         MIR_new_ref_op (g_ctx, delay_import),
-                                        MIR_new_reg_op (g_ctx, ms)));
+                                        MIR_new_reg_op (g_ctx, msi)));
     break;
   }
   case ST_BEEP: {
@@ -6391,23 +6431,22 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   put_hash_import = MIR_new_import (ctx, "basic_put_hash");
   home_proto = MIR_new_proto (ctx, "basic_home_p", 0, NULL, 0);
   home_import = MIR_new_import (ctx, "basic_home");
-  vtab_proto = MIR_new_proto (ctx, "basic_vtab_p", 0, NULL, 1, BASIC_MIR_NUM_T, "n");
+  vtab_proto = MIR_new_proto (ctx, "basic_vtab_p", 0, NULL, 1, MIR_T_I64, "n");
   vtab_import = MIR_new_import (ctx, "basic_vtab");
-  screen_proto = MIR_new_proto (ctx, "basic_screen_p", 0, NULL, 1, BASIC_MIR_NUM_T, "m");
+  screen_proto = MIR_new_proto (ctx, "basic_screen_p", 0, NULL, 1, MIR_T_I64, "m");
   screen_import = MIR_new_import (ctx, "basic_screen");
   cls_proto = MIR_new_proto (ctx, "basic_cls_p", 0, NULL, 0);
   cls_import = MIR_new_import (ctx, "basic_cls");
-  color_proto = MIR_new_proto (ctx, "basic_color_p", 0, NULL, 1, BASIC_MIR_NUM_T, "c");
+  color_proto = MIR_new_proto (ctx, "basic_color_p", 0, NULL, 1, MIR_T_I64, "c");
   color_import = MIR_new_import (ctx, "basic_color");
   keyoff_proto = MIR_new_proto (ctx, "basic_key_off_p", 0, NULL, 0);
   keyoff_import = MIR_new_import (ctx, "basic_key_off");
-  locate_proto
-    = MIR_new_proto (ctx, "basic_locate_p", 0, NULL, 2, BASIC_MIR_NUM_T, "r", BASIC_MIR_NUM_T, "c");
+  locate_proto = MIR_new_proto (ctx, "basic_locate_p", 0, NULL, 2, MIR_T_I64, "r", MIR_T_I64, "c");
   locate_import = MIR_new_import (ctx, "basic_locate");
-  tab_proto = MIR_new_proto (ctx, "basic_tab_p", 0, NULL, 1, BASIC_MIR_NUM_T, "n");
+  tab_proto = MIR_new_proto (ctx, "basic_tab_p", 0, NULL, 1, MIR_T_I64, "n");
   tab_import = MIR_new_import (ctx, "basic_tab");
-  poke_proto = MIR_new_proto (ctx, "basic_poke_p", 0, NULL, 2, BASIC_MIR_NUM_T, "addr",
-                              BASIC_MIR_NUM_T, "value");
+  poke_proto
+    = MIR_new_proto (ctx, "basic_poke_p", 0, NULL, 2, MIR_T_I64, "addr", MIR_T_I64, "value");
   poke_import = MIR_new_import (ctx, "basic_poke");
   text_proto = MIR_new_proto (ctx, "basic_text_p", 0, NULL, 0);
   text_import = MIR_new_import (ctx, "basic_text");
@@ -6449,7 +6488,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   fill_proto = MIR_new_proto (ctx, "basic_fill_p", 0, NULL, 4, BASIC_MIR_NUM_T, "x0",
                               BASIC_MIR_NUM_T, "y0", BASIC_MIR_NUM_T, "x1", BASIC_MIR_NUM_T, "y1");
   fill_import = MIR_new_import (ctx, "basic_fill");
-  delay_proto = MIR_new_proto (ctx, "basic_delay_p", 0, NULL, 1, BASIC_MIR_NUM_T, "ms");
+  delay_proto = MIR_new_proto (ctx, "basic_delay_p", 0, NULL, 1, MIR_T_I64, "ms");
   delay_import = MIR_new_import (ctx, "basic_delay");
   beep_proto = MIR_new_proto (ctx, "basic_beep_p", 0, NULL, 0);
   beep_import = MIR_new_import (ctx, "basic_beep");

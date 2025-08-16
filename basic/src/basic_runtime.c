@@ -494,11 +494,11 @@ void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str) {
 
 void basic_home (void) { printf ("\x1b[2J\x1b[H"); }
 
-void basic_vtab (basic_num_t n) { printf ("\x1b[%ld;H", basic_num_to_int (n)); }
+void basic_vtab (int64_t n) { printf ("\x1b[%ld;H", (long) n); }
 
 void basic_cls (void) { printf ("\x1b[2J\x1b[H"); }
 
-void basic_color (basic_num_t c) { printf ("\x1b[%ldm", basic_num_to_int (c)); }
+void basic_color (int64_t c) { printf ("\x1b[%ldm", (long) c); }
 void basic_key_off (void) {
 #if defined(_WIN32)
   HANDLE h = GetStdHandle (STD_INPUT_HANDLE);
@@ -517,12 +517,10 @@ void basic_key_off (void) {
 #endif
 }
 
-void basic_locate (basic_num_t r, basic_num_t c) {
-  printf ("\x1b[%ld;%ldH", basic_num_to_int (r), basic_num_to_int (c));
-}
+void basic_locate (int64_t r, int64_t c) { printf ("\x1b[%ld;%ldH", (long) r, (long) c); }
 
-void basic_tab (basic_num_t n) { printf ("\x1b[%ldG", basic_num_to_int (n)); }
-void basic_htab (basic_num_t n) { basic_tab (n); }
+void basic_tab (int64_t n) { printf ("\x1b[%ldG", (long) n); }
+void basic_htab (int64_t n) { basic_tab (n); }
 
 basic_num_t basic_abs (basic_num_t x) { return basic_num_fabs (x); }
 
@@ -822,9 +820,9 @@ basic_num_t basic_peek (basic_num_t addr) {
   return basic_num_from_int (basic_memory[a]);
 }
 
-void basic_poke (basic_num_t addr, basic_num_t value) {
-  int a = basic_num_to_int (addr);
-  int v = basic_num_to_int (value) & 0xff;
+void basic_poke (int64_t addr, int64_t value) {
+  int a = (int) addr;
+  int v = (int) value & 0xff;
   if (a < 0 || a >= BASIC_MEM_SIZE) return;
   basic_memory[a] = (uint8_t) v;
 }
@@ -871,14 +869,14 @@ static void basic_ensure_palette (void) {
   }
 }
 
-void basic_screen (basic_num_t m) {
+void basic_screen (int64_t m) {
 #if defined(_WIN32)
-  if (basic_num_eq (m, BASIC_ZERO))
+  if (m == 0)
     basic_text ();
   else
     basic_hgr2 ();
 #else
-  if (basic_num_ne (m, BASIC_ZERO)) {
+  if (m != 0) {
     /* Switch to the alternate screen buffer and enter graphics mode. */
     printf ("\x1b[?1049h");
     basic_hgr2 ();
@@ -1019,13 +1017,13 @@ void basic_fill (basic_num_t x0, basic_num_t y0, basic_num_t x1, basic_num_t y1)
   last_hplot_y = y1;
 }
 
-void basic_mode (basic_num_t m) { basic_screen (m); }
+void basic_mode (basic_num_t m) { basic_screen (basic_num_to_int (m)); }
 
-void basic_delay (basic_num_t ms) {
+void basic_delay (int64_t ms) {
 #if defined(_WIN32)
-  Sleep ((DWORD) basic_num_to_int (ms));
+  Sleep ((DWORD) ms);
 #else
-  useconds_t usec = (useconds_t) basic_num_to_int (basic_num_mul (ms, basic_num_from_int (1000)));
+  useconds_t usec = (useconds_t) (ms * 1000);
   usleep (usec);
 #endif
 }
