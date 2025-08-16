@@ -139,7 +139,7 @@ Integer operands are represented as 64-bit signed integers (`int64_t`) when invo
 | STRING$ | repeat string | 2 | integer, string | string |
 | TIME$ | time as string | 0 |  | string |
 | DATE$ | date as string | 0 |  | string |
-| INPUT$ | input string | 0 |  | string |
+| INPUT$ | input string | 1 | integer | string |
 | SPC | spaces | 1 | integer | string |
 | SPACE$ | spaces | 1 | integer | string |
 | TAB | tab to column | 1 | integer | none |
