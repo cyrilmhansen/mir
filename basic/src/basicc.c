@@ -1148,9 +1148,7 @@ static Token read_token (Parser *p) {
     }
   }
   if (isdigit (c) || c == '.') {
-    char *start = cur;
-    t.num = BASIC_STRTOF (cur, &cur);
-    (void) start;
+    t.num = basic_num_from_string (cur, &cur);
     t.type = TOK_NUMBER;
     decimal_locked = 1;
     p->cur = cur;
