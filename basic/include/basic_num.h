@@ -13,7 +13,7 @@ typedef enum {
   BASIC_NUM_MODE_FIXED64,
 } basic_num_mode_t;
 
-static inline void basic_num_init (basic_num_mode_t mode) { (void) mode; }
+static inline void basic_num_mode_init (basic_num_mode_t mode) { (void) mode; }
 
 #if defined(BASIC_USE_LONG_DOUBLE)
 
