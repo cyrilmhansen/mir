@@ -668,13 +668,9 @@ char *basic_lower (const char *s) {
 
 /* Return the leftmost N characters of S as a newly allocated string.
    Caller must free the result with basic_free. */
-char *basic_left (const char *s, basic_num_t n) {
+char *basic_left (const char *s, int64_t n) {
   size_t len = s != NULL ? strlen (s) : 0;
-  size_t cnt = 0;
-  if (!basic_num_lt (n, BASIC_ZERO)) {
-    long n_int = basic_num_to_int (n);
-    if (n_int > 0) cnt = (size_t) n_int;
-  }
+  size_t cnt = n > 0 ? (size_t) n : 0;
   if (cnt > len) cnt = len;
   char *res = basic_alloc_string (cnt);
   if (res != NULL) memcpy (res, s, cnt);
@@ -683,36 +679,31 @@ char *basic_left (const char *s, basic_num_t n) {
 
 /* Return the rightmost N characters of S as a newly allocated string.
    Caller must free the result with basic_free. */
-char *basic_right (const char *s, basic_num_t n) {
+char *basic_right (const char *s, int64_t n) {
   size_t len = s != NULL ? strlen (s) : 0;
-  size_t cnt = 0;
-  if (!basic_num_lt (n, BASIC_ZERO)) {
-    long n_int = basic_num_to_int (n);
-    if (n_int > 0) cnt = (size_t) n_int;
-  }
+  size_t cnt = n > 0 ? (size_t) n : 0;
   if (cnt > len) cnt = len;
   char *res = basic_alloc_string (cnt);
   if (res != NULL) memcpy (res, s + len - cnt, cnt);
   return res;
 }
 
-/* Return a substring of S starting at START_D with length LEN_D.
+/* Return a substring of S starting at START with length LEN.
    Caller must free the result with basic_free. */
-char *basic_mid (const char *s, basic_num_t start_d, basic_num_t len_d) {
+char *basic_mid (const char *s, int64_t start, int64_t len_d) {
   size_t len = s != NULL ? strlen (s) : 0;
-  long start_i = basic_num_to_int (start_d);
-  if (basic_num_lt (start_d, basic_num_from_int (1))) start_i = 1;
-  size_t start = (size_t) start_i;
-  start--;
-  if (start >= len) {
+  long start_i = start < 1 ? 1 : start;
+  size_t start_pos = (size_t) start_i;
+  start_pos--;
+  if (start_pos >= len) {
     char *res = basic_alloc_string (0);
     if (res == NULL) return NULL;
     return res;
   }
-  size_t cnt = basic_num_lt (len_d, BASIC_ZERO) ? len - start : (size_t) basic_num_to_int (len_d);
-  if (start + cnt > len) cnt = len - start;
+  size_t cnt = len_d < 0 ? len - start_pos : (size_t) len_d;
+  if (start_pos + cnt > len) cnt = len - start_pos;
   char *res = basic_alloc_string (cnt);
-  if (res != NULL) memcpy (res, s + start, cnt);
+  if (res != NULL) memcpy (res, s + start_pos, cnt);
   return res;
 }
 
@@ -796,8 +787,8 @@ char *basic_date_str (void) {
 
 /* Read N characters from stdin and return them as a newly allocated string.
    Caller must free the result with basic_free. */
-char *basic_input_chr (basic_num_t n) {
-  int len = basic_num_to_int (n);
+char *basic_input_chr (int64_t n) {
+  int len = (int) n;
   char *res = basic_alloc_string ((size_t) len);
   int i = 0;
   if (res != NULL) {

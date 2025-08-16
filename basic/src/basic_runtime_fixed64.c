@@ -6,6 +6,15 @@
 #include "basic_runtime_fixed64.h"
 #include "basic_runtime.h"
 #include "basic_num.h"
+
+/* Declarations for common helpers from basic_runtime.c */
+char *basic_chr (int64_t);
+char *basic_unichar (int64_t);
+char *basic_string (int64_t, const char *);
+char *basic_left (const char *, int64_t);
+char *basic_right (const char *, int64_t);
+char *basic_mid (const char *, int64_t, int64_t);
+char *basic_input_chr (int64_t);
 #define BASIC_PRNG128 1
 
 static int seeded = 0;
@@ -433,3 +442,14 @@ void basic_rnd (basic_num_t *res, basic_num_t n) {
   *res = basic_num_mul (frac, n);
 }
 #endif
+
+/* Wrappers to match integer parameter helpers. */
+char *basic_chr_wrap (int64_t n) { return basic_chr (n); }
+char *basic_unichar_wrap (int64_t n) { return basic_unichar (n); }
+char *basic_string_wrap (int64_t n, const char *s) { return basic_string (n, s); }
+char *basic_left_wrap (const char *s, int64_t n) { return basic_left (s, n); }
+char *basic_right_wrap (const char *s, int64_t n) { return basic_right (s, n); }
+char *basic_mid_wrap (const char *s, int64_t start, int64_t len) {
+  return basic_mid (s, start, len);
+}
+char *basic_input_chr_wrap (int64_t n) { return basic_input_chr (n); }
