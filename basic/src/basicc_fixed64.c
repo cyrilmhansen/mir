@@ -318,11 +318,7 @@ extern size_t basic_data_pos;
 
 extern void basic_home (void);
 extern void basic_vtab (basic_num_t);
-#if defined(BASIC_USE_FIXED64)
 extern void basic_rnd (basic_num_t *, basic_num_t);
-#else
-extern basic_num_t basic_rnd (basic_num_t);
-#endif
 extern void basic_randomize (basic_num_t, basic_num_t);
 extern basic_num_t basic_abs (basic_num_t);
 extern basic_num_t basic_sgn (basic_num_t);
