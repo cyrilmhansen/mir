@@ -60,8 +60,8 @@ basic_num_t basic_input (void) {
 
 basic_num_t basic_pos (void) { return basic_num_from_int (basic_pos_val); }
 
-basic_num_t basic_input_hash (basic_num_t n) {
-  int idx = basic_num_to_int (n);
+basic_num_t basic_input_hash (int64_t n) {
+  int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) return BASIC_ZERO;
   basic_num_t x = BASIC_ZERO;
   if (!basic_num_scan (basic_files[idx], &x)) return BASIC_ZERO;

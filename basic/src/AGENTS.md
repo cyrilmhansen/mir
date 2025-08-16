@@ -81,6 +81,9 @@ follow this convention.
 | CALL | call machine code | 1 | integer | none |
 | EVAL | evaluate expression | 1 | string | none |
 
+File handles for `OPEN`, `CLOSE`, and `#` I/O variants (`PRINT#`, `INPUT#`, `GET#`, `PUT#`) are
+passed as 64-bit integers.
+
 ## Built-in Functions
 LEN, INSTR, and ASC return integer values.
 

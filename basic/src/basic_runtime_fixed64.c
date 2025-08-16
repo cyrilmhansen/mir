@@ -383,8 +383,8 @@ void basic_input (basic_num_t *res) {
 
 void basic_pos (basic_num_t *res) { *res = basic_num_from_int (basic_pos_val); }
 
-void basic_input_hash (basic_num_t *res, basic_num_t n) {
-  int idx = basic_num_to_int (n);
+void basic_input_hash (basic_num_t *res, int64_t n) {
+  int idx = (int) n;
   if (idx < 0 || idx >= BASIC_MAX_FILES || basic_files[idx] == NULL) {
     *res = BASIC_ZERO;
     return;
