@@ -3,6 +3,36 @@
 #include "basic_pool.h"
 #ifdef BASIC_USE_FIXED64
 #include "basic_runtime_fixed64.h"
+#define basic_abs basic_abs_wrap
+#define basic_sgn basic_sgn_wrap
+#define basic_sqr basic_sqr_wrap
+#define basic_sin basic_sin_wrap
+#define basic_cos basic_cos_wrap
+#define basic_tan basic_tan_wrap
+#define basic_atn basic_atn_wrap
+#define basic_sinh basic_sinh_wrap
+#define basic_cosh basic_cosh_wrap
+#define basic_tanh basic_tanh_wrap
+#define basic_asinh basic_asinh_wrap
+#define basic_acosh basic_acosh_wrap
+#define basic_atanh basic_atanh_wrap
+#define basic_asin basic_asin_wrap
+#define basic_acos basic_acos_wrap
+#define basic_log basic_log_wrap
+#define basic_log2 basic_log2_wrap
+#define basic_log10 basic_log10_wrap
+#define basic_exp basic_exp_wrap
+#define basic_pow basic_pow_wrap
+#define basic_pi basic_pi_wrap
+#define basic_val basic_val_wrap
+#define basic_int basic_int_wrap
+#define basic_timer basic_timer_wrap
+#define basic_peek basic_peek_wrap
+#define basic_eof basic_eof_wrap
+#define basic_system basic_system_wrap
+#define basic_get_error_handler basic_get_error_handler_wrap
+#define basic_get_line basic_get_line_wrap
+#define basic_fact basic_fact_wrap
 #endif
 #include "mir-hash.h"
 
