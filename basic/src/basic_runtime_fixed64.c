@@ -391,6 +391,38 @@ void basic_rnd (basic_num_t *res, basic_num_t n) {
   *res = basic_num_mul (frac, n);
 }
 
+/* Wrappers to return numeric results via an output parameter. */
+void basic_abs_wrap (basic_num_t *res, basic_num_t x) { *res = basic_abs (x); }
+void basic_sgn_wrap (basic_num_t *res, basic_num_t x) { *res = basic_sgn (x); }
+void basic_sqr_wrap (basic_num_t *res, basic_num_t x) { *res = basic_sqr (x); }
+void basic_sin_wrap (basic_num_t *res, basic_num_t x) { *res = basic_sin (x); }
+void basic_cos_wrap (basic_num_t *res, basic_num_t x) { *res = basic_cos (x); }
+void basic_tan_wrap (basic_num_t *res, basic_num_t x) { *res = basic_tan (x); }
+void basic_atn_wrap (basic_num_t *res, basic_num_t x) { *res = basic_atn (x); }
+void basic_sinh_wrap (basic_num_t *res, basic_num_t x) { *res = basic_sinh (x); }
+void basic_cosh_wrap (basic_num_t *res, basic_num_t x) { *res = basic_cosh (x); }
+void basic_tanh_wrap (basic_num_t *res, basic_num_t x) { *res = basic_tanh (x); }
+void basic_asinh_wrap (basic_num_t *res, basic_num_t x) { *res = basic_asinh (x); }
+void basic_acosh_wrap (basic_num_t *res, basic_num_t x) { *res = basic_acosh (x); }
+void basic_atanh_wrap (basic_num_t *res, basic_num_t x) { *res = basic_atanh (x); }
+void basic_asin_wrap (basic_num_t *res, basic_num_t x) { *res = basic_asin (x); }
+void basic_acos_wrap (basic_num_t *res, basic_num_t x) { *res = basic_acos (x); }
+void basic_log_wrap (basic_num_t *res, basic_num_t x) { *res = basic_log (x); }
+void basic_log2_wrap (basic_num_t *res, basic_num_t x) { *res = basic_log2 (x); }
+void basic_log10_wrap (basic_num_t *res, basic_num_t x) { *res = basic_log10 (x); }
+void basic_exp_wrap (basic_num_t *res, basic_num_t x) { *res = basic_exp (x); }
+void basic_fact_wrap (basic_num_t *res, basic_num_t x) { *res = basic_fact (x); }
+void basic_pow_wrap (basic_num_t *res, basic_num_t x, basic_num_t y) { *res = basic_pow (x, y); }
+void basic_pi_wrap (basic_num_t *res) { *res = basic_pi (); }
+void basic_val_wrap (basic_num_t *res, const char *s) { *res = basic_val (s); }
+void basic_int_wrap (basic_num_t *res, basic_num_t x) { *res = basic_int (x); }
+void basic_timer_wrap (basic_num_t *res) { *res = basic_timer (); }
+void basic_peek_wrap (basic_num_t *res, basic_num_t addr) { *res = basic_peek (addr); }
+void basic_eof_wrap (basic_num_t *res, int64_t n) { *res = basic_eof (n); }
+void basic_system_wrap (basic_num_t *res, const char *cmd) { *res = basic_system (cmd); }
+void basic_get_error_handler_wrap (basic_num_t *res) { *res = basic_get_error_handler (); }
+void basic_get_line_wrap (basic_num_t *res) { *res = basic_get_line (); }
+
 /* Wrappers to match integer parameter helpers. */
 char *basic_chr_wrap (int64_t n) { return basic_chr (n); }
 char *basic_unichar_wrap (int64_t n) { return basic_unichar (n); }
