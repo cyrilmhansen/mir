@@ -10,6 +10,7 @@ set(BASIC_SRCS
     src/basicc.c
     src/basic_runtime.c
     src/basic_runtime_double.c
+    src/basic_runtime_resolve.c
     src/basic_pool.c
     src/arena.c
 )

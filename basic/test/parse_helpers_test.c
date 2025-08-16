@@ -3,6 +3,16 @@
 #include "../src/basicc.c"
 #undef main
 
+void *basic_runtime_resolve (const char *name) {
+  (void) name;
+  return NULL;
+}
+
+void basic_runtime_add_symbols (BasicRuntimeSymbol *syms, size_t cnt) {
+  (void) syms;
+  (void) cnt;
+}
+
 int main (void) {
   basic_pool_init (1024);
   arena_init (&ast_arena);

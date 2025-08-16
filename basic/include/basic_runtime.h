@@ -11,6 +11,8 @@ typedef struct BasicRuntimeSymbol {
 } BasicRuntimeSymbol;
 
 size_t basic_runtime_symbols (BasicRuntimeSymbol **syms);
+void basic_runtime_add_symbols (BasicRuntimeSymbol *syms, size_t cnt);
+void *basic_runtime_resolve (const char *name);
 
 long basic_len (const char *s);
 long basic_instr (const char *s, const char *sub);

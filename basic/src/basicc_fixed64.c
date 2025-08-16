@@ -195,7 +195,6 @@ static void basic_mir_bcmp (MIR_context_t ctx, MIR_item_t func, MIR_insn_code_t 
 #include <stdint.h>
 #include <stdarg.h>
 #include <unistd.h>
-#include <dlfcn.h>
 #include <math.h>
 
 #ifndef BASIC_SRC_DIR
@@ -265,163 +264,26 @@ static int safe_snprintf (char *buf, size_t size, const char *fmt, ...) {
   return res;
 }
 
-static void *resolve (const char *name) {
-  if (!strcmp (name, "basic_print")) return basic_print;
-  if (!strcmp (name, "basic_print_str")) return basic_print_str;
-  if (!strcmp (name, "basic_input")) return basic_input;
-  if (!strcmp (name, "basic_input_str")) return basic_input_str;
-  if (!strcmp (name, "basic_get")) return basic_get;
+static BasicRuntimeSymbol fixed64_runtime_symbols[] = {
+  {"fixed64_add", fixed64_add},
+  {"fixed64_sub", fixed64_sub},
+  {"fixed64_mul", fixed64_mul},
+  {"fixed64_div", fixed64_div},
+  {"fixed64_neg", fixed64_neg},
+  {"fixed64_eq", fixed64_eq},
+  {"fixed64_ne", fixed64_ne},
+  {"fixed64_lt", fixed64_lt},
+  {"fixed64_le", fixed64_le},
+  {"fixed64_gt", fixed64_gt},
+  {"fixed64_ge", fixed64_ge},
+  {"fixed64_from_int", fixed64_from_int},
+  {"fixed64_from_string", fixed64_from_string},
+  {"fixed64_to_int", fixed64_to_int},
+};
 
-  if (!strcmp (name, "basic_inkey")) return basic_inkey;
-
-  if (!strcmp (name, "basic_put")) return basic_put;
-
-  if (!strcmp (name, "basic_strcmp")) return basic_strcmp;
-  if (!strcmp (name, "basic_open")) return basic_open;
-  if (!strcmp (name, "basic_close")) return basic_close;
-  if (!strcmp (name, "basic_print_hash")) return basic_print_hash;
-  if (!strcmp (name, "basic_print_hash_str")) return basic_print_hash_str;
-  if (!strcmp (name, "basic_input_hash")) return basic_input_hash;
-  if (!strcmp (name, "basic_input_hash_str")) return basic_input_hash_str;
-  if (!strcmp (name, "basic_get_hash")) return basic_get_hash;
-  if (!strcmp (name, "basic_put_hash")) return basic_put_hash;
-  if (!strcmp (name, "basic_eval")) return basic_eval;
-  if (!strcmp (name, "basic_eof")) return basic_eof;
-
-  if (!strcmp (name, "fixed64_add")) return fixed64_add;
-  if (!strcmp (name, "fixed64_sub")) return fixed64_sub;
-  if (!strcmp (name, "fixed64_mul")) return fixed64_mul;
-  if (!strcmp (name, "fixed64_div")) return fixed64_div;
-  if (!strcmp (name, "fixed64_neg")) return fixed64_neg;
-  if (!strcmp (name, "fixed64_eq")) return fixed64_eq;
-  if (!strcmp (name, "fixed64_ne")) return fixed64_ne;
-  if (!strcmp (name, "fixed64_lt")) return fixed64_lt;
-  if (!strcmp (name, "fixed64_le")) return fixed64_le;
-  if (!strcmp (name, "fixed64_gt")) return fixed64_gt;
-  if (!strcmp (name, "fixed64_ge")) return fixed64_ge;
-  if (!strcmp (name, "fixed64_from_int")) return fixed64_from_int;
-  if (!strcmp (name, "fixed64_from_string")) return fixed64_from_string;
-  if (!strcmp (name, "fixed64_to_int")) return fixed64_to_int;
-
-  if (!strcmp (name, "basic_read")) return basic_read;
-  if (!strcmp (name, "basic_read_str")) return basic_read_str;
-  if (!strcmp (name, "basic_restore")) return basic_restore;
-  if (!strcmp (name, "basic_clear_array")) return basic_clear_array;
-  if (!strcmp (name, "basic_dim_alloc")) return basic_dim_alloc;
-
-  if (!strcmp (name, "basic_home")) return basic_home;
-  if (!strcmp (name, "basic_vtab")) return basic_vtab;
-  if (!strcmp (name, "basic_randomize")) return basic_randomize;
-  if (!strcmp (name, "basic_rnd")) return basic_rnd;
-  if (!strcmp (name, "basic_abs")) return basic_abs;
-  if (!strcmp (name, "basic_sgn")) return basic_sgn;
-  if (!strcmp (name, "basic_sqr")) return basic_sqr;
-  if (!strcmp (name, "basic_sin")) return basic_sin;
-  if (!strcmp (name, "basic_cos")) return basic_cos;
-  if (!strcmp (name, "basic_tan")) return basic_tan;
-  if (!strcmp (name, "basic_atn")) return basic_atn;
-  if (!strcmp (name, "basic_sinh")) return basic_sinh;
-  if (!strcmp (name, "basic_cosh")) return basic_cosh;
-  if (!strcmp (name, "basic_tanh")) return basic_tanh;
-  if (!strcmp (name, "basic_asinh")) return basic_asinh;
-  if (!strcmp (name, "basic_acosh")) return basic_acosh;
-  if (!strcmp (name, "basic_atanh")) return basic_atanh;
-  if (!strcmp (name, "basic_asin")) return basic_asin;
-  if (!strcmp (name, "basic_acos")) return basic_acos;
-  if (!strcmp (name, "basic_log")) return basic_log;
-  if (!strcmp (name, "basic_log2")) return basic_log2;
-  if (!strcmp (name, "basic_log10")) return basic_log10;
-  if (!strcmp (name, "basic_exp")) return basic_exp;
-  if (!strcmp (name, "basic_pow")) return basic_pow;
-  if (!strcmp (name, "basic_pi")) return basic_pi;
-  if (!strcmp (name, "basic_instr")) return basic_instr;
-
-  if (!strcmp (name, "basic_screen")) return basic_screen;
-  if (!strcmp (name, "basic_cls")) return basic_cls;
-  if (!strcmp (name, "basic_color")) return basic_color;
-  if (!strcmp (name, "basic_key_off")) return basic_key_off;
-  if (!strcmp (name, "basic_locate")) return basic_locate;
-  if (!strcmp (name, "basic_tab")) return basic_tab;
-  if (!strcmp (name, "basic_htab")) return basic_htab;
-  if (!strcmp (name, "basic_pos")) return basic_pos;
-  if (!strcmp (name, "basic_text")) return basic_text;
-  if (!strcmp (name, "basic_inverse")) return basic_inverse;
-  if (!strcmp (name, "basic_normal")) return basic_normal;
-  if (!strcmp (name, "basic_hgr2")) return basic_hgr2;
-  if (!strcmp (name, "basic_hcolor")) return basic_hcolor;
-  if (!strcmp (name, "basic_hplot")) return basic_hplot;
-  if (!strcmp (name, "basic_hplot_to")) return basic_hplot_to;
-  if (!strcmp (name, "basic_hplot_to_current")) return basic_hplot_to_current;
-  if (!strcmp (name, "basic_move")) return basic_move;
-  if (!strcmp (name, "basic_draw")) return basic_draw;
-  if (!strcmp (name, "basic_draw_line")) return basic_draw_line;
-  if (!strcmp (name, "basic_circle")) return basic_circle;
-  if (!strcmp (name, "basic_rect")) return basic_rect;
-  if (!strcmp (name, "basic_fill")) return basic_fill;
-  if (!strcmp (name, "basic_mode")) return basic_mode;
-  if (!strcmp (name, "basic_profile_line")) return basic_profile_line;
-  if (!strcmp (name, "basic_profile_func_enter")) return basic_profile_func_enter;
-  if (!strcmp (name, "basic_profile_func_exit")) return basic_profile_func_exit;
-
-  if (!strcmp (name, "basic_chr_wrap")) return basic_chr_wrap;
-  if (!strcmp (name, "basic_unichar_wrap")) return basic_unichar_wrap;
-  if (!strcmp (name, "basic_string_wrap")) return basic_string_wrap;
-  if (!strcmp (name, "basic_concat")) return basic_concat;
-  if (!strcmp (name, "basic_left_wrap")) return basic_left_wrap;
-  if (!strcmp (name, "basic_right_wrap")) return basic_right_wrap;
-  if (!strcmp (name, "basic_mid_wrap")) return basic_mid_wrap;
-  if (!strcmp (name, "basic_mirror")) return basic_mirror;
-  if (!strcmp (name, "basic_upper")) return basic_upper;
-  if (!strcmp (name, "basic_lower")) return basic_lower;
-  if (!strcmp (name, "basic_len")) return basic_len;
-  if (!strcmp (name, "basic_val")) return basic_val;
-  if (!strcmp (name, "basic_str")) return basic_str;
-  if (!strcmp (name, "basic_asc")) return basic_asc;
-  if (!strcmp (name, "basic_int")) return basic_int;
-  if (!strcmp (name, "basic_timer")) return basic_timer;
-  if (!strcmp (name, "basic_time_str")) return basic_time_str;
-  if (!strcmp (name, "basic_date_str")) return basic_date_str;
-  if (!strcmp (name, "basic_input_chr_wrap")) return basic_input_chr_wrap;
-  if (!strcmp (name, "basic_peek")) return basic_peek;
-  if (!strcmp (name, "basic_poke")) return basic_poke;
-  if (!strcmp (name, "basic_stop")) return basic_stop;
-  if (!strcmp (name, "basic_return_error")) return basic_return_error;
-  if (!strcmp (name, "basic_chain")) return basic_chain;
-
-  if (!strcmp (name, "basic_set_error_handler")) return basic_set_error_handler;
-  if (!strcmp (name, "basic_get_error_handler")) return basic_get_error_handler;
-  if (!strcmp (name, "basic_set_line")) return basic_set_line;
-  if (!strcmp (name, "basic_get_line")) return basic_get_line;
-  if (!strcmp (name, "basic_enable_line_tracking")) return basic_enable_line_tracking;
-
-  if (!strcmp (name, "basic_delay")) return basic_delay;
-  if (!strcmp (name, "basic_beep")) return basic_beep;
-  if (!strcmp (name, "basic_sound")) return basic_sound;
-  if (!strcmp (name, "basic_sound_off")) return basic_sound_off;
-  if (!strcmp (name, "basic_system")) return basic_system;
-  if (!strcmp (name, "basic_system_out")) return basic_system_out;
-
-  if (!strcmp (name, "basic_strdup")) return basic_strdup;
-  if (!strcmp (name, "basic_free")) return basic_free;
-
-  if (!strcmp (name, "basic_calloc")) return basic_calloc;
-  if (!strcmp (name, "basic_pool_reset")) return basic_pool_reset;
-  if (!strcmp (name, "memset")) return memset;
-  if (!strcmp (name, "basic_mir_ctx")) return basic_mir_ctx;
-  if (!strcmp (name, "basic_mir_mod")) return basic_mir_mod;
-  if (!strcmp (name, "basic_mir_func")) return basic_mir_func;
-  if (!strcmp (name, "basic_mir_reg")) return basic_mir_reg;
-  if (!strcmp (name, "basic_mir_label")) return basic_mir_label;
-  if (!strcmp (name, "basic_mir_emit")) return basic_mir_emit;
-  if (!strcmp (name, "basic_mir_emitlbl")) return basic_mir_emitlbl;
-  if (!strcmp (name, "basic_mir_ret")) return basic_mir_ret;
-  if (!strcmp (name, "basic_mir_finish")) return basic_mir_finish;
-  if (!strcmp (name, "basic_mir_run")) return basic_mir_run;
-  if (!strcmp (name, "basic_mir_dump")) return basic_mir_dump;
-  if (!strcmp (name, "basic_fact")) return basic_fact;
-  void *sym = dlsym (NULL, name);
-  return sym;
-}
+static BasicRuntimeSymbol local_runtime_symbols[] = {
+  {"basic_chain", basic_chain},
+};
 
 /* Runtime call prototypes for expressions */
 static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, unichar_proto, unichar_import,
@@ -6759,7 +6621,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   if (code_p) {
     MIR_load_module (ctx, module);
     MIR_gen_init (ctx);
-    MIR_link (ctx, MIR_set_gen_interface, resolve);
+    MIR_link (ctx, MIR_set_gen_interface, basic_runtime_resolve);
     for (size_t i = 0; i < func_defs.len; i++) {
       FuncDef *fd = &func_defs.data[i];
       if (fd->is_extern) continue;
@@ -6784,7 +6646,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   MIR_load_module (ctx, module);
   if (jit) {
     MIR_gen_init (ctx);
-    MIR_link (ctx, MIR_set_gen_interface, resolve);
+    MIR_link (ctx, MIR_set_gen_interface, basic_runtime_resolve);
     for (size_t i = 0; i < func_defs.len; i++) {
       FuncDef *fd = &func_defs.data[i];
       if (fd->is_extern) continue;
@@ -6795,7 +6657,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     m ();
     MIR_gen_finish (ctx);
   } else {
-    MIR_link (ctx, MIR_set_interp_interface, resolve);
+    MIR_link (ctx, MIR_set_interp_interface, basic_runtime_resolve);
     typedef int (*main_t) (void);
     main_t m = func->addr;
     m ();
@@ -7145,6 +7007,10 @@ static void usage (const char *progname) {
 }
 
 int main (int argc, char **argv) {
+  basic_runtime_add_symbols (fixed64_runtime_symbols, sizeof (fixed64_runtime_symbols)
+                                                        / sizeof (fixed64_runtime_symbols[0]));
+  basic_runtime_add_symbols (local_runtime_symbols,
+                             sizeof (local_runtime_symbols) / sizeof (local_runtime_symbols[0]));
   basic_num_init (BASIC_NUM_MODE_FIXED64);
   arena_init (&ast_arena);
   basic_pool_reset ();
