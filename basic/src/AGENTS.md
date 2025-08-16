@@ -75,6 +75,7 @@
 | EVAL | evaluate expression | 1 | string | none |
 
 ## Built-in Functions
+LEN, INSTR, and ASC return integer values.
 
 | Instruction | Description | Operands | Operand Types | Return |
 |---|---|---|---|---|

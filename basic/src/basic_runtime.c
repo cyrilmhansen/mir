@@ -729,13 +729,13 @@ char *basic_mirror (const char *s) {
   return res;
 }
 
-basic_num_t basic_instr (const char *s, const char *sub) {
-  if (s == NULL || sub == NULL || *sub == '\0') return BASIC_ZERO;
+long basic_instr (const char *s, const char *sub) {
+  if (s == NULL || sub == NULL || *sub == '\0') return 0;
   const char *p = strstr (s, sub);
-  return p == NULL ? BASIC_ZERO : basic_num_from_int (p - s + 1);
+  return p == NULL ? 0 : p - s + 1;
 }
 
-basic_num_t basic_len (const char *s) { return basic_num_from_int (s != NULL ? strlen (s) : 0); }
+long basic_len (const char *s) { return s != NULL ? (long) strlen (s) : 0; }
 
 basic_num_t basic_val (const char *s) {
   if (s == NULL) return BASIC_ZERO;
@@ -753,9 +753,7 @@ char *basic_str (basic_num_t n) {
   return res;
 }
 
-basic_num_t basic_asc (const char *s) {
-  return s == NULL || s[0] == '\0' ? BASIC_ZERO : basic_num_from_int ((unsigned char) s[0]);
-}
+long basic_asc (const char *s) { return s == NULL || s[0] == '\0' ? 0 : (unsigned char) s[0]; }
 
 basic_num_t basic_int (basic_num_t x) { return basic_num_floor (x); }
 
