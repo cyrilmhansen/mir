@@ -6139,7 +6139,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   on_error_import = MIR_new_import (ctx, "basic_set_error_handler");
   set_line_proto = MIR_new_proto (ctx, "basic_set_line_p", 0, NULL, 1, BASIC_MIR_NUM_T, "line");
   set_line_import = MIR_new_import (ctx, "basic_set_line");
-  get_line_proto = BASIC_PROTO_NUM (ctx, "basic_get_line_p", 0, NULL);
+  get_line_proto = BASIC_PROTO_NUM (ctx, "basic_get_line_p", 0);
   get_line_import = MIR_new_import (ctx, "basic_get_line");
   line_track_proto
     = MIR_new_proto (ctx, "basic_enable_line_tracking_p", 0, NULL, 1, BASIC_MIR_NUM_T, "on");
@@ -6167,7 +6167,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   concat_import = MIR_new_import (ctx, "basic_concat");
   int_proto = BASIC_PROTO_NUM (ctx, "basic_int_p", 1, {BASIC_MIR_NUM_T, "x", 0});
   int_import = MIR_new_import (ctx, "basic_int");
-  timer_proto = BASIC_PROTO_NUM (ctx, "basic_timer_p", 0, NULL);
+  timer_proto = BASIC_PROTO_NUM (ctx, "basic_timer_p", 0);
   timer_import = MIR_new_import (ctx, "basic_timer");
   time_str_proto = MIR_new_proto (ctx, "basic_time_str_p", 1, &p, 0);
   time_str_import = MIR_new_import (ctx, "basic_time_str");
@@ -6233,7 +6233,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     = BASIC_PROTO_NUM (ctx, "basic_pow_p", 2, {BASIC_MIR_NUM_T, "x", 0}, {BASIC_MIR_NUM_T, "y", 0});
 
   pow_import = MIR_new_import (ctx, "basic_pow");
-  pi_proto = BASIC_PROTO_NUM (ctx, "basic_pi_p", 0, NULL);
+  pi_proto = BASIC_PROTO_NUM (ctx, "basic_pi_p", 0);
   pi_import = MIR_new_import (ctx, "basic_pi");
   left_proto = MIR_new_proto (ctx, "basic_left_p", 1, &p, 2, MIR_T_P, "s", MIR_T_I64, "n");
   left_import = MIR_new_import (ctx, "basic_left");
