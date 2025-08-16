@@ -2064,15 +2064,315 @@ static int parse_if_stmt (Parser *p, Stmt *out) {
   return 1;
 }
 
+#define DEFINE_SIMPLE_STMT(name, stkind)                  \
+  static int parse_##name##_stmt (Parser *p, Stmt *out) { \
+    (void) p;                                             \
+    out->kind = stkind;                                   \
+    return 1;                                             \
+  }
+
+DEFINE_SIMPLE_STMT (clear, ST_CLEAR)
+DEFINE_SIMPLE_STMT (restore, ST_RESTORE)
+DEFINE_SIMPLE_STMT (cls, ST_CLS)
+DEFINE_SIMPLE_STMT (keyoff, ST_KEYOFF)
+DEFINE_SIMPLE_STMT (home, ST_HOME)
+DEFINE_SIMPLE_STMT (beep, ST_BEEP)
+DEFINE_SIMPLE_STMT (text, ST_TEXT)
+DEFINE_SIMPLE_STMT (inverse, ST_INVERSE)
+DEFINE_SIMPLE_STMT (normal, ST_NORMAL)
+DEFINE_SIMPLE_STMT (hgr2, ST_HGR2)
+DEFINE_SIMPLE_STMT (wend, ST_WEND)
+DEFINE_SIMPLE_STMT (do, ST_DO)
+DEFINE_SIMPLE_STMT (loop, ST_LOOP)
+DEFINE_SIMPLE_STMT (repeat, ST_REPEAT)
+DEFINE_SIMPLE_STMT (return, ST_RETURN)
+DEFINE_SIMPLE_STMT (end, ST_END)
+DEFINE_SIMPLE_STMT (stop, ST_STOP)
+
+static int parse_dim_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_DIM;
+  out->u.dim.names = NULL;
+  out->u.dim.sizes1 = NULL;
+  out->u.dim.sizes2 = NULL;
+  out->u.dim.is_str = NULL;
+  out->u.dim.n = 0;
+  {
+    size_t cap = 0;
+    while (1) {
+      char *name = parse_id (p);
+      int is_str = name[strlen (name) - 1] == '$';
+      Node *size1 = NULL, *size2 = NULL;
+      Token t = peek_token (p);
+      if (t.type == TOK_LPAREN) {
+        next_token (p);
+        PARSE_EXPR_OR_ERROR (size1);
+        t = peek_token (p);
+        if (t.type == TOK_COMMA) {
+          next_token (p);
+          PARSE_EXPR_OR_ERROR (size2);
+          t = peek_token (p);
+        }
+        if (t.type == TOK_RPAREN) next_token (p);
+      }
+      if (out->u.dim.n == cap) {
+        size_t new_cap = cap ? 2 * cap : 4;
+        char **tmp_names
+          = pool_realloc (out->u.dim.names, cap * sizeof (char *), new_cap * sizeof (char *));
+        if (tmp_names == NULL) return 0;
+        out->u.dim.names = tmp_names;
+        Node **tmp_sizes1
+          = pool_realloc (out->u.dim.sizes1, cap * sizeof (Node *), new_cap * sizeof (Node *));
+        if (tmp_sizes1 == NULL) return 0;
+        out->u.dim.sizes1 = tmp_sizes1;
+        Node **tmp_sizes2
+          = pool_realloc (out->u.dim.sizes2, cap * sizeof (Node *), new_cap * sizeof (Node *));
+        if (tmp_sizes2 == NULL) return 0;
+        out->u.dim.sizes2 = tmp_sizes2;
+        int *tmp_is_str
+          = pool_realloc (out->u.dim.is_str, cap * sizeof (int), new_cap * sizeof (int));
+        if (tmp_is_str == NULL) return 0;
+        out->u.dim.is_str = tmp_is_str;
+        cap = new_cap;
+      }
+      out->u.dim.names[out->u.dim.n] = name;
+      out->u.dim.sizes1[out->u.dim.n] = size1;
+      out->u.dim.sizes2[out->u.dim.n] = size2;
+      out->u.dim.is_str[out->u.dim.n] = is_str;
+      out->u.dim.n++;
+      t = peek_token (p);
+      if (t.type != TOK_COMMA) break;
+      next_token (p);
+    }
+    char **names = arena_alloc (&ast_arena, out->u.dim.n * sizeof (char *));
+    memcpy (names, out->u.dim.names, out->u.dim.n * sizeof (char *));
+    Node **sizes1 = arena_alloc (&ast_arena, out->u.dim.n * sizeof (Node *));
+    memcpy (sizes1, out->u.dim.sizes1, out->u.dim.n * sizeof (Node *));
+    Node **sizes2 = arena_alloc (&ast_arena, out->u.dim.n * sizeof (Node *));
+    memcpy (sizes2, out->u.dim.sizes2, out->u.dim.n * sizeof (Node *));
+    int *is_str_arr = arena_alloc (&ast_arena, out->u.dim.n * sizeof (int));
+    memcpy (is_str_arr, out->u.dim.is_str, out->u.dim.n * sizeof (int));
+    basic_pool_free (out->u.dim.names);
+    basic_pool_free (out->u.dim.sizes1);
+    basic_pool_free (out->u.dim.sizes2);
+    basic_pool_free (out->u.dim.is_str);
+    out->u.dim.names = names;
+    out->u.dim.sizes1 = sizes1;
+    out->u.dim.sizes2 = sizes2;
+    out->u.dim.is_str = is_str_arr;
+  }
+  return 1;
+}
+
+static int parse_delay_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_DELAY;
+  PARSE_EXPR_OR_ERROR (out->u.expr);
+  return 1;
+}
+
+static int parse_chain_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_CHAIN;
+  contains_chain = 1;
+  PARSE_EXPR_OR_ERROR (out->u.chain.path);
+  return 1;
+}
+
+static int parse_eval_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_EVAL;
+  out->u.eval.cmd = parse_rest (p);
+  return 1;
+}
+
+static int parse_mat_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_MAT;
+  CallArgs a = {{0}};
+  char *name = parse_id (p);
+  out->u.mat.dest = parse_variable (name, &a);
+  if (next_token (p).type != TOK_EQ) return 0;
+  name = parse_id (p);
+  CallArgs a1 = {{0}};
+  out->u.mat.src1 = parse_variable (name, &a1);
+  out->u.mat.src2 = NULL;
+  out->u.mat.op_type = OP_NONE;
+  Token t = peek_token (p);
+  if (t.type == TOK_PLUS || t.type == TOK_MINUS || t.type == TOK_STAR) {
+    next_token (p);
+    char *name2 = parse_id (p);
+    CallArgs a2 = {{0}};
+    out->u.mat.src2 = parse_variable (name2, &a2);
+    switch (t.type) {
+    case TOK_PLUS: out->u.mat.op_type = OP_PLUS; break;
+    case TOK_MINUS: out->u.mat.op_type = OP_MINUS; break;
+    case TOK_STAR: out->u.mat.op_type = OP_STAR; break;
+    default: break;
+    }
+  }
+  return 1;
+}
+
+static int parse_randomize_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_RANDOMIZE;
+  if (peek_token (p).type == TOK_COLON || peek_token (p).type == TOK_EOF) {
+    out->u.expr = NULL;
+  } else {
+    PARSE_EXPR_OR_ERROR (out->u.expr);
+  }
+  return 1;
+}
+
+static int parse_open_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_OPEN;
+  PARSE_EXPR_OR_ERROR (out->u.open.num);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.open.path);
+  return 1;
+}
+
+static int parse_close_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_CLOSE;
+  PARSE_EXPR_OR_ERROR (out->u.close.num);
+  return 1;
+}
+
+static int parse_print_hash_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_PRINT_HASH;
+  PARSE_EXPR_OR_ERROR (out->u.printhash.num);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  out->u.printhash.items = NULL;
+  out->u.printhash.n = 0;
+  out->u.printhash.no_nl = 0;
+  return 1;
+}
+
+static int parse_input_hash_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_INPUT_HASH;
+  PARSE_EXPR_OR_ERROR (out->u.inputhash.num);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  out->u.inputhash.var = parse_id (p);
+  out->u.inputhash.is_str = out->u.inputhash.var[strlen (out->u.inputhash.var) - 1] == '$';
+  return 1;
+}
+
+static int parse_get_hash_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_GET_HASH;
+  PARSE_EXPR_OR_ERROR (out->u.gethash.num);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  out->u.gethash.var = parse_id (p);
+  return 1;
+}
+
+static int parse_get_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_GET;
+  out->u.get.var = parse_id (p);
+  return 1;
+}
+
+static int parse_put_hash_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_PUT_HASH;
+  PARSE_EXPR_OR_ERROR (out->u.puthash.num);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.puthash.expr);
+  return 1;
+}
+
+static int parse_put_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_PUT;
+  PARSE_EXPR_OR_ERROR (out->u.put.expr);
+  return 1;
+}
+
+static int parse_swap_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_SWAP;
+  out->u.swap.var1 = parse_factor (p);
+  if (out->u.swap.var1 == NULL || out->u.swap.var1->kind != N_VAR) return parse_error (p);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  out->u.swap.var2 = parse_factor (p);
+  if (out->u.swap.var2 == NULL || out->u.swap.var2->kind != N_VAR) return parse_error (p);
+  if (out->u.swap.var1->is_str != out->u.swap.var2->is_str) {
+    safe_fprintf (stderr, "type mismatch in SWAP\n");
+    return 0;
+  }
+  return 1;
+}
+
+static int parse_gosub_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_GOSUB;
+  Token tok = next_token (p);
+  if (tok.type != TOK_NUMBER) {
+    safe_fprintf (stderr, "expected integer\n");
+    return 0;
+  }
+  out->u.target = basic_num_to_int (tok.num);
+  return 1;
+}
+
+static int parse_next_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_NEXT;
+  out->u.next.var = NULL;
+  if (peek_token (p).type == TOK_IDENTIFIER) out->u.next.var = parse_id (p);
+  return 1;
+}
+
+static int parse_while_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_WHILE;
+  PARSE_EXPR_OR_ERROR (out->u.expr);
+  return 1;
+}
+
+static int parse_until_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_UNTIL;
+  PARSE_EXPR_OR_ERROR (out->u.expr);
+  return 1;
+}
+
 typedef struct {
   TokenType tok;
   StmtParser fn;
 } StmtDispatch;
 
 static const StmtDispatch stmt_dispatch[] = {
-  {TOK_PRINT, parse_print_stmt}, {TOK_INPUT, parse_input_stmt}, {TOK_GOTO, parse_goto_stmt},
-  {TOK_LET, parse_let_stmt},     {TOK_INC, parse_inc_stmt},     {TOK_DEC, parse_dec_stmt},
+  {TOK_PRINT, parse_print_stmt},
+  {TOK_INPUT, parse_input_stmt},
+  {TOK_GOTO, parse_goto_stmt},
+  {TOK_LET, parse_let_stmt},
+  {TOK_INC, parse_inc_stmt},
+  {TOK_DEC, parse_dec_stmt},
   {TOK_IF, parse_if_stmt},
+  {TOK_DIM, parse_dim_stmt},
+  {TOK_CLEAR, parse_clear_stmt},
+  {TOK_RESTORE, parse_restore_stmt},
+  {TOK_CLS, parse_cls_stmt},
+  {TOK_KEYOFF, parse_keyoff_stmt},
+  {TOK_HOME, parse_home_stmt},
+  {TOK_DELAY, parse_delay_stmt},
+  {TOK_BEEP, parse_beep_stmt},
+  {TOK_CHAIN, parse_chain_stmt},
+  {TOK_EVAL, parse_eval_stmt},
+  {TOK_MAT, parse_mat_stmt},
+  {TOK_TEXT, parse_text_stmt},
+  {TOK_INVERSE, parse_inverse_stmt},
+  {TOK_NORMAL, parse_normal_stmt},
+  {TOK_HGR2, parse_hgr2_stmt},
+  {TOK_RANDOMIZE, parse_randomize_stmt},
+  {TOK_OPEN, parse_open_stmt},
+  {TOK_CLOSE, parse_close_stmt},
+  {TOK_PRINT_HASH, parse_print_hash_stmt},
+  {TOK_INPUT_HASH, parse_input_hash_stmt},
+  {TOK_GET_HASH, parse_get_hash_stmt},
+  {TOK_GET, parse_get_stmt},
+  {TOK_PUT_HASH, parse_put_hash_stmt},
+  {TOK_PUT, parse_put_stmt},
+  {TOK_SWAP, parse_swap_stmt},
+  {TOK_GOSUB, parse_gosub_stmt},
+  {TOK_NEXT, parse_next_stmt},
+  {TOK_WHILE, parse_while_stmt},
+  {TOK_WEND, parse_wend_stmt},
+  {TOK_DO, parse_do_stmt},
+  {TOK_LOOP, parse_loop_stmt},
+  {TOK_REPEAT, parse_repeat_stmt},
+  {TOK_UNTIL, parse_until_stmt},
+  {TOK_RETURN, parse_return_stmt},
+  {TOK_END, parse_end_stmt},
+  {TOK_STOP, parse_stop_stmt},
 };
 
 static int parse_stmt (Parser *p, Stmt *out) {
@@ -2105,221 +2405,6 @@ static int parse_stmt (Parser *p, Stmt *out) {
     use_decimal_floats = 1;
     out->kind = ST_REM;
     return 1;
-  case TOK_DIM:
-    out->kind = ST_DIM;
-    out->u.dim.names = NULL;
-    out->u.dim.sizes1 = NULL;
-    out->u.dim.sizes2 = NULL;
-    out->u.dim.is_str = NULL;
-    out->u.dim.n = 0;
-    {
-      size_t cap = 0;
-      while (1) {
-        char *name = parse_id (p);
-        int is_str = name[strlen (name) - 1] == '$';
-        Node *size1 = NULL, *size2 = NULL;
-        Token t = peek_token (p);
-        if (t.type == TOK_LPAREN) {
-          next_token (p);
-          PARSE_EXPR_OR_ERROR (size1);
-          t = peek_token (p);
-          if (t.type == TOK_COMMA) {
-            next_token (p);
-            PARSE_EXPR_OR_ERROR (size2);
-            t = peek_token (p);
-          }
-          if (t.type == TOK_RPAREN) next_token (p);
-        }
-        if (out->u.dim.n == cap) {
-          size_t new_cap = cap ? 2 * cap : 4;
-          char **tmp_names
-            = pool_realloc (out->u.dim.names, cap * sizeof (char *), new_cap * sizeof (char *));
-          if (tmp_names == NULL) return 0;
-          out->u.dim.names = tmp_names;
-          Node **tmp_sizes1
-            = pool_realloc (out->u.dim.sizes1, cap * sizeof (Node *), new_cap * sizeof (Node *));
-          if (tmp_sizes1 == NULL) return 0;
-          out->u.dim.sizes1 = tmp_sizes1;
-          Node **tmp_sizes2
-            = pool_realloc (out->u.dim.sizes2, cap * sizeof (Node *), new_cap * sizeof (Node *));
-          if (tmp_sizes2 == NULL) return 0;
-          out->u.dim.sizes2 = tmp_sizes2;
-          int *tmp_is_str
-            = pool_realloc (out->u.dim.is_str, cap * sizeof (int), new_cap * sizeof (int));
-          if (tmp_is_str == NULL) return 0;
-          out->u.dim.is_str = tmp_is_str;
-          cap = new_cap;
-        }
-        out->u.dim.names[out->u.dim.n] = name;
-        out->u.dim.sizes1[out->u.dim.n] = size1;
-        out->u.dim.sizes2[out->u.dim.n] = size2;
-        out->u.dim.is_str[out->u.dim.n] = is_str;
-        out->u.dim.n++;
-        t = peek_token (p);
-        if (t.type != TOK_COMMA) break;
-        next_token (p);
-      }
-      char **names = arena_alloc (&ast_arena, out->u.dim.n * sizeof (char *));
-      memcpy (names, out->u.dim.names, out->u.dim.n * sizeof (char *));
-      Node **sizes1 = arena_alloc (&ast_arena, out->u.dim.n * sizeof (Node *));
-      memcpy (sizes1, out->u.dim.sizes1, out->u.dim.n * sizeof (Node *));
-      Node **sizes2 = arena_alloc (&ast_arena, out->u.dim.n * sizeof (Node *));
-      memcpy (sizes2, out->u.dim.sizes2, out->u.dim.n * sizeof (Node *));
-      int *is_str_arr = arena_alloc (&ast_arena, out->u.dim.n * sizeof (int));
-      memcpy (is_str_arr, out->u.dim.is_str, out->u.dim.n * sizeof (int));
-      basic_pool_free (out->u.dim.names);
-      basic_pool_free (out->u.dim.sizes1);
-      basic_pool_free (out->u.dim.sizes2);
-      basic_pool_free (out->u.dim.is_str);
-      out->u.dim.names = names;
-      out->u.dim.sizes1 = sizes1;
-      out->u.dim.sizes2 = sizes2;
-      out->u.dim.is_str = is_str_arr;
-    }
-    return 1;
-  case TOK_CLEAR: out->kind = ST_CLEAR; return 1;
-  case TOK_RESTORE: out->kind = ST_RESTORE; return 1;
-  case TOK_CLS: out->kind = ST_CLS; return 1;
-  case TOK_KEYOFF: out->kind = ST_KEYOFF; return 1;
-  case TOK_HOME: out->kind = ST_HOME; return 1;
-  case TOK_DELAY:
-    out->kind = ST_DELAY;
-    PARSE_EXPR_OR_ERROR (out->u.expr);
-    return 1;
-  case TOK_BEEP: out->kind = ST_BEEP; return 1;
-  case TOK_CHAIN:
-    out->kind = ST_CHAIN;
-    contains_chain = 1;
-    PARSE_EXPR_OR_ERROR (out->u.chain.path);
-    return 1;
-  case TOK_EVAL:
-    out->kind = ST_EVAL;
-    out->u.eval.cmd = parse_rest (p);
-    return 1;
-  case TOK_MAT: {
-    out->kind = ST_MAT;
-    CallArgs a = {{0}};
-    char *name = parse_id (p);
-    out->u.mat.dest = parse_variable (name, &a);
-    if (next_token (p).type != TOK_EQ) return 0;
-    name = parse_id (p);
-    CallArgs a1 = {{0}};
-    out->u.mat.src1 = parse_variable (name, &a1);
-    out->u.mat.src2 = NULL;
-    out->u.mat.op_type = OP_NONE;
-    Token t = peek_token (p);
-    if (t.type == TOK_PLUS || t.type == TOK_MINUS || t.type == TOK_STAR) {
-      next_token (p);
-      char *name2 = parse_id (p);
-      CallArgs a2 = {{0}};
-      out->u.mat.src2 = parse_variable (name2, &a2);
-      switch (t.type) {
-      case TOK_PLUS: out->u.mat.op_type = OP_PLUS; break;
-      case TOK_MINUS: out->u.mat.op_type = OP_MINUS; break;
-      case TOK_STAR: out->u.mat.op_type = OP_STAR; break;
-      default: break;
-      }
-    }
-    return 1;
-  }
-  case TOK_TEXT: out->kind = ST_TEXT; return 1;
-  case TOK_INVERSE: out->kind = ST_INVERSE; return 1;
-  case TOK_NORMAL: out->kind = ST_NORMAL; return 1;
-  case TOK_HGR2: out->kind = ST_HGR2; return 1;
-  case TOK_RANDOMIZE:
-    out->kind = ST_RANDOMIZE;
-    if (peek_token (p).type == TOK_COLON || peek_token (p).type == TOK_EOF) {
-      out->u.expr = NULL;
-    } else {
-      PARSE_EXPR_OR_ERROR (out->u.expr);
-    }
-    return 1;
-  case TOK_OPEN:
-    out->kind = ST_OPEN;
-    PARSE_EXPR_OR_ERROR (out->u.open.num);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.open.path);
-    return 1;
-  case TOK_CLOSE:
-    out->kind = ST_CLOSE;
-    PARSE_EXPR_OR_ERROR (out->u.close.num);
-    return 1;
-  case TOK_PRINT_HASH:
-    out->kind = ST_PRINT_HASH;
-    PARSE_EXPR_OR_ERROR (out->u.printhash.num);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    out->u.printhash.items = NULL;
-    out->u.printhash.n = 0;
-    out->u.printhash.no_nl = 0;
-    return 1;
-  case TOK_INPUT_HASH:
-    out->kind = ST_INPUT_HASH;
-    PARSE_EXPR_OR_ERROR (out->u.inputhash.num);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    out->u.inputhash.var = parse_id (p);
-    out->u.inputhash.is_str = out->u.inputhash.var[strlen (out->u.inputhash.var) - 1] == '$';
-    return 1;
-  case TOK_GET_HASH:
-    out->kind = ST_GET_HASH;
-    PARSE_EXPR_OR_ERROR (out->u.gethash.num);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    out->u.gethash.var = parse_id (p);
-    return 1;
-  case TOK_GET:
-    out->kind = ST_GET;
-    out->u.get.var = parse_id (p);
-    return 1;
-  case TOK_PUT_HASH:
-    out->kind = ST_PUT_HASH;
-    PARSE_EXPR_OR_ERROR (out->u.puthash.num);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.puthash.expr);
-    return 1;
-  case TOK_PUT:
-    out->kind = ST_PUT;
-    PARSE_EXPR_OR_ERROR (out->u.put.expr);
-    return 1;
-  case TOK_SWAP:
-    out->kind = ST_SWAP;
-    out->u.swap.var1 = parse_factor (p);
-    if (out->u.swap.var1 == NULL || out->u.swap.var1->kind != N_VAR) return parse_error (p);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    out->u.swap.var2 = parse_factor (p);
-    if (out->u.swap.var2 == NULL || out->u.swap.var2->kind != N_VAR) return parse_error (p);
-    if (out->u.swap.var1->is_str != out->u.swap.var2->is_str) {
-      safe_fprintf (stderr, "type mismatch in SWAP\n");
-      return 0;
-    }
-    return 1;
-  case TOK_GOSUB:
-    out->kind = ST_GOSUB;
-    tok = next_token (p);
-    if (tok.type != TOK_NUMBER) {
-      safe_fprintf (stderr, "expected integer\n");
-      return 0;
-    }
-    out->u.target = basic_num_to_int (tok.num);
-    return 1;
-  case TOK_NEXT:
-    out->kind = ST_NEXT;
-    out->u.next.var = NULL;
-    if (peek_token (p).type == TOK_IDENTIFIER) out->u.next.var = parse_id (p);
-    return 1;
-  case TOK_WHILE:
-    out->kind = ST_WHILE;
-    PARSE_EXPR_OR_ERROR (out->u.expr);
-    return 1;
-  case TOK_WEND: out->kind = ST_WEND; return 1;
-  case TOK_DO: out->kind = ST_DO; return 1;
-  case TOK_LOOP: out->kind = ST_LOOP; return 1;
-  case TOK_REPEAT: out->kind = ST_REPEAT; return 1;
-  case TOK_UNTIL:
-    out->kind = ST_UNTIL;
-    PARSE_EXPR_OR_ERROR (out->u.expr);
-    return 1;
-  case TOK_RETURN: out->kind = ST_RETURN; return 1;
-  case TOK_END: out->kind = ST_END; return 1;
-  case TOK_STOP: out->kind = ST_STOP; return 1;
   case TOK_EXTERN: {
     int is_proc = 0;
     char *fname = NULL;
