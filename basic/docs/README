@@ -16,8 +16,10 @@ Use `-h`, `--usage`, or `-?` to display all available command line options and e
 
 Mathematical built-ins include `ABS`, `SGN`, `SQR`, the trigonometric
 functions `SIN`, `COS`, `TAN`, and `ATN`, logarithms `LOG`, `LOG2`, `LOG10`, and
-`EXP`.  Hyperbolic counterparts `SINH`, `COSH`, `TANH` and their inverses
-`ASINH`, `ACOSH`, `ATANH` are also available.
+`EXP`. `ABS` and `SGN` accept either integer or decimal operands; `ABS`
+always returns a decimal value while `SGN` yields an integer. Hyperbolic
+counterparts `SINH`, `COSH`, `TANH` and their inverses `ASINH`, `ACOSH`,
+`ATANH` are also available.
 
 Automated Tests
 ---------------

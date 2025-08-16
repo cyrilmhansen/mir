@@ -532,6 +532,14 @@ basic_num_t basic_sgn (basic_num_t x) {
   return BASIC_ZERO;
 }
 
+int64_t basic_iabs (int64_t x) { return llabs (x); }
+
+int64_t basic_isgn (int64_t x) {
+  if (x > 0) return 1;
+  if (x < 0) return -1;
+  return 0;
+}
+
 basic_num_t basic_sqr (basic_num_t x) { return basic_num_sqrt (x); }
 
 basic_num_t basic_sin (basic_num_t x) { return basic_num_sin (x); }
