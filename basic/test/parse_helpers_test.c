@@ -229,6 +229,151 @@ int main (void) {
   assert (l.stmts.len == 1);
   assert (l.stmts.data[0].kind == ST_STOP);
 
+  ok = parse_line (&p, "REM", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_REM);
+
+  ok = parse_line (&p, "OPTION BASE 0", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_REM);
+
+  ok = parse_line (&p, "DECIMAL", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_REM);
+
+  ok = parse_line (&p, "EXTERN F", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_EXTERN);
+
+  ok = parse_line (&p, "DEF FNA(X)=X", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_DEF);
+
+  ok = parse_line (&p, "DATA 1", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_DATA);
+
+  ok = parse_line (&p, "READ A", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_READ);
+
+  ok = parse_line (&p, "SCREEN 1", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_SCREEN);
+
+  ok = parse_line (&p, "COLOR 1", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_COLOR);
+
+  ok = parse_line (&p, "LOCATE 1,2", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_LOCATE);
+
+  ok = parse_line (&p, "HTAB 1", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_HTAB);
+
+  ok = parse_line (&p, "POKE 1,2", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_POKE);
+
+  ok = parse_line (&p, "VTAB 1", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_VTAB);
+
+  ok = parse_line (&p, "SOUND 1,1", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_SOUND);
+
+  ok = parse_line (&p, "SYSTEM \"LS\",A,B$", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_SYSTEM);
+
+  ok = parse_line (&p, "HCOLOR=1", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_HCOLOR);
+
+  ok = parse_line (&p, "HPLOT 1,1", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_HPLOT);
+
+  ok = parse_line (&p, "MOVE 1,2", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_MOVE);
+
+  ok = parse_line (&p, "DRAW 1,2", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_DRAW);
+
+  ok = parse_line (&p, "LINE 1,1 TO 2,2", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_LINE);
+
+  ok = parse_line (&p, "CIRCLE 1,2,3", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_CIRCLE);
+
+  ok = parse_line (&p, "RECT 1,1,2,2", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_RECT);
+
+  ok = parse_line (&p, "MODE 1", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_MODE);
+
+  ok = parse_line (&p, "FILL 1,1,2,2", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_FILL);
+
+  ok = parse_line (&p, "FOR I=1 TO 10", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_FOR);
+
+  ok = parse_line (&p, "ON 1 GOTO 10,20", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_ON_GOTO);
+
+  ok = parse_line (&p, "RESUME 10", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_RESUME);
+
+  ok = parse_line (&p, "CALL F", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_CALL);
+
+  ok = parse_line (&p, "FOO", &l);
+  if (!ok) return 1;
+  assert (l.stmts.len == 1);
+  assert (l.stmts.data[0].kind == ST_CALL);
+
   basic_pool_destroy ();
   arena_release (&ast_arena);
   return 0;

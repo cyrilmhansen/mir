@@ -2324,12 +2324,695 @@ static int parse_until_stmt (Parser *p, Stmt *out) {
   return 1;
 }
 
+static int parse_rem_stmt (Parser *p, Stmt *out) {
+  (void) p;
+  out->kind = ST_REM;
+  return 1;
+}
+
+static int parse_option_stmt (Parser *p, Stmt *out) {
+  if (next_token (p).type != TOK_BASE) return 0;
+  Token tok = next_token (p);
+  if (tok.type != TOK_NUMBER) {
+    safe_fprintf (stderr, "expected integer\n");
+    return 0;
+  }
+  int base = basic_num_to_int (tok.num);
+  if (base != 0 && base != 1) return 0;
+  array_base = base;
+  out->kind = ST_REM;
+  return 1;
+}
+
+static int parse_decimal_stmt (Parser *p, Stmt *out) {
+  if (decimal_locked) {
+    safe_fprintf (stderr, "DECIMAL must appear before numeric variables or literals\n");
+    return 0;
+  }
+  use_decimal_floats = 1;
+  out->kind = ST_REM;
+  return 1;
+}
+
+static int parse_extern_stmt (Parser *p, Stmt *out) {
+  int is_proc = 0;
+  char *fname = NULL;
+  Token t = next_token (p);
+  if (t.type == TOK_SUB) {
+    is_proc = 1;
+    fname = parse_id (p);
+  } else if (t.type == TOK_FUNCTION) {
+    fname = parse_id (p);
+  } else if (t.type == TOK_IDENTIFIER) {
+    fname = t.str;
+    p->tok.str = NULL;
+  } else {
+    return 0;
+  }
+  if (fname == NULL) return 0;
+  int f_is_str = fname[strlen (fname) - 1] == '$';
+  char **params = NULL;
+  int *is_str = NULL;
+  size_t n = 0, cap = 0;
+  Token tp = peek_token (p);
+  if (tp.type == TOK_LPAREN) {
+    next_token (p);
+    tp = peek_token (p);
+    if (tp.type != TOK_RPAREN) {
+      while (1) {
+        char *param = parse_id (p);
+        int ps = param[strlen (param) - 1] == '$';
+        if (n == cap) {
+          size_t new_cap = cap ? 2 * cap : 4;
+          char **tmp_params
+            = pool_realloc (params, cap * sizeof (char *), new_cap * sizeof (char *));
+          int *tmp_is_str = pool_realloc (is_str, cap * sizeof (int), new_cap * sizeof (int));
+          if (tmp_params == NULL || tmp_is_str == NULL) {
+            basic_pool_free (tmp_params);
+            basic_pool_free (tmp_is_str);
+            return 0;
+          }
+          params = tmp_params;
+          is_str = tmp_is_str;
+          cap = new_cap;
+        }
+        params[n] = param;
+        is_str[n] = ps;
+        n++;
+        tp = peek_token (p);
+        if (tp.type != TOK_COMMA) break;
+        next_token (p);
+      }
+    }
+    if (next_token (p).type != TOK_RPAREN) return 0;
+  }
+  char **params_final = NULL;
+  int *is_str_final = NULL;
+  if (n != 0) {
+    params_final = arena_alloc (&ast_arena, n * sizeof (char *));
+    memcpy (params_final, params, n * sizeof (char *));
+    is_str_final = arena_alloc (&ast_arena, n * sizeof (int));
+    memcpy (is_str_final, is_str, n * sizeof (int));
+  }
+  basic_pool_free (params);
+  basic_pool_free (is_str);
+  FuncDef fd = {fname, params_final, is_str_final, n, NULL, (StmtVec) {0}, f_is_str, is_proc, 1,
+                NULL,  NULL,         NULL,         0, 0};
+  func_vec_push (&func_defs, fd);
+  out->kind = ST_EXTERN;
+  out->u.ext.idx = func_defs.len - 1;
+  out->u.ext.is_proc = is_proc;
+  out->u.ext.is_str_ret = f_is_str;
+  out->u.ext.n_params = n;
+  return 1;
+}
+
+static int parse_def_stmt (Parser *p, Stmt *out) {
+  char *fname = parse_fn_name (p);
+  if (fname == NULL) return 0;
+  int f_is_str = fname[strlen (fname) - 1] == '$';
+  if (next_token (p).type != TOK_LPAREN) return 0;
+  char **params = NULL;
+  int *is_str = NULL;
+  size_t n = 0, cap = 0;
+  Token t = peek_token (p);
+  if (t.type != TOK_RPAREN) {
+    while (1) {
+      char *param = parse_id (p);
+      int ps = param[strlen (param) - 1] == '$';
+      if (n == cap) {
+        size_t new_cap = cap ? 2 * cap : 4;
+        char **tmp_params = pool_realloc (params, cap * sizeof (char *), new_cap * sizeof (char *));
+        int *tmp_is_str = pool_realloc (is_str, cap * sizeof (int), new_cap * sizeof (int));
+        if (tmp_params == NULL || tmp_is_str == NULL) {
+          basic_pool_free (tmp_params);
+          basic_pool_free (tmp_is_str);
+          return 0;
+        }
+        params = tmp_params;
+        is_str = tmp_is_str;
+        cap = new_cap;
+      }
+      params[n] = param;
+      is_str[n] = ps;
+      n++;
+      t = peek_token (p);
+      if (t.type != TOK_COMMA) break;
+      next_token (p);
+    }
+  }
+  if (next_token (p).type != TOK_RPAREN) return 0;
+  if (next_token (p).type != TOK_EQ) return 0;
+  Node *body;
+  PARSE_EXPR_OR_ERROR (body);
+  char **params_final = NULL;
+  int *is_str_final = NULL;
+  if (n != 0) {
+    params_final = arena_alloc (&ast_arena, n * sizeof (char *));
+    memcpy (params_final, params, n * sizeof (char *));
+    is_str_final = arena_alloc (&ast_arena, n * sizeof (int));
+    memcpy (is_str_final, is_str, n * sizeof (int));
+  }
+  basic_pool_free (params);
+  basic_pool_free (is_str);
+  FuncDef fd = {fname, params_final, is_str_final, n, body, (StmtVec) {0}, f_is_str, 0, 0,
+                NULL,  NULL,         NULL,         0, 0};
+  if (find_func (fname) == NULL) func_vec_push (&func_defs, fd);
+  out->kind = ST_DEF;
+  return 1;
+}
+
+static int parse_data_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_DATA;
+  while (1) {
+    BasicData d;
+    d.is_str = 0;
+    d.num = BASIC_ZERO;
+    d.str = NULL;
+    Token t = peek_token (p);
+    if (t.type == TOK_STRING) {
+      d.is_str = 1;
+      char *s = parse_string (p);
+      if (s == NULL) return 0;
+      d.str = basic_strdup (s);
+      if (d.str == NULL) return 0;
+    } else {
+      d.num = parse_number (p);
+    }
+    data_vec_push (&data_vals, d);
+    if (peek_token (p).type != TOK_COMMA) break;
+    next_token (p);
+  }
+  return 1;
+}
+
+static int parse_read_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_READ;
+  out->u.read.vars = NULL;
+  out->u.read.n = 0;
+  size_t cap = 0;
+  while (1) {
+    Node *v = parse_factor (p);
+    if (v == NULL) return parse_error (p);
+    if (out->u.read.n == cap) {
+      size_t new_cap = cap ? cap * 2 : 4;
+      Node **tmp
+        = pool_realloc (out->u.read.vars, cap * sizeof (Node *), new_cap * sizeof (Node *));
+      if (tmp == NULL) return 0;
+      out->u.read.vars = tmp;
+      cap = new_cap;
+    }
+    out->u.read.vars[out->u.read.n++] = v;
+    if (peek_token (p).type != TOK_COMMA) break;
+    next_token (p);
+  }
+  Node **vars = arena_alloc (&ast_arena, out->u.read.n * sizeof (Node *));
+  memcpy (vars, out->u.read.vars, out->u.read.n * sizeof (Node *));
+  basic_pool_free (out->u.read.vars);
+  out->u.read.vars = vars;
+  return 1;
+}
+
+static int parse_screen_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_SCREEN;
+  PARSE_EXPR_OR_ERROR (out->u.expr);
+  return 1;
+}
+
+static int parse_color_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_COLOR;
+  PARSE_EXPR_OR_ERROR (out->u.expr);
+  return 1;
+}
+
+static int parse_locate_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_LOCATE;
+  PARSE_EXPR_OR_ERROR (out->u.locate.row);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.locate.col);
+  return 1;
+}
+
+static int parse_htab_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_HTAB;
+  PARSE_EXPR_OR_ERROR (out->u.expr);
+  return 1;
+}
+
+static int parse_poke_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_POKE;
+  PARSE_EXPR_OR_ERROR (out->u.poke.addr);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.poke.value);
+  return 1;
+}
+
+static int parse_vtab_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_VTAB;
+  PARSE_EXPR_OR_ERROR (out->u.expr);
+  return 1;
+}
+
+static int parse_sound_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_SOUND;
+  out->u.sound.vol = NULL;
+  out->u.sound.async = 0;
+  out->u.sound.off = 0;
+  if (peek_token (p).type == TOK_OFF) {
+    next_token (p);
+    out->u.sound.off = 1;
+    return 1;
+  }
+  PARSE_EXPR_OR_ERROR (out->u.sound.freq);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.sound.dur);
+  if (peek_token (p).type == TOK_COMMA) {
+    next_token (p);
+    if (peek_token (p).type == TOK_ASYNC) {
+      next_token (p);
+      out->u.sound.async = 1;
+      return 1;
+    }
+    PARSE_EXPR_OR_ERROR (out->u.sound.vol);
+    if (peek_token (p).type == TOK_COMMA) {
+      next_token (p);
+      if (next_token (p).type != TOK_ASYNC) return 0;
+      out->u.sound.async = 1;
+    }
+  }
+  return 1;
+}
+
+static int parse_system_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_SYSTEM;
+  PARSE_EXPR_OR_ERROR (out->u.system.cmd);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  out->u.system.status = parse_id (p);
+  if (out->u.system.status[strlen (out->u.system.status) - 1] == '$') return 0;
+  if (next_token (p).type != TOK_COMMA) return 0;
+  out->u.system.out = parse_id (p);
+  if (out->u.system.out[strlen (out->u.system.out) - 1] != '$') return 0;
+  return 1;
+}
+
+static int parse_hcolor_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_HCOLOR;
+  if (next_token (p).type != TOK_EQ) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.expr);
+  return 1;
+}
+
+static int parse_hplot_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_HPLOT;
+  out->u.hplot.xs = out->u.hplot.ys = NULL;
+  out->u.hplot.n = 0;
+  out->u.hplot.from_prev = 0;
+  if (peek_token (p).type == TOK_TO) {
+    next_token (p);
+    out->u.hplot.from_prev = 1;
+  }
+  size_t cap = 0;
+  while (1) {
+    Node *x, *y;
+    PARSE_EXPR_OR_ERROR (x);
+    if (next_token (p).type != TOK_COMMA) return 0;
+    PARSE_EXPR_OR_ERROR (y);
+    if (out->u.hplot.n == cap) {
+      size_t new_cap = cap ? cap * 2 : 4;
+      Node **tmp_xs
+        = pool_realloc (out->u.hplot.xs, cap * sizeof (Node *), new_cap * sizeof (Node *));
+      if (tmp_xs == NULL) return 0;
+      out->u.hplot.xs = tmp_xs;
+      Node **tmp_ys
+        = pool_realloc (out->u.hplot.ys, cap * sizeof (Node *), new_cap * sizeof (Node *));
+      if (tmp_ys == NULL) return 0;
+      out->u.hplot.ys = tmp_ys;
+      cap = new_cap;
+    }
+    out->u.hplot.xs[out->u.hplot.n] = x;
+    out->u.hplot.ys[out->u.hplot.n] = y;
+    out->u.hplot.n++;
+    if (peek_token (p).type == TOK_TO) {
+      next_token (p);
+    } else {
+      break;
+    }
+  }
+  Node **xs = arena_alloc (&ast_arena, out->u.hplot.n * sizeof (Node *));
+  memcpy (xs, out->u.hplot.xs, out->u.hplot.n * sizeof (Node *));
+  Node **ys = arena_alloc (&ast_arena, out->u.hplot.n * sizeof (Node *));
+  memcpy (ys, out->u.hplot.ys, out->u.hplot.n * sizeof (Node *));
+  basic_pool_free (out->u.hplot.xs);
+  basic_pool_free (out->u.hplot.ys);
+  out->u.hplot.xs = xs;
+  out->u.hplot.ys = ys;
+  return 1;
+}
+
+static int parse_move_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_MOVE;
+  PARSE_EXPR_OR_ERROR (out->u.move.x);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.move.y);
+  return 1;
+}
+
+static int parse_draw_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_DRAW;
+  PARSE_EXPR_OR_ERROR (out->u.draw.x);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.draw.y);
+  return 1;
+}
+
+static int parse_line_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_LINE;
+  PARSE_EXPR_OR_ERROR (out->u.line.x0);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.line.y0);
+  if (peek_token (p).type == TOK_TO) next_token (p);
+  PARSE_EXPR_OR_ERROR (out->u.line.x1);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.line.y1);
+  return 1;
+}
+
+static int parse_circle_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_CIRCLE;
+  PARSE_EXPR_OR_ERROR (out->u.circle.x);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.circle.y);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.circle.r);
+  return 1;
+}
+
+static int parse_rect_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_RECT;
+  PARSE_EXPR_OR_ERROR (out->u.rect.x0);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.rect.y0);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.rect.x1);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.rect.y1);
+  return 1;
+}
+
+static int parse_mode_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_MODE;
+  PARSE_EXPR_OR_ERROR (out->u.expr);
+  return 1;
+}
+
+static int parse_fill_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_FILL;
+  PARSE_EXPR_OR_ERROR (out->u.fill.x0);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.fill.y0);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.fill.x1);
+  if (next_token (p).type != TOK_COMMA) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.fill.y1);
+  return 1;
+}
+
+static int parse_for_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_FOR;
+  out->u.forto.var = parse_id (p);
+  if (peek_token (p).type == TOK_EQ) next_token (p);
+  PARSE_EXPR_OR_ERROR (out->u.forto.start);
+  if (next_token (p).type != TOK_TO) return 0;
+  PARSE_EXPR_OR_ERROR (out->u.forto.end);
+  if (peek_token (p).type == TOK_STEP) {
+    next_token (p);
+    PARSE_EXPR_OR_ERROR (out->u.forto.step);
+  } else {
+    Node *one = new_node (N_NUM);
+    one->num = basic_num_from_int (1);
+    out->u.forto.step = one;
+  }
+  return 1;
+}
+
+static int parse_on_stmt (Parser *p, Stmt *out) {
+  if (peek_token (p).type == TOK_ERROR) {
+    next_token (p);
+    if (next_token (p).type != TOK_GOTO) return 0;
+    out->kind = ST_ON_ERROR;
+    Token tok = next_token (p);
+    if (tok.type != TOK_NUMBER) {
+      safe_fprintf (stderr, "expected integer\n");
+      return 0;
+    }
+    out->u.target = basic_num_to_int (tok.num);
+    return 1;
+  }
+  Node *e;
+  PARSE_EXPR_OR_ERROR (e);
+  int **targets = NULL;
+  size_t *n_targets = NULL;
+  Token kw = next_token (p);
+  if (kw.type == TOK_GOSUB) {
+    out->kind = ST_ON_GOSUB;
+    out->u.on_gosub.expr = e;
+    out->u.on_gosub.targets = NULL;
+    out->u.on_gosub.n_targets = 0;
+    targets = &out->u.on_gosub.targets;
+    n_targets = &out->u.on_gosub.n_targets;
+  } else if (kw.type == TOK_GOTO) {
+    out->kind = ST_ON_GOTO;
+    out->u.on_goto.expr = e;
+    out->u.on_goto.targets = NULL;
+    out->u.on_goto.n_targets = 0;
+    targets = &out->u.on_goto.targets;
+    n_targets = &out->u.on_goto.n_targets;
+  } else {
+    return 0;
+  }
+  size_t cap = 0;
+  while (1) {
+    Token tt2 = next_token (p);
+    if (tt2.type != TOK_NUMBER) {
+      safe_fprintf (stderr, "expected integer\n");
+      return 0;
+    }
+    int tline = basic_num_to_int (tt2.num);
+    if (*n_targets == cap) {
+      size_t new_cap = cap ? cap * 2 : 4;
+      int *tmp = pool_realloc (*targets, cap * sizeof (int), new_cap * sizeof (int));
+      if (tmp == NULL) return 0;
+      *targets = tmp;
+      cap = new_cap;
+    }
+    (*targets)[(*n_targets)++] = tline;
+    Token sep = peek_token (p);
+    if (sep.type != TOK_COMMA) break;
+    next_token (p);
+  }
+  int *tarr = arena_alloc (&ast_arena, (*n_targets) * sizeof (int));
+  memcpy (tarr, *targets, (*n_targets) * sizeof (int));
+  basic_pool_free (*targets);
+  *targets = tarr;
+  return 1;
+}
+
+static int parse_resume_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_RESUME;
+  if (peek_token (p).type == TOK_NUMBER) {
+    out->u.resume.has_line = 1;
+    out->u.resume.line = basic_num_to_int (parse_number (p));
+  } else {
+    out->u.resume.has_line = 0;
+    out->u.resume.line = 0;
+  }
+  return 1;
+}
+
+static int parse_call_stmt (Parser *p, Stmt *out) {
+  char *name = parse_id (p);
+  Node *arg1 = NULL, *arg2 = NULL, *arg3 = NULL, *arg4 = NULL, *arg5 = NULL;
+  Token t = peek_token (p);
+  if (t.type == TOK_LPAREN) {
+    next_token (p);
+    t = peek_token (p);
+    if (t.type != TOK_RPAREN) {
+      PARSE_EXPR_OR_ERROR (arg1);
+      t = peek_token (p);
+      if (t.type == TOK_COMMA) {
+        next_token (p);
+        PARSE_EXPR_OR_ERROR (arg2);
+        t = peek_token (p);
+        if (t.type == TOK_COMMA) {
+          next_token (p);
+          PARSE_EXPR_OR_ERROR (arg3);
+          t = peek_token (p);
+          if (t.type == TOK_COMMA) {
+            next_token (p);
+            PARSE_EXPR_OR_ERROR (arg4);
+            t = peek_token (p);
+            if (t.type == TOK_COMMA) {
+              next_token (p);
+              PARSE_EXPR_OR_ERROR (arg5);
+            }
+          }
+        }
+      }
+    }
+    if (next_token (p).type != TOK_RPAREN) return 0;
+  } else {
+    int had_paren = 0;
+    if (t.type == TOK_LPAREN) {
+      next_token (p);
+      had_paren = 1;
+      t = peek_token (p);
+    }
+    if (!had_paren && t.type != TOK_COLON && t.type != TOK_EOF) {
+      PARSE_EXPR_OR_ERROR (arg1);
+      if (peek_token (p).type == TOK_COMMA) {
+        next_token (p);
+        PARSE_EXPR_OR_ERROR (arg2);
+        if (peek_token (p).type == TOK_COMMA) {
+          next_token (p);
+          PARSE_EXPR_OR_ERROR (arg3);
+        }
+      }
+    }
+  }
+  out->kind = ST_CALL;
+  out->u.call.name = name;
+  out->u.call.arg1 = arg1;
+  out->u.call.arg2 = arg2;
+  out->u.call.arg3 = arg3;
+  out->u.call.arg4 = arg4;
+  out->u.call.arg5 = arg5;
+  return 1;
+}
+
+static int parse_identifier_stmt (Parser *p, Stmt *out) {
+  char *name = p->tok.str;
+  if (strncasecmp (name, "REM", 3) == 0) {
+    out->kind = ST_REM;
+    return 1;
+  }
+  Node *arg1 = NULL, *arg2 = NULL, *arg3 = NULL, *arg4 = NULL, *arg5 = NULL;
+  Token t = peek_token (p);
+  if (t.type == TOK_EQ) {
+    CallArgs a = {{0}};
+    Node *v = parse_variable (name, &a);
+    next_token (p);
+    Node *e;
+    PARSE_EXPR_OR_ERROR (e);
+    out->kind = ST_LET;
+    out->u.let.var = v;
+    out->u.let.expr = e;
+    out->u.let.is_str = v->is_str;
+    return 1;
+  }
+  if (t.type == TOK_LPAREN) {
+    next_token (p);
+    t = peek_token (p);
+    if (t.type != TOK_RPAREN) {
+      PARSE_EXPR_OR_ERROR (arg1);
+      t = peek_token (p);
+      if (t.type == TOK_COMMA) {
+        next_token (p);
+        PARSE_EXPR_OR_ERROR (arg2);
+        t = peek_token (p);
+        if (t.type == TOK_COMMA) {
+          next_token (p);
+          PARSE_EXPR_OR_ERROR (arg3);
+          t = peek_token (p);
+          if (t.type == TOK_COMMA) {
+            next_token (p);
+            PARSE_EXPR_OR_ERROR (arg4);
+            t = peek_token (p);
+            if (t.type == TOK_COMMA) {
+              next_token (p);
+              PARSE_EXPR_OR_ERROR (arg5);
+            }
+          }
+        }
+      }
+    }
+    if (next_token (p).type != TOK_RPAREN) return 0;
+    t = peek_token (p);
+  } else {
+    int had_paren = 0;
+    if (t.type == TOK_LPAREN) {
+      next_token (p);
+      had_paren = 1;
+      t = peek_token (p);
+    }
+    if (!had_paren && t.type != TOK_COLON && t.type != TOK_EOF) {
+      PARSE_EXPR_OR_ERROR (arg1);
+      if (peek_token (p).type == TOK_COMMA) {
+        next_token (p);
+        PARSE_EXPR_OR_ERROR (arg2);
+        if (peek_token (p).type == TOK_COMMA) {
+          next_token (p);
+          PARSE_EXPR_OR_ERROR (arg3);
+        }
+      }
+    }
+    t = peek_token (p);
+  }
+  if (t.type == TOK_EQ) {
+    CallArgs a = {{arg1, arg2}};
+    Node *v = parse_variable (name, &a);
+    next_token (p);
+    Node *e;
+    PARSE_EXPR_OR_ERROR (e);
+    out->kind = ST_LET;
+    out->u.let.var = v;
+    out->u.let.expr = e;
+    out->u.let.is_str = v->is_str;
+    return 1;
+  }
+  out->kind = ST_CALL;
+  out->u.call.name = name;
+  out->u.call.arg1 = arg1;
+  out->u.call.arg2 = arg2;
+  out->u.call.arg3 = arg3;
+  out->u.call.arg4 = arg4;
+  out->u.call.arg5 = arg5;
+  return 1;
+}
+
 typedef struct {
   TokenType tok;
   StmtParser fn;
 } StmtDispatch;
 
 static const StmtDispatch stmt_dispatch[] = {
+  {TOK_REM, parse_rem_stmt},
+  {TOK_OPTION, parse_option_stmt},
+  {TOK_DECIMAL, parse_decimal_stmt},
+  {TOK_EXTERN, parse_extern_stmt},
+  {TOK_DEF, parse_def_stmt},
+  {TOK_DATA, parse_data_stmt},
+  {TOK_READ, parse_read_stmt},
+  {TOK_SCREEN, parse_screen_stmt},
+  {TOK_COLOR, parse_color_stmt},
+  {TOK_LOCATE, parse_locate_stmt},
+  {TOK_HTAB, parse_htab_stmt},
+  {TOK_POKE, parse_poke_stmt},
+  {TOK_VTAB, parse_vtab_stmt},
+  {TOK_SOUND, parse_sound_stmt},
+  {TOK_SYSTEM, parse_system_stmt},
+  {TOK_HCOLOR, parse_hcolor_stmt},
+  {TOK_HPLOT, parse_hplot_stmt},
+  {TOK_MOVE, parse_move_stmt},
+  {TOK_DRAW, parse_draw_stmt},
+  {TOK_LINE, parse_line_stmt},
+  {TOK_CIRCLE, parse_circle_stmt},
+  {TOK_RECT, parse_rect_stmt},
+  {TOK_MODE, parse_mode_stmt},
+  {TOK_FILL, parse_fill_stmt},
+  {TOK_FOR, parse_for_stmt},
+  {TOK_ON, parse_on_stmt},
+  {TOK_RESUME, parse_resume_stmt},
+  {TOK_CALL, parse_call_stmt},
   {TOK_PRINT, parse_print_stmt},
   {TOK_INPUT, parse_input_stmt},
   {TOK_GOTO, parse_goto_stmt},
@@ -2373,620 +3056,14 @@ static const StmtDispatch stmt_dispatch[] = {
   {TOK_RETURN, parse_return_stmt},
   {TOK_END, parse_end_stmt},
   {TOK_STOP, parse_stop_stmt},
+  {TOK_IDENTIFIER, parse_identifier_stmt},
 };
 
 static int parse_stmt (Parser *p, Stmt *out) {
   Token tok = next_token (p);
-  if (tok.type == TOK_IDENTIFIER && strncasecmp (tok.str, "REM", 3) == 0) {
-    out->kind = ST_REM;
-    return 1;
-  }
   for (size_t i = 0; i < sizeof (stmt_dispatch) / sizeof (stmt_dispatch[0]); i++)
     if (tok.type == stmt_dispatch[i].tok) return stmt_dispatch[i].fn (p, out);
-  switch (tok.type) {
-  case TOK_REM: out->kind = ST_REM; return 1;
-  case TOK_OPTION:
-    if (next_token (p).type != TOK_BASE) return 0;
-    tok = next_token (p);
-    if (tok.type != TOK_NUMBER) {
-      safe_fprintf (stderr, "expected integer\n");
-      return 0;
-    }
-    int base = basic_num_to_int (tok.num);
-    if (base != 0 && base != 1) return 0;
-    array_base = base;
-    out->kind = ST_REM;
-    return 1;
-  case TOK_DECIMAL:
-    if (decimal_locked) {
-      safe_fprintf (stderr, "DECIMAL must appear before numeric variables or literals\n");
-      return 0;
-    }
-    use_decimal_floats = 1;
-    out->kind = ST_REM;
-    return 1;
-  case TOK_EXTERN: {
-    int is_proc = 0;
-    char *fname = NULL;
-    Token t = next_token (p);
-    if (t.type == TOK_SUB) {
-      is_proc = 1;
-      fname = parse_id (p);
-    } else if (t.type == TOK_FUNCTION) {
-      fname = parse_id (p);
-    } else if (t.type == TOK_IDENTIFIER) {
-      fname = t.str;
-      p->tok.str = NULL;
-    } else {
-      return 0;
-    }
-    if (fname == NULL) return 0;
-    int f_is_str = fname[strlen (fname) - 1] == '$';
-    char **params = NULL;
-    int *is_str = NULL;
-    size_t n = 0, cap = 0;
-    Token tp = peek_token (p);
-    if (tp.type == TOK_LPAREN) {
-      next_token (p);
-      tp = peek_token (p);
-      if (tp.type != TOK_RPAREN) {
-        while (1) {
-          char *param = parse_id (p);
-          int ps = param[strlen (param) - 1] == '$';
-          if (n == cap) {
-            size_t new_cap = cap ? 2 * cap : 4;
-            char **tmp_params
-              = pool_realloc (params, cap * sizeof (char *), new_cap * sizeof (char *));
-            int *tmp_is_str = pool_realloc (is_str, cap * sizeof (int), new_cap * sizeof (int));
-            if (tmp_params == NULL || tmp_is_str == NULL) {
-              basic_pool_free (tmp_params);
-              basic_pool_free (tmp_is_str);
-              return 0;
-            }
-            params = tmp_params;
-            is_str = tmp_is_str;
-            cap = new_cap;
-          }
-          params[n] = param;
-          is_str[n] = ps;
-          n++;
-          tp = peek_token (p);
-          if (tp.type != TOK_COMMA) break;
-          next_token (p);
-        }
-      }
-      if (next_token (p).type != TOK_RPAREN) return 0;
-    }
-    char **params_final = NULL;
-    int *is_str_final = NULL;
-    if (n != 0) {
-      params_final = arena_alloc (&ast_arena, n * sizeof (char *));
-      memcpy (params_final, params, n * sizeof (char *));
-      is_str_final = arena_alloc (&ast_arena, n * sizeof (int));
-      memcpy (is_str_final, is_str, n * sizeof (int));
-    }
-    basic_pool_free (params);
-    basic_pool_free (is_str);
-    FuncDef fd = {fname, params_final, is_str_final, n, NULL, (StmtVec) {0}, f_is_str, is_proc, 1,
-                  NULL,  NULL,         NULL,         0, 0};
-    func_vec_push (&func_defs, fd);
-    out->kind = ST_EXTERN;
-    out->u.ext.idx = func_defs.len - 1;
-    out->u.ext.is_proc = is_proc;
-    out->u.ext.is_str_ret = f_is_str;
-    out->u.ext.n_params = n;
-    return 1;
-  }
-  case TOK_DEF: {
-    char *fname = parse_fn_name (p);
-    if (fname == NULL) return 0;
-    int f_is_str = fname[strlen (fname) - 1] == '$';
-    if (next_token (p).type != TOK_LPAREN) return 0;
-    char **params = NULL;
-    int *is_str = NULL;
-    size_t n = 0, cap = 0;
-    Token t = peek_token (p);
-    if (t.type != TOK_RPAREN) {
-      while (1) {
-        char *param = parse_id (p);
-        int ps = param[strlen (param) - 1] == '$';
-        if (n == cap) {
-          size_t new_cap = cap ? 2 * cap : 4;
-          char **tmp_params
-            = pool_realloc (params, cap * sizeof (char *), new_cap * sizeof (char *));
-          int *tmp_is_str = pool_realloc (is_str, cap * sizeof (int), new_cap * sizeof (int));
-          if (tmp_params == NULL || tmp_is_str == NULL) {
-            basic_pool_free (tmp_params);
-            basic_pool_free (tmp_is_str);
-            return 0;
-          }
-          params = tmp_params;
-          is_str = tmp_is_str;
-          cap = new_cap;
-        }
-        params[n] = param;
-        is_str[n] = ps;
-        n++;
-        t = peek_token (p);
-        if (t.type != TOK_COMMA) break;
-        next_token (p);
-      }
-    }
-    if (next_token (p).type != TOK_RPAREN) return 0;
-    if (next_token (p).type != TOK_EQ) return 0;
-    Node *body;
-    PARSE_EXPR_OR_ERROR (body);
-    char **params_final = NULL;
-    int *is_str_final = NULL;
-    if (n != 0) {
-      params_final = arena_alloc (&ast_arena, n * sizeof (char *));
-      memcpy (params_final, params, n * sizeof (char *));
-      is_str_final = arena_alloc (&ast_arena, n * sizeof (int));
-      memcpy (is_str_final, is_str, n * sizeof (int));
-    }
-    basic_pool_free (params);
-    basic_pool_free (is_str);
-    FuncDef fd = {fname, params_final, is_str_final, n, body, (StmtVec) {0}, f_is_str, 0, 0,
-                  NULL,  NULL,         NULL,         0, 0};
-    if (find_func (fname) == NULL) func_vec_push (&func_defs, fd);
-    out->kind = ST_DEF;
-    return 1;
-  }
-  case TOK_DATA:
-    out->kind = ST_DATA;
-    while (1) {
-      BasicData d;
-      d.is_str = 0;
-      d.num = BASIC_ZERO;
-      d.str = NULL;
-      Token t = peek_token (p);
-      if (t.type == TOK_STRING) {
-        d.is_str = 1;
-        char *s = parse_string (p);
-        if (s == NULL) return 0;
-        d.str = basic_strdup (s);
-        if (d.str == NULL) return 0;
-      } else {
-        d.num = parse_number (p);
-      }
-      data_vec_push (&data_vals, d);
-      if (peek_token (p).type != TOK_COMMA) break;
-      next_token (p);
-    }
-    return 1;
-  case TOK_READ:
-    out->kind = ST_READ;
-    out->u.read.vars = NULL;
-    out->u.read.n = 0;
-    {
-      size_t cap = 0;
-      while (1) {
-        Node *v = parse_factor (p);
-        if (v == NULL) return parse_error (p);
-        if (out->u.read.n == cap) {
-          size_t new_cap = cap ? cap * 2 : 4;
-          Node **tmp
-            = pool_realloc (out->u.read.vars, cap * sizeof (Node *), new_cap * sizeof (Node *));
-          if (tmp == NULL) return 0;
-          out->u.read.vars = tmp;
-          cap = new_cap;
-        }
-        out->u.read.vars[out->u.read.n++] = v;
-        if (peek_token (p).type != TOK_COMMA) break;
-        next_token (p);
-      }
-      Node **vars = arena_alloc (&ast_arena, out->u.read.n * sizeof (Node *));
-      memcpy (vars, out->u.read.vars, out->u.read.n * sizeof (Node *));
-      basic_pool_free (out->u.read.vars);
-      out->u.read.vars = vars;
-    }
-    return 1;
-  case TOK_SCREEN:
-    out->kind = ST_SCREEN;
-    PARSE_EXPR_OR_ERROR (out->u.expr);
-    return 1;
-  case TOK_COLOR:
-    out->kind = ST_COLOR;
-    PARSE_EXPR_OR_ERROR (out->u.expr);
-    return 1;
-  case TOK_LOCATE:
-    out->kind = ST_LOCATE;
-    PARSE_EXPR_OR_ERROR (out->u.locate.row);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.locate.col);
-    return 1;
-  case TOK_HTAB:
-    out->kind = ST_HTAB;
-    PARSE_EXPR_OR_ERROR (out->u.expr);
-    return 1;
-  case TOK_POKE:
-    out->kind = ST_POKE;
-    PARSE_EXPR_OR_ERROR (out->u.poke.addr);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.poke.value);
-    return 1;
-  case TOK_VTAB:
-    out->kind = ST_VTAB;
-    PARSE_EXPR_OR_ERROR (out->u.expr);
-    return 1;
-  case TOK_SOUND:
-    out->kind = ST_SOUND;
-    out->u.sound.vol = NULL;
-    out->u.sound.async = 0;
-    out->u.sound.off = 0;
-    if (peek_token (p).type == TOK_OFF) {
-      next_token (p);
-      out->u.sound.off = 1;
-      return 1;
-    }
-    PARSE_EXPR_OR_ERROR (out->u.sound.freq);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.sound.dur);
-    if (peek_token (p).type == TOK_COMMA) {
-      next_token (p);
-      if (peek_token (p).type == TOK_ASYNC) {
-        next_token (p);
-        out->u.sound.async = 1;
-        return 1;
-      }
-      PARSE_EXPR_OR_ERROR (out->u.sound.vol);
-      if (peek_token (p).type == TOK_COMMA) {
-        next_token (p);
-        if (next_token (p).type != TOK_ASYNC) return 0;
-        out->u.sound.async = 1;
-      }
-    }
-    return 1;
-  case TOK_SYSTEM:
-    out->kind = ST_SYSTEM;
-    PARSE_EXPR_OR_ERROR (out->u.system.cmd);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    out->u.system.status = parse_id (p);
-    if (out->u.system.status[strlen (out->u.system.status) - 1] == '$') return 0;
-    if (next_token (p).type != TOK_COMMA) return 0;
-    out->u.system.out = parse_id (p);
-    if (out->u.system.out[strlen (out->u.system.out) - 1] != '$') return 0;
-    return 1;
-  case TOK_HCOLOR:
-    out->kind = ST_HCOLOR;
-    if (next_token (p).type != TOK_EQ) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.expr);
-    return 1;
-  case TOK_HPLOT:
-    out->kind = ST_HPLOT;
-    out->u.hplot.xs = out->u.hplot.ys = NULL;
-    out->u.hplot.n = 0;
-    out->u.hplot.from_prev = 0;
-    if (peek_token (p).type == TOK_TO) {
-      next_token (p);
-      out->u.hplot.from_prev = 1;
-    }
-    {
-      size_t cap = 0;
-      while (1) {
-        Node *x, *y;
-        PARSE_EXPR_OR_ERROR (x);
-        if (next_token (p).type != TOK_COMMA) return 0;
-        PARSE_EXPR_OR_ERROR (y);
-        if (out->u.hplot.n == cap) {
-          size_t new_cap = cap ? cap * 2 : 4;
-          Node **tmp_xs
-            = pool_realloc (out->u.hplot.xs, cap * sizeof (Node *), new_cap * sizeof (Node *));
-          if (tmp_xs == NULL) return 0;
-          out->u.hplot.xs = tmp_xs;
-          Node **tmp_ys
-            = pool_realloc (out->u.hplot.ys, cap * sizeof (Node *), new_cap * sizeof (Node *));
-          if (tmp_ys == NULL) return 0;
-          out->u.hplot.ys = tmp_ys;
-          cap = new_cap;
-        }
-        out->u.hplot.xs[out->u.hplot.n] = x;
-        out->u.hplot.ys[out->u.hplot.n] = y;
-        out->u.hplot.n++;
-        if (peek_token (p).type == TOK_TO) {
-          next_token (p);
-        } else {
-          break;
-        }
-      }
-      Node **xs = arena_alloc (&ast_arena, out->u.hplot.n * sizeof (Node *));
-      memcpy (xs, out->u.hplot.xs, out->u.hplot.n * sizeof (Node *));
-      Node **ys = arena_alloc (&ast_arena, out->u.hplot.n * sizeof (Node *));
-      memcpy (ys, out->u.hplot.ys, out->u.hplot.n * sizeof (Node *));
-      basic_pool_free (out->u.hplot.xs);
-      basic_pool_free (out->u.hplot.ys);
-      out->u.hplot.xs = xs;
-      out->u.hplot.ys = ys;
-    }
-    return 1;
-  case TOK_MOVE:
-    out->kind = ST_MOVE;
-    PARSE_EXPR_OR_ERROR (out->u.move.x);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.move.y);
-    return 1;
-  case TOK_DRAW:
-    out->kind = ST_DRAW;
-    PARSE_EXPR_OR_ERROR (out->u.draw.x);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.draw.y);
-    return 1;
-  case TOK_LINE:
-    out->kind = ST_LINE;
-    PARSE_EXPR_OR_ERROR (out->u.line.x0);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.line.y0);
-    if (peek_token (p).type == TOK_TO) next_token (p);
-    PARSE_EXPR_OR_ERROR (out->u.line.x1);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.line.y1);
-    return 1;
-  case TOK_CIRCLE:
-    out->kind = ST_CIRCLE;
-    PARSE_EXPR_OR_ERROR (out->u.circle.x);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.circle.y);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.circle.r);
-    return 1;
-  case TOK_RECT:
-    out->kind = ST_RECT;
-    PARSE_EXPR_OR_ERROR (out->u.rect.x0);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.rect.y0);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.rect.x1);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.rect.y1);
-    return 1;
-  case TOK_MODE:
-    out->kind = ST_MODE;
-    PARSE_EXPR_OR_ERROR (out->u.expr);
-    return 1;
-  case TOK_FILL:
-    out->kind = ST_FILL;
-    PARSE_EXPR_OR_ERROR (out->u.fill.x0);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.fill.y0);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.fill.x1);
-    if (next_token (p).type != TOK_COMMA) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.fill.y1);
-    return 1;
-  case TOK_FOR:
-    out->kind = ST_FOR;
-    out->u.forto.var = parse_id (p);
-    if (peek_token (p).type == TOK_EQ) next_token (p);
-    PARSE_EXPR_OR_ERROR (out->u.forto.start);
-    if (next_token (p).type != TOK_TO) return 0;
-    PARSE_EXPR_OR_ERROR (out->u.forto.end);
-    if (peek_token (p).type == TOK_STEP) {
-      next_token (p);
-      PARSE_EXPR_OR_ERROR (out->u.forto.step);
-    } else {
-      Node *one = new_node (N_NUM);
-      one->num = basic_num_from_int (1);
-      out->u.forto.step = one;
-    }
-    return 1;
-  case TOK_ON:
-    if (peek_token (p).type == TOK_ERROR) {
-      next_token (p);
-      if (next_token (p).type != TOK_GOTO) return 0;
-      out->kind = ST_ON_ERROR;
-      tok = next_token (p);
-      if (tok.type != TOK_NUMBER) {
-        safe_fprintf (stderr, "expected integer\n");
-        return 0;
-      }
-      out->u.target = basic_num_to_int (tok.num);
-      return 1;
-    }
-    {
-      Node *e;
-      PARSE_EXPR_OR_ERROR (e);
-      int **targets = NULL;
-      size_t *n_targets = NULL;
-      Token kw = next_token (p);
-      if (kw.type == TOK_GOSUB) {
-        out->kind = ST_ON_GOSUB;
-        out->u.on_gosub.expr = e;
-        out->u.on_gosub.targets = NULL;
-        out->u.on_gosub.n_targets = 0;
-        targets = &out->u.on_gosub.targets;
-        n_targets = &out->u.on_gosub.n_targets;
-      } else if (kw.type == TOK_GOTO) {
-        out->kind = ST_ON_GOTO;
-        out->u.on_goto.expr = e;
-        out->u.on_goto.targets = NULL;
-        out->u.on_goto.n_targets = 0;
-        targets = &out->u.on_goto.targets;
-        n_targets = &out->u.on_goto.n_targets;
-      } else {
-        return 0;
-      }
-      size_t cap = 0;
-      while (1) {
-        Token tt2 = next_token (p);
-        if (tt2.type != TOK_NUMBER) {
-          safe_fprintf (stderr, "expected integer\n");
-          return 0;
-        }
-        int tline = basic_num_to_int (tt2.num);
-        if (*n_targets == cap) {
-          size_t new_cap = cap ? cap * 2 : 4;
-          int *tmp = pool_realloc (*targets, cap * sizeof (int), new_cap * sizeof (int));
-          if (tmp == NULL) return 0;
-          *targets = tmp;
-          cap = new_cap;
-        }
-        (*targets)[(*n_targets)++] = tline;
-        Token sep = peek_token (p);
-        if (sep.type != TOK_COMMA) break;
-        next_token (p);
-      }
-      int *tarr = arena_alloc (&ast_arena, (*n_targets) * sizeof (int));
-      memcpy (tarr, *targets, (*n_targets) * sizeof (int));
-      basic_pool_free (*targets);
-      *targets = tarr;
-    }
-    return 1;
-  case TOK_RESUME:
-    out->kind = ST_RESUME;
-    if (peek_token (p).type == TOK_NUMBER) {
-      out->u.resume.has_line = 1;
-      out->u.resume.line = basic_num_to_int (parse_number (p));
-    } else {
-      out->u.resume.has_line = 0;
-      out->u.resume.line = 0;
-    }
-    return 1;
-  case TOK_CALL: {
-    char *name = parse_id (p);
-    Node *arg1 = NULL, *arg2 = NULL, *arg3 = NULL, *arg4 = NULL, *arg5 = NULL;
-    Token t = peek_token (p);
-    if (t.type == TOK_LPAREN) {
-      next_token (p);
-      t = peek_token (p);
-      if (t.type != TOK_RPAREN) {
-        PARSE_EXPR_OR_ERROR (arg1);
-        t = peek_token (p);
-        if (t.type == TOK_COMMA) {
-          next_token (p);
-          PARSE_EXPR_OR_ERROR (arg2);
-          t = peek_token (p);
-          if (t.type == TOK_COMMA) {
-            next_token (p);
-            PARSE_EXPR_OR_ERROR (arg3);
-            t = peek_token (p);
-            if (t.type == TOK_COMMA) {
-              next_token (p);
-              PARSE_EXPR_OR_ERROR (arg4);
-              t = peek_token (p);
-              if (t.type == TOK_COMMA) {
-                next_token (p);
-                PARSE_EXPR_OR_ERROR (arg5);
-              }
-            }
-          }
-        }
-      }
-      if (next_token (p).type != TOK_RPAREN) return 0;
-    } else {
-      int had_paren = 0;
-      if (t.type == TOK_LPAREN) {
-        next_token (p);
-        had_paren = 1;
-        t = peek_token (p);
-      }
-      if (!had_paren && t.type != TOK_COLON && t.type != TOK_EOF) {
-        PARSE_EXPR_OR_ERROR (arg1);
-        if (peek_token (p).type == TOK_COMMA) {
-          next_token (p);
-          PARSE_EXPR_OR_ERROR (arg2);
-          if (peek_token (p).type == TOK_COMMA) {
-            next_token (p);
-            PARSE_EXPR_OR_ERROR (arg3);
-          }
-        }
-      }
-    }
-    out->kind = ST_CALL;
-    out->u.call.name = name;
-    out->u.call.arg1 = arg1;
-    out->u.call.arg2 = arg2;
-    out->u.call.arg3 = arg3;
-    out->u.call.arg4 = arg4;
-    out->u.call.arg5 = arg5;
-    return 1;
-  }
-  case TOK_IDENTIFIER: {
-    char *name = tok.str;
-    Node *arg1 = NULL, *arg2 = NULL, *arg3 = NULL, *arg4 = NULL, *arg5 = NULL;
-    Token t = peek_token (p);
-    if (t.type == TOK_EQ) {
-      CallArgs a = {{0}};
-      Node *v = parse_variable (name, &a);
-      next_token (p);
-      Node *e;
-      PARSE_EXPR_OR_ERROR (e);
-      out->kind = ST_LET;
-      out->u.let.var = v;
-      out->u.let.expr = e;
-      out->u.let.is_str = v->is_str;
-      return 1;
-    }
-    if (t.type == TOK_LPAREN) {
-      next_token (p);
-      t = peek_token (p);
-      if (t.type != TOK_RPAREN) {
-        PARSE_EXPR_OR_ERROR (arg1);
-        t = peek_token (p);
-        if (t.type == TOK_COMMA) {
-          next_token (p);
-          PARSE_EXPR_OR_ERROR (arg2);
-          t = peek_token (p);
-          if (t.type == TOK_COMMA) {
-            next_token (p);
-            PARSE_EXPR_OR_ERROR (arg3);
-            t = peek_token (p);
-            if (t.type == TOK_COMMA) {
-              next_token (p);
-              PARSE_EXPR_OR_ERROR (arg4);
-              t = peek_token (p);
-              if (t.type == TOK_COMMA) {
-                next_token (p);
-                PARSE_EXPR_OR_ERROR (arg5);
-              }
-            }
-          }
-        }
-      }
-      if (next_token (p).type != TOK_RPAREN) return 0;
-      t = peek_token (p);
-    } else {
-      int had_paren = 0;
-      if (t.type == TOK_LPAREN) {
-        next_token (p);
-        had_paren = 1;
-        t = peek_token (p);
-      }
-      if (!had_paren && t.type != TOK_COLON && t.type != TOK_EOF) {
-        PARSE_EXPR_OR_ERROR (arg1);
-        if (peek_token (p).type == TOK_COMMA) {
-          next_token (p);
-          PARSE_EXPR_OR_ERROR (arg2);
-          if (peek_token (p).type == TOK_COMMA) {
-            next_token (p);
-            PARSE_EXPR_OR_ERROR (arg3);
-          }
-        }
-      }
-      t = peek_token (p);
-    }
-    if (t.type == TOK_EQ) {
-      CallArgs a = {{arg1, arg2}};
-      Node *v = parse_variable (name, &a);
-      next_token (p);
-      Node *e;
-      PARSE_EXPR_OR_ERROR (e);
-      out->kind = ST_LET;
-      out->u.let.var = v;
-      out->u.let.expr = e;
-      out->u.let.is_str = v->is_str;
-      return 1;
-    }
-    out->kind = ST_CALL;
-    out->u.call.name = name;
-    out->u.call.arg1 = arg1;
-    out->u.call.arg2 = arg2;
-    out->u.call.arg3 = arg3;
-    out->u.call.arg4 = arg4;
-    out->u.call.arg5 = arg5;
-    return 1;
-  }
-  default: return 0;
-  }
+  return 0;
 }
 
 static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else) {
