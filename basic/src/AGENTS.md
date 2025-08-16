@@ -79,14 +79,14 @@
 | Instruction | Description | Operands | Operand Types | Return |
 |---|---|---|---|---|
 | RND | random number | 1 | decimal | decimal |
-| INT | integer part | 1 | decimal | decimal |
-| TIMER | system timer | 0 |  | decimal |
+| INT | integer part | 1 | decimal | integer |
+| TIMER | system timer | 0 |  | integer |
 | TIME | current time | 0 |  | decimal |
 | DATE | current date | 0 |  | decimal |
 | PEEK | read memory | 1 | integer | integer |
 | EOF | end-of-file check | 1 | integer | integer |
 | POS | current position | 0 |  | integer |
-| ABS | absolute value | 1 | decimal/integer | decimal |
+| ABS | absolute value | 1 | decimal/integer | decimal/integer |
 | SGN | sign of number | 1 | decimal/integer | integer |
 | SQR | square root | 1 | decimal | decimal |
 | SIN | sine | 1 | decimal | decimal |
@@ -105,10 +105,10 @@
 | LOG2 | log base 2 | 1 | decimal | decimal |
 | LOG10 | log base 10 | 1 | decimal | decimal |
 | EXP | exponential | 1 | decimal | decimal |
-| FACT | factorial | 1 | integer | decimal |
+| FACT | factorial | 1 | integer | integer |
 | PI | pi constant | 0 |  | decimal |
 | LEN | string length | 1 | string | integer |
-| VAL | string to number | 1 | string | decimal |
+| VAL | string to number | 1 | string | decimal/integer |
 | ASC | character code | 1 | string | integer |
 | INSTR | substring position | 2 | string, string | integer |
 | MIRCTX | get MIR context | 0 |  | integer |
