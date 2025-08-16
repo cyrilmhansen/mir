@@ -51,6 +51,8 @@ void basic_pi_wrap (basic_num_t *);
 void basic_val_wrap (basic_num_t *, const char *);
 void basic_int_wrap (basic_num_t *, basic_num_t);
 void basic_timer_wrap (basic_num_t *);
+void basic_time_wrap (basic_num_t *);
+void basic_date_wrap (basic_num_t *);
 void basic_peek_wrap (basic_num_t *, basic_num_t);
 void basic_eof_wrap (basic_num_t *, int64_t);
 void basic_system_wrap (basic_num_t *, const char *);
