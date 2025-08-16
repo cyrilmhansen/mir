@@ -30,10 +30,10 @@ static void basic_fixed64_init (MIR_context_t ctx) {
   MIR_type_t i64_ = MIR_T_I64;
   MIR_var_t bin_vars[2];
   bin_vars[0].name = "a";
-  bin_vars[0].type = MIR_T_BLK;
+  bin_vars[0].type = MIR_T_BLK + 1;
   bin_vars[0].size = sizeof (basic_num_t);
   bin_vars[1].name = "b";
-  bin_vars[1].type = MIR_T_BLK;
+  bin_vars[1].type = MIR_T_BLK + 1;
   bin_vars[1].size = sizeof (basic_num_t);
   fixed64_add_proto = MIR_new_proto_arr (ctx, "fixed64_add_p", 2, i64_pair, 2, bin_vars);
   fixed64_add_import = MIR_new_import (ctx, "fixed64_add");
@@ -46,17 +46,17 @@ static void basic_fixed64_init (MIR_context_t ctx) {
 
   MIR_var_t un_vars[1];
   un_vars[0].name = "a";
-  un_vars[0].type = MIR_T_BLK;
+  un_vars[0].type = MIR_T_BLK + 1;
   un_vars[0].size = sizeof (basic_num_t);
   fixed64_neg_proto = MIR_new_proto_arr (ctx, "fixed64_neg_p", 2, i64_pair, 1, un_vars);
   fixed64_neg_import = MIR_new_import (ctx, "fixed64_neg");
 
   MIR_var_t cmp_vars[2];
   cmp_vars[0].name = "a";
-  cmp_vars[0].type = MIR_T_BLK;
+  cmp_vars[0].type = MIR_T_BLK + 1;
   cmp_vars[0].size = sizeof (basic_num_t);
   cmp_vars[1].name = "b";
-  cmp_vars[1].type = MIR_T_BLK;
+  cmp_vars[1].type = MIR_T_BLK + 1;
   cmp_vars[1].size = sizeof (basic_num_t);
   fixed64_eq_proto = MIR_new_proto_arr (ctx, "fixed64_eq_p", 1, &i64_, 2, cmp_vars);
   fixed64_eq_import = MIR_new_import (ctx, "fixed64_eq");
@@ -88,7 +88,7 @@ static void basic_fixed64_init (MIR_context_t ctx) {
 
   MIR_var_t to_int_vars[1];
   to_int_vars[0].name = "a";
-  to_int_vars[0].type = MIR_T_BLK;
+  to_int_vars[0].type = MIR_T_BLK + 1;
   to_int_vars[0].size = sizeof (basic_num_t);
   fixed64_to_int_proto = MIR_new_proto_arr (ctx, "fixed64_to_int_p", 1, &i64_, 1, to_int_vars);
   fixed64_to_int_import = MIR_new_import (ctx, "fixed64_to_int");
