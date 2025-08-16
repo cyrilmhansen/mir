@@ -1886,12 +1886,81 @@ static int parse_if_part (Parser *p, StmtVec *vec, int stop_on_else);
     if ((dest) == NULL) return parse_error (p); \
   } while (0)
 
+typedef int (*StmtParser) (Parser *, Stmt *);
+
+static int parse_print_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_PRINT;
+  out->u.print.items = NULL;
+  out->u.print.n = 0;
+  out->u.print.no_nl = 0;
+  return 1;
+}
+
+static int parse_input_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_INPUT;
+  out->u.input.vars = NULL;
+  out->u.input.n = 0;
+  out->u.input.prompt = NULL;
+  size_t cap = 0;
+  Node *n = parse_factor (p);
+  if (n == NULL) return parse_error (p);
+  if (peek_token (p).type == TOK_SEMICOLON) {
+    next_token (p);
+    if (!n->is_str) return parse_error (p);
+    out->u.input.prompt = n;
+    n = parse_factor (p);
+    if (n == NULL || n->kind != N_VAR) return parse_error (p);
+  } else {
+    if (n->kind != N_VAR) return parse_error (p);
+  }
+  while (1) {
+    if (out->u.input.n == cap) {
+      size_t new_cap = cap ? cap * 2 : 4;
+      Node **tmp
+        = pool_realloc (out->u.input.vars, cap * sizeof (Node *), new_cap * sizeof (Node *));
+      if (tmp == NULL) return 0;
+      out->u.input.vars = tmp;
+      cap = new_cap;
+    }
+    out->u.input.vars[out->u.input.n++] = n;
+    if (peek_token (p).type != TOK_COMMA) break;
+    next_token (p);
+    n = parse_factor (p);
+    if (n == NULL || n->kind != N_VAR) return parse_error (p);
+  }
+  return 1;
+}
+
+static int parse_goto_stmt (Parser *p, Stmt *out) {
+  out->kind = ST_GOTO;
+  Token tok = next_token (p);
+  if (tok.type != TOK_NUMBER) {
+    safe_fprintf (stderr, "expected integer\n");
+    return 0;
+  }
+  out->u.target = basic_num_to_int (tok.num);
+  return 1;
+}
+
+typedef struct {
+  TokenType tok;
+  StmtParser fn;
+} StmtDispatch;
+
+static const StmtDispatch stmt_dispatch[] = {
+  {TOK_PRINT, parse_print_stmt},
+  {TOK_INPUT, parse_input_stmt},
+  {TOK_GOTO, parse_goto_stmt},
+};
+
 static int parse_stmt (Parser *p, Stmt *out) {
   Token tok = next_token (p);
   if (tok.type == TOK_IDENTIFIER && strncasecmp (tok.str, "REM", 3) == 0) {
     out->kind = ST_REM;
     return 1;
   }
+  for (size_t i = 0; i < sizeof (stmt_dispatch) / sizeof (stmt_dispatch[0]); i++)
+    if (tok.type == stmt_dispatch[i].tok) return stmt_dispatch[i].fn (p, out);
   switch (tok.type) {
   case TOK_REM: out->kind = ST_REM; return 1;
   case TOK_OPTION:
@@ -2061,12 +2130,6 @@ static int parse_stmt (Parser *p, Stmt *out) {
     out->u.printhash.n = 0;
     out->u.printhash.no_nl = 0;
     return 1;
-  case TOK_PRINT:
-    out->kind = ST_PRINT;
-    out->u.print.items = NULL;
-    out->u.print.n = 0;
-    out->u.print.no_nl = 0;
-    return 1;
   case TOK_INPUT_HASH:
     out->kind = ST_INPUT_HASH;
     PARSE_EXPR_OR_ERROR (out->u.inputhash.num);
@@ -2074,40 +2137,6 @@ static int parse_stmt (Parser *p, Stmt *out) {
     out->u.inputhash.var = parse_id (p);
     out->u.inputhash.is_str = out->u.inputhash.var[strlen (out->u.inputhash.var) - 1] == '$';
     return 1;
-  case TOK_INPUT: {
-    out->kind = ST_INPUT;
-    out->u.input.vars = NULL;
-    out->u.input.n = 0;
-    out->u.input.prompt = NULL;
-    size_t cap = 0;
-    Node *n = parse_factor (p);
-    if (n == NULL) return parse_error (p);
-    if (peek_token (p).type == TOK_SEMICOLON) {
-      next_token (p);
-      if (!n->is_str) return parse_error (p);
-      out->u.input.prompt = n;
-      n = parse_factor (p);
-      if (n == NULL || n->kind != N_VAR) return parse_error (p);
-    } else {
-      if (n->kind != N_VAR) return parse_error (p);
-    }
-    while (1) {
-      if (out->u.input.n == cap) {
-        size_t new_cap = cap ? cap * 2 : 4;
-        Node **tmp
-          = pool_realloc (out->u.input.vars, cap * sizeof (Node *), new_cap * sizeof (Node *));
-        if (tmp == NULL) return 0;
-        out->u.input.vars = tmp;
-        cap = new_cap;
-      }
-      out->u.input.vars[out->u.input.n++] = n;
-      if (peek_token (p).type != TOK_COMMA) break;
-      next_token (p);
-      n = parse_factor (p);
-      if (n == NULL || n->kind != N_VAR) return parse_error (p);
-    }
-    return 1;
-  }
   case TOK_GET_HASH:
     out->kind = ST_GET_HASH;
     PARSE_EXPR_OR_ERROR (out->u.gethash.num);
@@ -2139,15 +2168,6 @@ static int parse_stmt (Parser *p, Stmt *out) {
       safe_fprintf (stderr, "type mismatch in SWAP\n");
       return 0;
     }
-    return 1;
-  case TOK_GOTO:
-    out->kind = ST_GOTO;
-    tok = next_token (p);
-    if (tok.type != TOK_NUMBER) {
-      safe_fprintf (stderr, "expected integer\n");
-      return 0;
-    }
-    out->u.target = basic_num_to_int (tok.num);
     return 1;
   case TOK_GOSUB:
     out->kind = ST_GOSUB;
