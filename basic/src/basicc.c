@@ -6115,7 +6115,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   sound_import = MIR_new_import (ctx, "basic_sound");
   sound_off_proto = MIR_new_proto (ctx, "basic_sound_off_p", 0, NULL, 0);
   sound_off_import = MIR_new_import (ctx, "basic_sound_off");
-  system_proto = MIR_new_proto (ctx, "basic_system_p", 1, &d, 1, MIR_T_P, "cmd");
+  system_proto = BASIC_PROTO_NUM (ctx, "basic_system_p", 1, MIR_T_P, "cmd");
   system_import = MIR_new_import (ctx, "basic_system");
   system_out_proto = MIR_new_proto (ctx, "basic_system_out_p", 1, &p, 0);
   system_out_import = MIR_new_import (ctx, "basic_system_out");
@@ -6139,7 +6139,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   on_error_import = MIR_new_import (ctx, "basic_set_error_handler");
   set_line_proto = MIR_new_proto (ctx, "basic_set_line_p", 0, NULL, 1, BASIC_MIR_NUM_T, "line");
   set_line_import = MIR_new_import (ctx, "basic_set_line");
-  get_line_proto = MIR_new_proto (ctx, "basic_get_line_p", 1, &d, 0);
+  get_line_proto = BASIC_PROTO_NUM (ctx, "basic_get_line_p", 0);
   get_line_import = MIR_new_import (ctx, "basic_get_line");
   line_track_proto
     = MIR_new_proto (ctx, "basic_enable_line_tracking_p", 0, NULL, 1, BASIC_MIR_NUM_T, "on");
