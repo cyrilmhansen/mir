@@ -18,6 +18,21 @@ long basic_len (const char *s);
 long basic_instr (const char *s, const char *sub);
 long basic_asc (const char *s);
 
+#ifdef BASIC_USE_FIXED64
+void basic_mir_ctx (basic_num_t *res);
+void basic_mir_mod (basic_num_t *res, basic_num_t ctx, const char *name);
+void basic_mir_func (basic_num_t *res, basic_num_t mod, const char *name, basic_num_t nargs);
+void basic_mir_reg (basic_num_t *res, basic_num_t func);
+void basic_mir_label (basic_num_t *res, basic_num_t func);
+void basic_mir_emit (basic_num_t *res, basic_num_t func, const char *op, basic_num_t a,
+                     basic_num_t b, basic_num_t c);
+void basic_mir_emitlbl (basic_num_t *res, basic_num_t func, basic_num_t label);
+void basic_mir_ret (basic_num_t *res, basic_num_t func, basic_num_t reg);
+void basic_mir_finish (basic_num_t *res, basic_num_t mod);
+void basic_mir_run (basic_num_t *res, basic_num_t func, basic_num_t a1, basic_num_t a2,
+                    basic_num_t a3, basic_num_t a4);
+void basic_mir_dump (basic_num_t *res, basic_num_t func);
+#else
 basic_num_t basic_mir_ctx (void);
 basic_num_t basic_mir_mod (basic_num_t ctx, const char *name);
 basic_num_t basic_mir_func (basic_num_t mod, const char *name, basic_num_t nargs);
@@ -31,6 +46,7 @@ basic_num_t basic_mir_finish (basic_num_t mod);
 basic_num_t basic_mir_run (basic_num_t func, basic_num_t a1, basic_num_t a2, basic_num_t a3,
                            basic_num_t a4);
 basic_num_t basic_mir_dump (basic_num_t func);
+#endif
 
 void *basic_dim_alloc (void *base, basic_num_t len, basic_num_t is_str);
 void basic_clear_array (void *base, basic_num_t len, basic_num_t is_str);
