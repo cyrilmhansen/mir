@@ -410,9 +410,7 @@ static void *pool_realloc (void *ptr, size_t old_size, size_t new_size) {
 }
 extern basic_num_t basic_int (basic_num_t);
 extern basic_num_t basic_timer (void);
-extern basic_num_t basic_time (void);
 extern char *basic_time_str (void);
-extern basic_num_t basic_date (void);
 extern char *basic_date_str (void);
 extern char *basic_input_chr (basic_num_t);
 extern basic_num_t basic_peek (basic_num_t);
@@ -607,9 +605,7 @@ static void *resolve (const char *name) {
   if (!strcmp (name, "basic_asc")) return basic_asc;
   if (!strcmp (name, "basic_int")) return basic_int;
   if (!strcmp (name, "basic_timer")) return basic_timer;
-  if (!strcmp (name, "basic_time")) return basic_time;
   if (!strcmp (name, "basic_time_str")) return basic_time_str;
-  if (!strcmp (name, "basic_date")) return basic_date;
   if (!strcmp (name, "basic_date_str")) return basic_date_str;
   if (!strcmp (name, "basic_input_chr")) return basic_input_chr;
   if (!strcmp (name, "basic_peek")) return basic_peek;
@@ -656,22 +652,22 @@ static void *resolve (const char *name) {
 /* Runtime call prototypes for expressions */
 static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, unichar_proto, unichar_import,
   string_proto, string_import, concat_proto, concat_import, int_proto, int_import, timer_proto,
-  timer_import, time_proto, time_import, time_str_proto, time_str_import, date_proto, date_import,
-  date_str_proto, date_str_import, input_chr_proto, input_chr_import, peek_proto, peek_import,
-  eof_proto, eof_import, abs_proto, abs_import, sgn_proto, sgn_import, inkey_proto, inkey_import,
-  sqr_proto, sqr_import, sin_proto, sin_import, cos_proto, cos_import, tan_proto, tan_import,
-  atn_proto, atn_import, asin_proto, asin_import, acos_proto, acos_import, sinh_proto, sinh_import,
-  cosh_proto, cosh_import, tanh_proto, tanh_import, asinh_proto, asinh_import, acosh_proto,
-  acosh_import, atanh_proto, atanh_import, log_proto, log_import, log2_proto, log2_import,
-  log10_proto, log10_import, exp_proto, exp_import, fact_proto, fact_import, pow_proto, pow_import,
-  pi_proto, pi_import, left_proto, left_import, right_proto, right_import, mid_proto, mid_import,
-  mirror_proto, mirror_import, upper_proto, upper_import, lower_proto, lower_import, len_proto,
-  len_import, val_proto, val_import, str_proto, str_import, asc_proto, asc_import, pos_proto,
-  pos_import, instr_proto, instr_import, strdup_proto, strdup_import, mir_ctx_proto, mir_ctx_import,
-  mir_mod_proto, mir_mod_import, mir_func_proto, mir_func_import, mir_reg_proto, mir_reg_import,
-  mir_label_proto, mir_label_import, mir_emit_proto, mir_emit_import, mir_emitlbl_proto,
-  mir_emitlbl_import, mir_ret_proto, mir_ret_import, mir_finish_proto, mir_finish_import,
-  mir_run_proto, mir_run_import, mir_dump_proto, mir_dump_import;
+  timer_import, time_str_proto, time_str_import, date_str_proto, date_str_import, input_chr_proto,
+  input_chr_import, peek_proto, peek_import, eof_proto, eof_import, abs_proto, abs_import,
+  sgn_proto, sgn_import, inkey_proto, inkey_import, sqr_proto, sqr_import, sin_proto, sin_import,
+  cos_proto, cos_import, tan_proto, tan_import, atn_proto, atn_import, asin_proto, asin_import,
+  acos_proto, acos_import, sinh_proto, sinh_import, cosh_proto, cosh_import, tanh_proto,
+  tanh_import, asinh_proto, asinh_import, acosh_proto, acosh_import, atanh_proto, atanh_import,
+  log_proto, log_import, log2_proto, log2_import, log10_proto, log10_import, exp_proto, exp_import,
+  fact_proto, fact_import, pow_proto, pow_import, pi_proto, pi_import, left_proto, left_import,
+  right_proto, right_import, mid_proto, mid_import, mirror_proto, mirror_import, upper_proto,
+  upper_import, lower_proto, lower_import, len_proto, len_import, val_proto, val_import, str_proto,
+  str_import, asc_proto, asc_import, pos_proto, pos_import, instr_proto, instr_import, strdup_proto,
+  strdup_import, mir_ctx_proto, mir_ctx_import, mir_mod_proto, mir_mod_import, mir_func_proto,
+  mir_func_import, mir_reg_proto, mir_reg_import, mir_label_proto, mir_label_import, mir_emit_proto,
+  mir_emit_import, mir_emitlbl_proto, mir_emitlbl_import, mir_ret_proto, mir_ret_import,
+  mir_finish_proto, mir_finish_import, mir_run_proto, mir_run_import, mir_dump_proto,
+  mir_dump_import;
 static void basic_mir_i2n (MIR_context_t ctx, MIR_item_t func, MIR_op_t dst, MIR_op_t src) {
 #if defined(BASIC_USE_LONG_DOUBLE)
   MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_I2LD, dst, src));
@@ -1837,7 +1833,7 @@ typedef struct {
 } Builtin;
 
 static const Builtin builtins[]
-  = {{"RND", 0},      {"INT", 0},       {"TIMER", 0},    {"TIME", 0},    {"DATE", 0},
+  = {{"RND", 0},      {"INT", 0},       {"TIMER", 0},    {"TIME", 1},    {"DATE", 1},
      {"PEEK", 0},     {"EOF", 0},       {"POS", 0},      {"ABS", 0},     {"SGN", 0},
      {"SQR", 0},      {"SIN", 0},       {"COS", 0},      {"TAN", 0},     {"ATN", 0},
      {"ASIN", 0},     {"ACOS", 0},      {"SINH", 0},     {"COSH", 0},    {"TANH", 0},
@@ -3856,12 +3852,12 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
                          MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, inkey_proto),
                                             MIR_new_ref_op (ctx, inkey_import),
                                             MIR_new_reg_op (ctx, res)));
-      } else if (strcasecmp (n->var, "TIME$") == 0) {
+      } else if (strcasecmp (n->var, "TIME") == 0 || strcasecmp (n->var, "TIME$") == 0) {
         MIR_append_insn (ctx, func,
                          MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, time_str_proto),
                                             MIR_new_ref_op (ctx, time_str_import),
                                             MIR_new_reg_op (ctx, res)));
-      } else if (strcasecmp (n->var, "DATE$") == 0) {
+      } else if (strcasecmp (n->var, "DATE") == 0 || strcasecmp (n->var, "DATE$") == 0) {
         MIR_append_insn (ctx, func,
                          MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, date_str_proto),
                                             MIR_new_ref_op (ctx, date_str_import),
@@ -4104,16 +4100,6 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
       MIR_append_insn (ctx, func,
                        MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, timer_proto),
                                           MIR_new_ref_op (ctx, timer_import),
-                                          MIR_new_reg_op (ctx, res)));
-    } else if (strcasecmp (n->var, "TIME") == 0) {
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, time_proto),
-                                          MIR_new_ref_op (ctx, time_import),
-                                          MIR_new_reg_op (ctx, res)));
-    } else if (strcasecmp (n->var, "DATE") == 0) {
-      MIR_append_insn (ctx, func,
-                       MIR_new_call_insn (ctx, 3, MIR_new_ref_op (ctx, date_proto),
-                                          MIR_new_ref_op (ctx, date_import),
                                           MIR_new_reg_op (ctx, res)));
     } else if (strcasecmp (n->var, "PEEK") == 0) {
       MIR_reg_t arg = gen_expr (ctx, func, vars, n->left);
@@ -6517,12 +6503,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   int_import = MIR_new_import (ctx, "basic_int");
   timer_proto = MIR_new_proto (ctx, "basic_timer_p", 1, &d, 0);
   timer_import = MIR_new_import (ctx, "basic_timer");
-  time_proto = MIR_new_proto (ctx, "basic_time_p", 1, &d, 0);
-  time_import = MIR_new_import (ctx, "basic_time");
   time_str_proto = MIR_new_proto (ctx, "basic_time_str_p", 1, &p, 0);
   time_str_import = MIR_new_import (ctx, "basic_time_str");
-  date_proto = MIR_new_proto (ctx, "basic_date_p", 1, &d, 0);
-  date_import = MIR_new_import (ctx, "basic_date");
   date_str_proto = MIR_new_proto (ctx, "basic_date_str_p", 1, &p, 0);
   date_str_import = MIR_new_import (ctx, "basic_date_str");
   input_chr_proto = MIR_new_proto (ctx, "basic_input_chr_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
