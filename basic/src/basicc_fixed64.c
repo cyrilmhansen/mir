@@ -1,4 +1,5 @@
 #include "basic_common.h"
+#include "basic_num_hooks.h"
 #include "basic_fixed64_hooks.h"
 
 #define BASIC_MIR_MOV MIR_MOV
@@ -17,12 +18,6 @@ static MIR_op_t fixed64_emit_num_const (MIR_context_t ctx, basic_num_t v) {
   return MIR_new_ref_op (ctx, data_item);
 }
 #define BASIC_EMIT_NUM_CONST fixed64_emit_num_const
-
-#define BASIC_MIR_BINOP basic_mir_binop
-#define BASIC_MIR_UNOP basic_mir_unop
-#define BASIC_MIR_BCMP basic_mir_bcmp
-#define BASIC_MIR_I2N basic_mir_i2n
-#define BASIC_MIR_N2I basic_mir_n2i
 
 static void basic_fixed64_init (MIR_context_t ctx) {
   MIR_type_t i64_pair[2] = {MIR_T_I64, MIR_T_I64};
@@ -83,7 +78,16 @@ static void basic_fixed64_init (MIR_context_t ctx) {
   fixed64_to_int_proto = MIR_new_proto_arr (ctx, "fixed64_to_int_p", 1, &i64_, 1, to_int_vars);
   fixed64_to_int_import = MIR_new_import (ctx, "fixed64_to_int");
 }
-#define BASIC_NUM_INIT basic_fixed64_init
+
+basic_num_hooks_t basic_num_hooks = {
+  .mir_binop = basic_mir_binop,
+  .mir_unop = basic_mir_unop,
+  .mir_bcmp = basic_mir_bcmp,
+  .mir_i2n = basic_mir_i2n,
+  .mir_n2i = basic_mir_n2i,
+};
+
+void basic_num_init (MIR_context_t ctx) { basic_fixed64_init (ctx); }
 
 static inline MIR_item_t basic_proto_num (MIR_context_t ctx, const char *name, size_t nargs,
                                           MIR_var_t *vars) {
@@ -103,4 +107,4 @@ static inline MIR_item_t basic_proto_num (MIR_context_t ctx, const char *name, s
 #define BASIC_PROTO_NUM(ctx, name, nargs, ...) \
   basic_proto_num (ctx, name, nargs, (MIR_var_t[]) {__VA_ARGS__})
 
-#include "basicc.c"
+#include "basicc_core.c"
