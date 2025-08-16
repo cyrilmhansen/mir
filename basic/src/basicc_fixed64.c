@@ -1,15 +1,6 @@
-#include "basic_num.h"
-#include "mir.h"
-#include "mir-gen.h"
-#include "basic_runtime.h"
-#include "arena.h"
-#include "basic_pool.h"
-#include "basic_runtime_fixed64.h"
-#include "basic_runtime_shared.h"
+#include "basic_common.h"
 
 #define BASIC_MIR_MOV MIR_MOV
-
-static int safe_snprintf (char *buf, size_t size, const char *fmt, ...);
 
 static MIR_item_t fixed64_add_proto, fixed64_add_import, fixed64_sub_proto, fixed64_sub_import,
   fixed64_mul_proto, fixed64_mul_import, fixed64_div_proto, fixed64_div_import, fixed64_eq_proto,
