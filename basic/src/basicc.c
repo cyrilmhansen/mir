@@ -97,11 +97,26 @@ static void basic_mir_n2i_default (MIR_context_t ctx, MIR_item_t func, MIR_op_t 
 #endif
 
 #if defined(BASIC_USE_FIXED64)
-#define BASIC_PROTO_NUM(ctx, name, nargs, ...) \
-  MIR_new_proto (ctx, name, 0, NULL, (nargs) + 1, MIR_T_P, "res", ##__VA_ARGS__)
+static inline MIR_item_t BASIC_PROTO_NUM (MIR_context_t ctx, const char *name, size_t nargs,
+                                          MIR_var_t *vars) {
+  MIR_var_t all_vars[nargs + 1];
+  all_vars[0].type = MIR_T_P;
+  all_vars[0].name = "res";
+  for (size_t i = 0; i < nargs; ++i) {
+    all_vars[i + 1] = vars[i];
+    if (all_vars[i + 1].type == BASIC_MIR_NUM_T) {
+      all_vars[i + 1].type = MIR_T_BLK;
+      all_vars[i + 1].size = sizeof (basic_num_t);
+    }
+  }
+  return MIR_new_proto_arr (ctx, name, 0, NULL, nargs + 1, all_vars);
+}
 #else
-#define BASIC_PROTO_NUM(ctx, name, nargs, ...) \
-  MIR_new_proto (ctx, name, 1, &d, nargs, ##__VA_ARGS__)
+static inline MIR_item_t BASIC_PROTO_NUM (MIR_context_t ctx, const char *name, size_t nargs,
+                                          MIR_var_t *vars) {
+  MIR_type_t res_type = BASIC_MIR_NUM_T;
+  return MIR_new_proto_arr (ctx, name, 1, &res_type, nargs, vars);
+}
 #endif
 
 static void safe_fprintf (FILE *stream, const char *fmt, ...) {
@@ -6018,7 +6033,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   prints_proto = MIR_new_proto (ctx, "basic_print_str_p", 0, NULL, 1, MIR_T_P, "s");
   prints_import = MIR_new_import (ctx, "basic_print_str");
   MIR_type_t d = BASIC_MIR_NUM_T;
-  input_proto = BASIC_PROTO_NUM (ctx, "basic_input_p", 0);
+  input_proto = BASIC_PROTO_NUM (ctx, "basic_input_p", 0, NULL);
   input_import = MIR_new_import (ctx, "basic_input");
   MIR_type_t p = MIR_T_P;
   MIR_type_t i = MIR_T_I64;
@@ -6038,7 +6053,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   prinths_proto
     = MIR_new_proto (ctx, "basic_print_hash_str_p", 0, NULL, 2, MIR_T_I64, "n", MIR_T_P, "s");
   prinths_import = MIR_new_import (ctx, "basic_print_hash_str");
-  input_hash_proto = BASIC_PROTO_NUM (ctx, "basic_input_hash_p", 1, MIR_T_I64, "n");
+  input_hash_proto
+    = BASIC_PROTO_NUM (ctx, "basic_input_hash_p", 1, (MIR_var_t[]) {{MIR_T_I64, "n", 0}});
   input_hash_import = MIR_new_import (ctx, "basic_input_hash");
   input_hash_str_proto = MIR_new_proto (ctx, "basic_input_hash_str_p", 1, &p, 1, MIR_T_I64, "n");
   input_hash_str_import = MIR_new_import (ctx, "basic_input_hash_str");
@@ -6155,7 +6171,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       = MIR_new_proto (ctx, "basic_profile_func_exit_p", 0, NULL, 1, MIR_T_P, "name");
     profile_func_exit_import = MIR_new_import (ctx, "basic_profile_func_exit");
   }
-  rnd_proto = BASIC_PROTO_NUM (ctx, "basic_rnd_p", 1, BASIC_MIR_NUM_T, "n");
+  rnd_proto = BASIC_PROTO_NUM (ctx, "basic_rnd_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "n", 0}});
   rnd_import = MIR_new_import (ctx, "basic_rnd");
   chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, MIR_T_I64, "n");
   chr_import = MIR_new_import (ctx, "basic_chr");
@@ -6181,7 +6197,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   peek_import = MIR_new_import (ctx, "basic_peek");
   eof_proto = MIR_new_proto (ctx, "basic_eof_p", 1, &d, 1, MIR_T_I64, "n");
   eof_import = MIR_new_import (ctx, "basic_eof");
-  pos_proto = BASIC_PROTO_NUM (ctx, "basic_pos_p", 0);
+  pos_proto = BASIC_PROTO_NUM (ctx, "basic_pos_p", 0, NULL);
   pos_import = MIR_new_import (ctx, "basic_pos");
 
   abs_proto = MIR_new_proto (ctx, "basic_abs_p", 1, &d, 1, BASIC_MIR_NUM_T, "x");
@@ -6305,7 +6321,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   MIR_type_t i64 = MIR_T_I64;
   strcmp_proto = MIR_new_proto (ctx, "basic_strcmp_p", 1, &i64, 2, MIR_T_P, "a", MIR_T_P, "b");
   strcmp_import = MIR_new_import (ctx, "basic_strcmp");
-  read_proto = BASIC_PROTO_NUM (ctx, "basic_read_p", 0);
+  read_proto = BASIC_PROTO_NUM (ctx, "basic_read_p", 0, NULL);
   read_import = MIR_new_import (ctx, "basic_read");
   read_str_proto = MIR_new_proto (ctx, "basic_read_str_p", 1, &p, 0);
   read_str_import = MIR_new_import (ctx, "basic_read_str");
