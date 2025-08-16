@@ -2,6 +2,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
+#include <stdarg.h>
+#include <stdlib.h>
 
 #include "basic_runtime_fixed64.h"
 #include "basic_runtime.h"
@@ -9,6 +11,19 @@
 #include "basic_runtime_shared.h"
 
 /* Declarations moved to basic_runtime_shared.h */
+
+static int safe_snprintf (char *buf, size_t size, const char *fmt, ...) {
+  va_list ap;
+  int res;
+  va_start (ap, fmt);
+  res = vsnprintf (buf, size, fmt, ap);
+  va_end (ap);
+  if (res < 0 || (size_t) res >= size) {
+    fprintf (stderr, "safe_snprintf: truncated output\n");
+    abort ();
+  }
+  return res;
+}
 
 static int seeded = 0;
 static uint64_t s[4] = {0, 0, 0, 0};
@@ -69,7 +84,7 @@ static MIR_op_t basic_mem (MIR_context_t ctx, MIR_item_t func, MIR_op_t op, MIR_
   } else {
     char buf[32];
     static int addr_id = 0;
-    snprintf (buf, sizeof (buf), "$ba%d", addr_id++);
+    safe_snprintf (buf, sizeof (buf), "$ba%d", addr_id++);
     r = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
     MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, r), op));
   }
