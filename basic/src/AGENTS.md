@@ -86,8 +86,8 @@
 | PEEK | read memory | 1 | integer | integer |
 | EOF | end-of-file check | 1 | integer | integer |
 | POS | current position | 0 |  | integer |
-| ABS | absolute value | 1 | decimal | decimal |
-| SGN | sign of number | 1 | decimal | integer |
+| ABS | absolute value | 1 | decimal/integer | decimal |
+| SGN | sign of number | 1 | decimal/integer | integer |
 | SQR | square root | 1 | decimal | decimal |
 | SIN | sine | 1 | decimal | decimal |
 | COS | cosine | 1 | decimal | decimal |
