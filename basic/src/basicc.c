@@ -6129,7 +6129,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   sound_import = MIR_new_import (ctx, "basic_sound");
   sound_off_proto = MIR_new_proto (ctx, "basic_sound_off_p", 0, NULL, 0);
   sound_off_import = MIR_new_import (ctx, "basic_sound_off");
-  system_proto = BASIC_PROTO_NUM (ctx, "basic_system_p", 1, MIR_T_P, "cmd");
+  system_proto = BASIC_PROTO_NUM (ctx, "basic_system_p", 1, (MIR_var_t[]) {{MIR_T_P, "cmd", 0}});
   system_import = MIR_new_import (ctx, "basic_system");
   system_out_proto = MIR_new_proto (ctx, "basic_system_out_p", 1, &p, 0);
   system_out_import = MIR_new_import (ctx, "basic_system_out");
@@ -6153,7 +6153,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   on_error_import = MIR_new_import (ctx, "basic_set_error_handler");
   set_line_proto = MIR_new_proto (ctx, "basic_set_line_p", 0, NULL, 1, BASIC_MIR_NUM_T, "line");
   set_line_import = MIR_new_import (ctx, "basic_set_line");
-  get_line_proto = BASIC_PROTO_NUM (ctx, "basic_get_line_p", 0);
+  get_line_proto = BASIC_PROTO_NUM (ctx, "basic_get_line_p", 0, NULL);
   get_line_import = MIR_new_import (ctx, "basic_get_line");
   line_track_proto
     = MIR_new_proto (ctx, "basic_enable_line_tracking_p", 0, NULL, 1, BASIC_MIR_NUM_T, "on");
@@ -6179,9 +6179,9 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   string_import = MIR_new_import (ctx, "basic_string");
   concat_proto = MIR_new_proto (ctx, "basic_concat_p", 1, &p, 2, MIR_T_P, "a", MIR_T_P, "b");
   concat_import = MIR_new_import (ctx, "basic_concat");
-  int_proto = BASIC_PROTO_NUM (ctx, "basic_int_p", 1, BASIC_MIR_NUM_T, "x");
+  int_proto = BASIC_PROTO_NUM (ctx, "basic_int_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   int_import = MIR_new_import (ctx, "basic_int");
-  timer_proto = BASIC_PROTO_NUM (ctx, "basic_timer_p", 0);
+  timer_proto = BASIC_PROTO_NUM (ctx, "basic_timer_p", 0, NULL);
   timer_import = MIR_new_import (ctx, "basic_timer");
   time_str_proto = MIR_new_proto (ctx, "basic_time_str_p", 1, &p, 0);
   time_str_import = MIR_new_import (ctx, "basic_time_str");
@@ -6191,60 +6191,67 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   input_chr_import = MIR_new_import (ctx, "basic_input_chr");
   inkey_proto = MIR_new_proto (ctx, "basic_inkey_p", 1, &p, 0);
   inkey_import = MIR_new_import (ctx, "basic_inkey");
-  peek_proto = BASIC_PROTO_NUM (ctx, "basic_peek_p", 1, BASIC_MIR_NUM_T, "addr");
+  peek_proto
+    = BASIC_PROTO_NUM (ctx, "basic_peek_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "addr", 0}});
   peek_import = MIR_new_import (ctx, "basic_peek");
-  eof_proto = BASIC_PROTO_NUM (ctx, "basic_eof_p", 1, MIR_T_I64, "n");
+  eof_proto = BASIC_PROTO_NUM (ctx, "basic_eof_p", 1, (MIR_var_t[]) {{MIR_T_I64, "n", 0}});
   eof_import = MIR_new_import (ctx, "basic_eof");
   pos_proto = BASIC_PROTO_NUM (ctx, "basic_pos_p", 0, NULL);
   pos_import = MIR_new_import (ctx, "basic_pos");
 
-  abs_proto = BASIC_PROTO_NUM (ctx, "basic_abs_p", 1, BASIC_MIR_NUM_T, "x");
+  abs_proto = BASIC_PROTO_NUM (ctx, "basic_abs_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   abs_import = MIR_new_import (ctx, "basic_abs");
-  sgn_proto = BASIC_PROTO_NUM (ctx, "basic_sgn_p", 1, BASIC_MIR_NUM_T, "x");
+  sgn_proto = BASIC_PROTO_NUM (ctx, "basic_sgn_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   sgn_import = MIR_new_import (ctx, "basic_sgn");
   iabs_proto = MIR_new_proto (ctx, "basic_iabs_p", 1, &i, 1, MIR_T_I64, "x");
   iabs_import = MIR_new_import (ctx, "basic_iabs");
   isgn_proto = MIR_new_proto (ctx, "basic_isgn_p", 1, &i, 1, MIR_T_I64, "x");
   isgn_import = MIR_new_import (ctx, "basic_isgn");
-  sqr_proto = BASIC_PROTO_NUM (ctx, "basic_sqr_p", 1, BASIC_MIR_NUM_T, "x");
+  sqr_proto = BASIC_PROTO_NUM (ctx, "basic_sqr_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   sqr_import = MIR_new_import (ctx, "basic_sqr");
-  sin_proto = BASIC_PROTO_NUM (ctx, "basic_sin_p", 1, BASIC_MIR_NUM_T, "x");
+  sin_proto = BASIC_PROTO_NUM (ctx, "basic_sin_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   sin_import = MIR_new_import (ctx, "basic_sin");
-  cos_proto = BASIC_PROTO_NUM (ctx, "basic_cos_p", 1, BASIC_MIR_NUM_T, "x");
+  cos_proto = BASIC_PROTO_NUM (ctx, "basic_cos_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   cos_import = MIR_new_import (ctx, "basic_cos");
-  tan_proto = BASIC_PROTO_NUM (ctx, "basic_tan_p", 1, BASIC_MIR_NUM_T, "x");
+  tan_proto = BASIC_PROTO_NUM (ctx, "basic_tan_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   tan_import = MIR_new_import (ctx, "basic_tan");
-  atn_proto = BASIC_PROTO_NUM (ctx, "basic_atn_p", 1, BASIC_MIR_NUM_T, "x");
+  atn_proto = BASIC_PROTO_NUM (ctx, "basic_atn_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   atn_import = MIR_new_import (ctx, "basic_atn");
-  sinh_proto = BASIC_PROTO_NUM (ctx, "basic_sinh_p", 1, BASIC_MIR_NUM_T, "x");
+  sinh_proto = BASIC_PROTO_NUM (ctx, "basic_sinh_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   sinh_import = MIR_new_import (ctx, "basic_sinh");
-  cosh_proto = BASIC_PROTO_NUM (ctx, "basic_cosh_p", 1, BASIC_MIR_NUM_T, "x");
+  cosh_proto = BASIC_PROTO_NUM (ctx, "basic_cosh_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   cosh_import = MIR_new_import (ctx, "basic_cosh");
-  tanh_proto = BASIC_PROTO_NUM (ctx, "basic_tanh_p", 1, BASIC_MIR_NUM_T, "x");
+  tanh_proto = BASIC_PROTO_NUM (ctx, "basic_tanh_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   tanh_import = MIR_new_import (ctx, "basic_tanh");
-  asinh_proto = BASIC_PROTO_NUM (ctx, "basic_asinh_p", 1, BASIC_MIR_NUM_T, "x");
+  asinh_proto
+    = BASIC_PROTO_NUM (ctx, "basic_asinh_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   asinh_import = MIR_new_import (ctx, "basic_asinh");
-  acosh_proto = BASIC_PROTO_NUM (ctx, "basic_acosh_p", 1, BASIC_MIR_NUM_T, "x");
+  acosh_proto
+    = BASIC_PROTO_NUM (ctx, "basic_acosh_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   acosh_import = MIR_new_import (ctx, "basic_acosh");
-  atanh_proto = BASIC_PROTO_NUM (ctx, "basic_atanh_p", 1, BASIC_MIR_NUM_T, "x");
+  atanh_proto
+    = BASIC_PROTO_NUM (ctx, "basic_atanh_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   atanh_import = MIR_new_import (ctx, "basic_atanh");
-  asin_proto = BASIC_PROTO_NUM (ctx, "basic_asin_p", 1, BASIC_MIR_NUM_T, "x");
+  asin_proto = BASIC_PROTO_NUM (ctx, "basic_asin_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   asin_import = MIR_new_import (ctx, "basic_asin");
-  acos_proto = BASIC_PROTO_NUM (ctx, "basic_acos_p", 1, BASIC_MIR_NUM_T, "x");
+  acos_proto = BASIC_PROTO_NUM (ctx, "basic_acos_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   acos_import = MIR_new_import (ctx, "basic_acos");
-  log_proto = BASIC_PROTO_NUM (ctx, "basic_log_p", 1, BASIC_MIR_NUM_T, "x");
+  log_proto = BASIC_PROTO_NUM (ctx, "basic_log_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   log_import = MIR_new_import (ctx, "basic_log");
-  log2_proto = BASIC_PROTO_NUM (ctx, "basic_log2_p", 1, BASIC_MIR_NUM_T, "x");
+  log2_proto = BASIC_PROTO_NUM (ctx, "basic_log2_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   log2_import = MIR_new_import (ctx, "basic_log2");
-  log10_proto = BASIC_PROTO_NUM (ctx, "basic_log10_p", 1, BASIC_MIR_NUM_T, "x");
+  log10_proto
+    = BASIC_PROTO_NUM (ctx, "basic_log10_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   log10_import = MIR_new_import (ctx, "basic_log10");
-  exp_proto = BASIC_PROTO_NUM (ctx, "basic_exp_p", 1, BASIC_MIR_NUM_T, "x");
+  exp_proto = BASIC_PROTO_NUM (ctx, "basic_exp_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   exp_import = MIR_new_import (ctx, "basic_exp");
-  fact_proto = BASIC_PROTO_NUM (ctx, "basic_fact_p", 1, BASIC_MIR_NUM_T, "x");
+  fact_proto = BASIC_PROTO_NUM (ctx, "basic_fact_p", 1, (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}});
   fact_import = MIR_new_import (ctx, "basic_fact");
-  pow_proto = BASIC_PROTO_NUM (ctx, "basic_pow_p", 2, BASIC_MIR_NUM_T, "x", BASIC_MIR_NUM_T, "y");
+  pow_proto
+    = BASIC_PROTO_NUM (ctx, "basic_pow_p", 2,
+                       (MIR_var_t[]) {{BASIC_MIR_NUM_T, "x", 0}, {BASIC_MIR_NUM_T, "y", 0}});
   pow_import = MIR_new_import (ctx, "basic_pow");
-  pi_proto = BASIC_PROTO_NUM (ctx, "basic_pi_p", 0);
+  pi_proto = BASIC_PROTO_NUM (ctx, "basic_pi_p", 0, NULL);
   pi_import = MIR_new_import (ctx, "basic_pi");
   left_proto = MIR_new_proto (ctx, "basic_left_p", 1, &p, 2, MIR_T_P, "s", MIR_T_I64, "n");
   left_import = MIR_new_import (ctx, "basic_left");
@@ -6261,7 +6268,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   lower_import = MIR_new_import (ctx, "basic_lower");
   len_proto = MIR_new_proto (ctx, "basic_len_p", 1, &i, 1, MIR_T_P, "s");
   len_import = MIR_new_import (ctx, "basic_len");
-  val_proto = BASIC_PROTO_NUM (ctx, "basic_val_p", 1, MIR_T_P, "s");
+  val_proto = BASIC_PROTO_NUM (ctx, "basic_val_p", 1, (MIR_var_t[]) {{MIR_T_P, "s", 0}});
   val_import = MIR_new_import (ctx, "basic_val");
   str_proto = MIR_new_proto (ctx, "basic_str_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
   str_import = MIR_new_import (ctx, "basic_str");
