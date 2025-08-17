@@ -1158,6 +1158,7 @@ static basic_num_t basic_mir_ctx_impl (void) {
   static basic_num_t ctx_handle = BASIC_ZERO;
   if (basic_num_ne (ctx_handle, BASIC_ZERO)) return ctx_handle;
   MIR_context_t ctx = MIR_init ();
+  basic_runtime_fixed64_init (ctx);
   ctx_handle = new_handle (H_CTX, ctx, ctx);
   return ctx_handle;
 }

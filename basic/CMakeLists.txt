@@ -100,6 +100,27 @@ if(BUILD_TESTING)
   endif()
   add_test(NAME basic_num_fixed64_test COMMAND basic_num_fixed64_test)
 
+  add_executable(basic_ctx_fixed64_mir_test
+    test/basic_ctx_fixed64_mir_test.c
+    src/basic_runtime.c
+    src/basic_runtime_fixed64.c
+    src/basic_pool.c
+    src/vendor/fixed64/fixed64.c
+    src/vendor/ryu/f2s.c
+    src/vendor/kitty/kitty.c
+    src/vendor/kitty/lodepng.c)
+  target_compile_definitions(basic_ctx_fixed64_mir_test PRIVATE BASIC_USE_FIXED64 BASIC_SRC_DIR=\"${CMAKE_SOURCE_DIR}\")
+  target_include_directories(basic_ctx_fixed64_mir_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vendor
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vendor/fixed64)
+  target_link_libraries(basic_ctx_fixed64_mir_test mir)
+  if(UNIX)
+    target_link_libraries(basic_ctx_fixed64_mir_test m)
+  endif()
+  add_test(NAME basic_ctx_fixed64_mir_test COMMAND basic_ctx_fixed64_mir_test)
+
   add_executable(ld2s_test
     test/ld2s_test.c
     src/vendor/ryu/generic_128.c
