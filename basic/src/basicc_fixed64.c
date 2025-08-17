@@ -83,12 +83,15 @@ static void basic_mir_pass_arg_fixed64 (MIR_context_t ctx, MIR_item_t func, MIR_
   *op = basic_mem (ctx, func, *op, BASIC_MIR_NUM_T);
 }
 
+static MIR_type_t get_reg_type_fixed64 (void) { return MIR_T_I64; }
+
 basic_num_hooks_t basic_num_hooks = {
   .mir_binop = basic_mir_binop,
   .mir_unop = basic_mir_unop,
   .mir_bcmp = basic_mir_bcmp,
   .mir_i2n = basic_mir_i2n,
   .mir_n2i = basic_mir_n2i,
+  .get_reg_type = get_reg_type_fixed64,
   .mir_pass_arg = basic_mir_pass_arg_fixed64,
 };
 
