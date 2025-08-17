@@ -1,6 +1,8 @@
 #include "basic_common.h"
 #include "basic_num_hooks.h"
 
+static int tmp_id = 0;
+
 static void basic_mir_binop_default (MIR_context_t ctx, MIR_item_t func, MIR_insn_code_t code,
                                      MIR_op_t dst, MIR_op_t src1, MIR_op_t src2) {
   MIR_append_insn (ctx, func, MIR_new_insn (ctx, code, dst, src1, src2));

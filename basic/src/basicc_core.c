@@ -3064,10 +3064,12 @@ typedef struct {
 } VarVec;
 static MIR_insn_t g_var_init_anchor;
 static MIR_item_t g_func;
+
 static MIR_reg_t get_var (VarVec *vars, MIR_context_t ctx, MIR_item_t func, const char *name) {
   int is_str = name[strlen (name) - 1] == '$';
   for (size_t i = 0; i < vars->len; i++)
     if (!vars->data[i].is_array && strcmp (vars->data[i].name, name) == 0) return vars->data[i].reg;
+
   if (vars->len == vars->cap) {
     size_t new_cap = vars->cap ? 2 * vars->cap : 16;
     Var *tmp = pool_realloc (vars->data, vars->cap * sizeof (Var), new_cap * sizeof (Var));
@@ -3075,19 +3077,43 @@ static MIR_reg_t get_var (VarVec *vars, MIR_context_t ctx, MIR_item_t func, cons
     vars->data = tmp;
     vars->cap = new_cap;
   }
-  vars->data[vars->len].name = arena_strdup (&ast_arena, name);
-  vars->data[vars->len].is_str = is_str;
-  vars->data[vars->len].is_array = 0;
-  vars->data[vars->len].size = 0;
-  MIR_type_t t = is_str ? MIR_T_I64 : basic_num_hooks.get_reg_type ();
-  vars->data[vars->len].reg = MIR_new_func_reg (ctx, func->u.func, t, name);
-  if (is_str && g_var_init_anchor != NULL && func == g_func)
+
+  size_t new_idx = vars->len++;
+  vars->data[new_idx].name = arena_strdup (&ast_arena, name);
+  vars->data[new_idx].is_str = is_str;
+  vars->data[new_idx].is_array = 0;
+  vars->data[new_idx].size = 0;
+  
+  MIR_type_t t = is_str ? MIR_T_I64 : basic_num_hooks.get_reg_type();
+  vars->data[new_idx].reg = MIR_new_func_reg (ctx, func->u.func, t, name);
+
+#ifdef BASIC_USE_FIXED64
+  if (!is_str) {
+    // For fixed64, variables are pointers to stack-allocated values.
+    // Allocate space for the variable and initialize it to zero.
+    MIR_op_t size_op = MIR_new_int_op (ctx, sizeof (basic_num_t));
+    MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_ALLOCA, MIR_new_reg_op(ctx, vars->data[new_idx].reg), size_op));
+    
+    MIR_op_t zero_op = MIR_new_int_op(ctx, 0);
+    MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_MOV, 
+                                             MIR_new_mem_op(ctx, MIR_T_I64, 0, vars->data[new_idx].reg, 0, 1), 
+                                             zero_op));
+    MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_MOV, 
+                                             MIR_new_mem_op(ctx, MIR_T_I64, 8, vars->data[new_idx].reg, 0, 1), 
+                                             zero_op));
+  } else 
+#endif
+  if (is_str && g_var_init_anchor != NULL && func == g_func) {
+    // Initialize string variables to a NULL pointer.
     MIR_insert_insn_after (ctx, func, g_var_init_anchor,
                            MIR_new_insn (ctx, MIR_MOV,
-                                         MIR_new_reg_op (ctx, vars->data[vars->len].reg),
+                                         MIR_new_reg_op (ctx, vars->data[new_idx].reg),
                                          MIR_new_int_op (ctx, 0)));
-  return vars->data[vars->len++].reg;
+  }
+
+  return vars->data[new_idx].reg;
 }
+
 
 static MIR_reg_t get_array (VarVec *vars, MIR_context_t ctx, MIR_item_t func, const char *name,
                             size_t size1, size_t size2, int is_str) {
@@ -3135,8 +3161,6 @@ static size_t get_array_size (VarVec *vars, const char *name) {
       return vars->data[i].size > 1 ? vars->data[i].size : 0;
   return 0;
 }
-
-static int tmp_id = 0;
 
 static void ensure_array_dim (VarVec *vars, MIR_context_t ctx, MIR_item_t func, const char *name,
                               MIR_reg_t base, int is_str, int has_dim2) {
@@ -4579,16 +4603,12 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
 #endif
 
 // --- START OF REPLACEMENT BLOCK ---
-  #ifdef BASIC_USE_FIXED64
-    print_proto = BASIC_PROTO_GEN (ctx, "basic_print_p", 0, NULL, 1, {.type = MIR_T_P, .name = "res"});
-  #else
-    print_proto = MIR_new_proto (ctx, "basic_print_p", 0, NULL, 1, BASIC_MIR_NUM_T, "x");
-  #endif
-  print_import = MIR_new_import (ctx, "basic_print");
 
+
+print_proto = BASIC_PROTO_GEN (ctx, "basic_print_p", 0, NULL, 1, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+  print_import = MIR_new_import (ctx, "basic_print");
   prints_proto = MIR_new_proto (ctx, "basic_print_str_p", 0, NULL, 1, MIR_T_P, "s");
   prints_import = MIR_new_import (ctx, "basic_print_str");
-
 #ifdef BASIC_USE_FIXED64
   input_proto = BASIC_PROTO_GEN (ctx, "basic_input_p", 0, NULL, 1, {.type = MIR_T_P, .name = "res"});
 #else
@@ -4596,8 +4616,313 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
 #endif
   input_import = MIR_new_import (ctx, "basic_input");
 
-// ... (the prototypes for input_str, get, put, etc. remain unchanged as they were correct)
 
+   MIR_type_t p = MIR_T_P;
+  MIR_type_t i = MIR_T_I64;
+  input_str_proto = MIR_new_proto (ctx, "basic_input_str_p", 1, &p, 0);
+  input_str_import = MIR_new_import (ctx, "basic_input_str");
+  get_proto = MIR_new_proto (ctx, "basic_get_p", 1, &p, 0);
+  get_import = MIR_new_import (ctx, "basic_get");
+  put_proto = MIR_new_proto (ctx, "basic_put_p", 0, NULL, 1, MIR_T_P, "s");
+  put_import = MIR_new_import (ctx, "basic_put");
+  open_proto = MIR_new_proto (ctx, "basic_open_p", 0, NULL, 2, MIR_T_I64, "n", MIR_T_P, "path");
+  open_import = MIR_new_import (ctx, "basic_open");
+  close_proto = MIR_new_proto (ctx, "basic_close_p", 0, NULL, 1, MIR_T_I64, "n");
+  close_import = MIR_new_import (ctx, "basic_close");
+  printh_proto
+    = BASIC_PROTO_GEN (ctx, "basic_print_hash_p", 0, NULL, 2, {.type = MIR_T_I64, .name = "n", .size = 0}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+  printh_import = MIR_new_import (ctx, "basic_print_hash");
+  prinths_proto
+    = MIR_new_proto (ctx, "basic_print_hash_str_p", 0, NULL, 2, MIR_T_I64, "n", MIR_T_P, "s");
+  prinths_import = MIR_new_import (ctx, "basic_print_hash_str");
+#ifdef BASIC_USE_FIXED64
+  input_hash_proto = BASIC_PROTO_GEN(ctx, "basic_input_hash_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = MIR_T_I64, .name = "n", .size = 0});
+#else
+  input_hash_proto = BASIC_PROTO_NUM (ctx, "basic_input_hash_p", 1, {MIR_T_I64, "n", 0});
+#endif
+  input_hash_import = MIR_new_import (ctx, "basic_input_hash");
+  input_hash_str_proto = MIR_new_proto (ctx, "basic_input_hash_str_p", 1, &p, 1, MIR_T_I64, "n");
+  input_hash_str_import = MIR_new_import (ctx, "basic_input_hash_str");
+  get_hash_proto = MIR_new_proto (ctx, "basic_get_hash_p", 1, &p, 1, MIR_T_I64, "n");
+  get_hash_import = MIR_new_import (ctx, "basic_get_hash");
+  put_hash_proto
+    = MIR_new_proto (ctx, "basic_put_hash_p", 0, NULL, 2, MIR_T_I64, "n", MIR_T_P, "s");
+  put_hash_import = MIR_new_import (ctx, "basic_put_hash");
+  eval_proto = MIR_new_proto (ctx, "basic_eval_p", 0, NULL, 1, MIR_T_P, "cmd");
+  eval_import = MIR_new_import (ctx, "basic_eval");
+  pool_reset_proto = MIR_new_proto (ctx, "basic_pool_reset_p", 0, NULL, 0);
+  pool_reset_import = MIR_new_import (ctx, "basic_pool_reset");
+#ifdef BASIC_USE_FIXED64
+  randomize_proto = BASIC_PROTO_GEN (ctx, "basic_randomize_p", 0, NULL, 2, {.type = BASIC_MIR_NUM_T, .name = "n", .size = 0}, {.type = BASIC_MIR_NUM_T, .name = "has_seed", .size = 0});
+#else
+  randomize_proto = MIR_new_proto (ctx, "basic_randomize_p", 0, NULL, 2, BASIC_MIR_NUM_T, "n",
+                                   BASIC_MIR_NUM_T, "has_seed");
+#endif
+  randomize_import = MIR_new_import (ctx, "basic_randomize");
+  stop_proto = MIR_new_proto (ctx, "basic_stop_p", 0, NULL, 0);
+  stop_import = MIR_new_import (ctx, "basic_stop");
+  return_err_proto = MIR_new_proto (ctx, "basic_return_error_p", 0, NULL, 0);
+  return_err_import = MIR_new_import (ctx, "basic_return_error");
+  on_error_proto
+    = MIR_new_proto (ctx, "basic_set_error_handler_p", 0, NULL, 1, BASIC_MIR_NUM_T, "line");
+  on_error_import = MIR_new_import (ctx, "basic_set_error_handler");
+  set_line_proto = MIR_new_proto (ctx, "basic_set_line_p", 0, NULL, 1, BASIC_MIR_NUM_T, "line");
+  set_line_import = MIR_new_import (ctx, "basic_set_line");
+#ifdef BASIC_USE_FIXED64
+  get_line_proto = BASIC_PROTO_GEN(ctx, "basic_get_line_p", 0, NULL, 1, {.type = MIR_T_P, .name = "res"});
+#else
+  get_line_proto = BASIC_PROTO_NUM (ctx, "basic_get_line_p", 0);
+#endif
+  get_line_import = MIR_new_import (ctx, "basic_get_line");
+  line_track_proto
+    = MIR_new_proto (ctx, "basic_enable_line_tracking_p", 0, NULL, 1, BASIC_MIR_NUM_T, "on");
+  line_track_import = MIR_new_import (ctx, "basic_enable_line_tracking");
+  if (profile_p) {
+    profile_line_proto
+      = MIR_new_proto (ctx, "basic_profile_line_p", 0, NULL, 1, BASIC_MIR_NUM_T, "line");
+    profile_line_import = MIR_new_import (ctx, "basic_profile_line");
+    profile_func_enter_proto
+      = MIR_new_proto (ctx, "basic_profile_func_enter_p", 0, NULL, 1, MIR_T_P, "name");
+    profile_func_enter_import = MIR_new_import (ctx, "basic_profile_func_enter");
+    profile_func_exit_proto
+      = MIR_new_proto (ctx, "basic_profile_func_exit_p", 0, NULL, 1, MIR_T_P, "name");
+    profile_func_exit_import = MIR_new_import (ctx, "basic_profile_func_exit");
+  }
+#ifdef BASIC_USE_FIXED64
+  rnd_proto = BASIC_PROTO_GEN(ctx, "basic_rnd_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "n", .size = 0});
+#else
+  rnd_proto = BASIC_PROTO_NUM (ctx, "basic_rnd_p", 1, {BASIC_MIR_NUM_T, "n", 0});
+#endif
+  rnd_import = MIR_new_import (ctx, "basic_rnd");
+  chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, MIR_T_I64, "n");
+  chr_import = MIR_new_import (ctx, "basic_chr");
+  unichar_proto = MIR_new_proto (ctx, "basic_unichar_p", 1, &p, 1, MIR_T_I64, "n");
+  unichar_import = MIR_new_import (ctx, "basic_unichar");
+  string_proto = MIR_new_proto (ctx, "basic_string_p", 1, &p, 2, MIR_T_I64, "n", MIR_T_P, "s");
+  string_import = MIR_new_import (ctx, "basic_string");
+  concat_proto = MIR_new_proto (ctx, "basic_concat_p", 1, &p, 2, MIR_T_P, "a", MIR_T_P, "b");
+  concat_import = MIR_new_import (ctx, "basic_concat");
+#ifdef BASIC_USE_FIXED64
+  int_proto = BASIC_PROTO_GEN(ctx, "basic_int_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  int_proto = BASIC_PROTO_NUM (ctx, "basic_int_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  int_import = MIR_new_import (ctx, "basic_int");
+#ifdef BASIC_USE_FIXED64
+  timer_proto = BASIC_PROTO_GEN(ctx, "basic_timer_p", 0, NULL, 1, {.type = MIR_T_P, .name = "res"});
+#else
+  timer_proto = BASIC_PROTO_NUM (ctx, "basic_timer_p", 0);
+#endif
+  timer_import = MIR_new_import (ctx, "basic_timer");
+#ifdef BASIC_USE_FIXED64
+  time_proto = BASIC_PROTO_GEN(ctx, "basic_time_p", 0, NULL, 1, {.type = MIR_T_P, .name = "res"});
+#else
+  time_proto = BASIC_PROTO_NUM (ctx, "basic_time_p", 0);
+#endif
+  time_import = MIR_new_import (ctx, "basic_time");
+#ifdef BASIC_USE_FIXED64
+  date_proto = BASIC_PROTO_GEN(ctx, "basic_date_p", 0, NULL, 1, {.type = MIR_T_P, .name = "res"});
+#else
+  date_proto = BASIC_PROTO_NUM (ctx, "basic_date_p", 0);
+#endif
+  date_import = MIR_new_import (ctx, "basic_date");
+  time_str_proto = MIR_new_proto (ctx, "basic_time_str_p", 1, &p, 0);
+  time_str_import = MIR_new_import (ctx, "basic_time_str");
+  date_str_proto = MIR_new_proto (ctx, "basic_date_str_p", 1, &p, 0);
+  date_str_import = MIR_new_import (ctx, "basic_date_str");
+  input_chr_proto = MIR_new_proto (ctx, "basic_input_chr_p", 1, &p, 1, MIR_T_I64, "n");
+  input_chr_import = MIR_new_import (ctx, "basic_input_chr");
+#ifdef BASIC_USE_FIXED64
+  peek_proto = BASIC_PROTO_GEN(ctx, "basic_peek_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "addr", .size = 0});
+#else
+  peek_proto = BASIC_PROTO_NUM (ctx, "basic_peek_p", 1, {BASIC_MIR_NUM_T, "addr", 0});
+#endif
+  peek_import = MIR_new_import (ctx, "basic_peek");
+#ifdef BASIC_USE_FIXED64
+  eof_proto = BASIC_PROTO_GEN(ctx, "basic_eof_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = MIR_T_I64, .name = "n", .size = 0});
+#else
+  eof_proto = BASIC_PROTO_NUM (ctx, "basic_eof_p", 1, {MIR_T_I64, "n", 0});
+#endif
+  eof_import = MIR_new_import (ctx, "basic_eof");
+#ifdef BASIC_USE_FIXED64
+  pos_proto = BASIC_PROTO_GEN(ctx, "basic_pos_p", 0, NULL, 1, {.type = MIR_T_P, .name = "res"});
+#else
+  pos_proto = BASIC_PROTO_NUM (ctx, "basic_pos_p", 0);
+#endif
+  pos_import = MIR_new_import (ctx, "basic_pos");
+#ifdef BASIC_USE_FIXED64
+  abs_proto = BASIC_PROTO_GEN(ctx, "basic_abs_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  abs_proto = BASIC_PROTO_NUM (ctx, "basic_abs_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  abs_import = MIR_new_import (ctx, "basic_abs");
+#ifdef BASIC_USE_FIXED64
+  sgn_proto = BASIC_PROTO_GEN(ctx, "basic_sgn_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  sgn_proto = BASIC_PROTO_NUM (ctx, "basic_sgn_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  sgn_import = MIR_new_import (ctx, "basic_sgn");
+  iabs_proto = MIR_new_proto (ctx, "basic_iabs_p", 1, &i, 1, MIR_T_I64, "x");
+  iabs_import = MIR_new_import (ctx, "basic_iabs");
+  isgn_proto = MIR_new_proto (ctx, "basic_isgn_p", 1, &i, 1, MIR_T_I64, "x");
+  isgn_import = MIR_new_import (ctx, "basic_isgn");
+#ifdef BASIC_USE_FIXED64
+  sqr_proto = BASIC_PROTO_GEN(ctx, "basic_sqr_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  sqr_proto = BASIC_PROTO_NUM (ctx, "basic_sqr_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  sqr_import = MIR_new_import (ctx, "basic_sqr");
+#ifdef BASIC_USE_FIXED64
+  sin_proto = BASIC_PROTO_GEN(ctx, "basic_sin_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  sin_proto = BASIC_PROTO_NUM (ctx, "basic_sin_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  sin_import = MIR_new_import (ctx, "basic_sin");
+#ifdef BASIC_USE_FIXED64
+  cos_proto = BASIC_PROTO_GEN(ctx, "basic_cos_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  cos_proto = BASIC_PROTO_NUM (ctx, "basic_cos_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  cos_import = MIR_new_import (ctx, "basic_cos");
+#ifdef BASIC_USE_FIXED64
+  tan_proto = BASIC_PROTO_GEN(ctx, "basic_tan_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  tan_proto = BASIC_PROTO_NUM (ctx, "basic_tan_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  tan_import = MIR_new_import (ctx, "basic_tan");
+#ifdef BASIC_USE_FIXED64
+  atn_proto = BASIC_PROTO_GEN(ctx, "basic_atn_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  atn_proto = BASIC_PROTO_NUM (ctx, "basic_atn_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  atn_import = MIR_new_import (ctx, "basic_atn");
+#ifdef BASIC_USE_FIXED64
+  sinh_proto = BASIC_PROTO_GEN(ctx, "basic_sinh_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  sinh_proto = BASIC_PROTO_NUM (ctx, "basic_sinh_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  sinh_import = MIR_new_import (ctx, "basic_sinh");
+#ifdef BASIC_USE_FIXED64
+  cosh_proto = BASIC_PROTO_GEN(ctx, "basic_cosh_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  cosh_proto = BASIC_PROTO_NUM (ctx, "basic_cosh_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  cosh_import = MIR_new_import (ctx, "basic_cosh");
+#ifdef BASIC_USE_FIXED64
+  tanh_proto = BASIC_PROTO_GEN(ctx, "basic_tanh_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  tanh_proto = BASIC_PROTO_NUM (ctx, "basic_tanh_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  tanh_import = MIR_new_import (ctx, "basic_tanh");
+#ifdef BASIC_USE_FIXED64
+  asinh_proto = BASIC_PROTO_GEN(ctx, "basic_asinh_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  asinh_proto = BASIC_PROTO_NUM (ctx, "basic_asinh_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  asinh_import = MIR_new_import (ctx, "basic_asinh");
+#ifdef BASIC_USE_FIXED64
+  acosh_proto = BASIC_PROTO_GEN(ctx, "basic_acosh_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  acosh_proto = BASIC_PROTO_NUM (ctx, "basic_acosh_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  acosh_import = MIR_new_import (ctx, "basic_acosh");
+#ifdef BASIC_USE_FIXED64
+  atanh_proto = BASIC_PROTO_GEN(ctx, "basic_atanh_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  atanh_proto = BASIC_PROTO_NUM (ctx, "basic_atanh_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  atanh_import = MIR_new_import (ctx, "basic_atanh");
+#ifdef BASIC_USE_FIXED64
+  asin_proto = BASIC_PROTO_GEN(ctx, "basic_asin_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  asin_proto = BASIC_PROTO_NUM (ctx, "basic_asin_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  asin_import = MIR_new_import (ctx, "basic_asin");
+#ifdef BASIC_USE_FIXED64
+  acos_proto = BASIC_PROTO_GEN(ctx, "basic_acos_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  acos_proto = BASIC_PROTO_NUM (ctx, "basic_acos_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  acos_import = MIR_new_import (ctx, "basic_acos");
+#ifdef BASIC_USE_FIXED64
+  log_proto = BASIC_PROTO_GEN(ctx, "basic_log_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  log_proto = BASIC_PROTO_NUM (ctx, "basic_log_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  log_import = MIR_new_import (ctx, "basic_log");
+#ifdef BASIC_USE_FIXED64
+  log2_proto = BASIC_PROTO_GEN(ctx, "basic_log2_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  log2_proto = BASIC_PROTO_NUM (ctx, "basic_log2_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  log2_import = MIR_new_import (ctx, "basic_log2");
+#ifdef BASIC_USE_FIXED64
+  log10_proto = BASIC_PROTO_GEN(ctx, "basic_log10_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  log10_proto = BASIC_PROTO_NUM (ctx, "basic_log10_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  log10_import = MIR_new_import (ctx, "basic_log10");
+#ifdef BASIC_USE_FIXED64
+  exp_proto = BASIC_PROTO_GEN(ctx, "basic_exp_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  exp_proto = BASIC_PROTO_NUM (ctx, "basic_exp_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  exp_import = MIR_new_import (ctx, "basic_exp");
+#ifdef BASIC_USE_FIXED64
+  fact_proto = BASIC_PROTO_GEN(ctx, "basic_fact_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+#else
+  fact_proto = BASIC_PROTO_NUM (ctx, "basic_fact_p", 1, {BASIC_MIR_NUM_T, "x", 0});
+#endif
+  fact_import = MIR_new_import (ctx, "basic_fact");
+#ifdef BASIC_USE_FIXED64
+  pow_proto = BASIC_PROTO_GEN(ctx, "basic_pow_p", 0, NULL, 3, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0}, {.type = BASIC_MIR_NUM_T, .name = "y", .size = 0});
+#else
+  pow_proto = BASIC_PROTO_NUM (ctx, "basic_pow_p", 2, {BASIC_MIR_NUM_T, "x", 0}, {BASIC_MIR_NUM_T, "y", 0});
+#endif
+  pow_import = MIR_new_import (ctx, "basic_pow");
+#ifdef BASIC_USE_FIXED64
+  pi_proto = BASIC_PROTO_GEN(ctx, "basic_pi_p", 0, NULL, 1, {.type = MIR_T_P, .name = "res"});
+#else
+  pi_proto = BASIC_PROTO_NUM (ctx, "basic_pi_p", 0);
+#endif
+  pi_import = MIR_new_import (ctx, "basic_pi");
+  
+  left_proto = MIR_new_proto (ctx, "basic_left_p", 1, &p, 2, MIR_T_P, "s", MIR_T_I64, "n");
+  left_import = MIR_new_import (ctx, "basic_left");
+  right_proto = MIR_new_proto (ctx, "basic_right_p", 1, &p, 2, MIR_T_P, "s", MIR_T_I64, "n");
+  right_import = MIR_new_import (ctx, "basic_right");
+  mid_proto = MIR_new_proto (ctx, "basic_mid_p", 1, &p, 3, MIR_T_P, "s", MIR_T_I64, "start",
+                             MIR_T_I64, "len");
+  mid_import = MIR_new_import (ctx, "basic_mid");
+  mirror_proto = MIR_new_proto (ctx, "basic_mirror_p", 1, &p, 1, MIR_T_P, "s");
+  mirror_import = MIR_new_import (ctx, "basic_mirror");
+  upper_proto = MIR_new_proto (ctx, "basic_upper_p", 1, &p, 1, MIR_T_P, "s");
+  upper_import = MIR_new_import (ctx, "basic_upper");
+  lower_proto = MIR_new_proto (ctx, "basic_lower_p", 1, &p, 1, MIR_T_P, "s");
+  lower_import = MIR_new_import (ctx, "basic_lower");
+  len_proto = MIR_new_proto (ctx, "basic_len_p", 1, &i, 1, MIR_T_P, "s");
+  len_import = MIR_new_import (ctx, "basic_len");
+#ifdef BASIC_USE_FIXED64
+  val_proto = BASIC_PROTO_GEN(ctx, "basic_val_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = MIR_T_P, .name = "s", .size = 0});
+#else
+  val_proto = BASIC_PROTO_NUM (ctx, "basic_val_p", 1, {MIR_T_P, "s", 0});
+#endif
+  val_import = MIR_new_import (ctx, "basic_val");
+#ifdef BASIC_USE_FIXED64
+  str_proto = BASIC_PROTO_GEN(ctx, "basic_str_p", 1, &p, 1, {.type = BASIC_MIR_NUM_T, .name = "n", .size = 0});
+#else
+  str_proto = MIR_new_proto (ctx, "basic_str_p", 1, &p, 1, BASIC_MIR_NUM_T, "n");
+#endif
+  str_import = MIR_new_import (ctx, "basic_str");
+  asc_proto = MIR_new_proto (ctx, "basic_asc_p", 1, &i, 1, MIR_T_P, "s");
+  asc_import = MIR_new_import (ctx, "basic_asc");
+  instr_proto = MIR_new_proto (ctx, "basic_instr_p", 1, &i, 2, MIR_T_P, "s", MIR_T_P, "sub");
+  instr_import = MIR_new_import (ctx, "basic_instr");
+  
+
+ 
+// ... (the prototypes for input_str, get, put, etc. remain unchanged as they were correct)
+/*
 
   MIR_type_t p = MIR_T_P;
   MIR_type_t i = MIR_T_I64;
@@ -4712,16 +5037,15 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   sound_proto = BASIC_PROTO_GEN (ctx, "basic_sound_p", 0, NULL, 4, {.type = BASIC_MIR_NUM_T, .name = "f", .size = 0}, {.type = BASIC_MIR_NUM_T, .name = "d", .size = 0}, {.type = BASIC_MIR_NUM_T, .name = "v", .size = 0}, {.type = BASIC_MIR_NUM_T, .name = "a", .size = 0});
   
   
-  sound_import = MIR_new_import (ctx, "basic_sound");
-  sound_off_proto = MIR_new_proto (ctx, "basic_sound_off_p", 0, NULL, 0);
-  sound_off_import = MIR_new_import (ctx, "basic_sound_off");
+
+*/
 
 /*
   system_proto = BASIC_PROTO_NUM (ctx, "basic_system_p", 1, {MIR_T_P, "cmd", 0});
   system_import = MIR_new_import (ctx, "basic_system");
 */
 
-    
+/*    
 #ifdef BASIC_USE_FIXED64
   // For fixed64, create a prototype for a VOID function that takes TWO arguments:
   // 1. A pointer to store the result in.
@@ -4734,10 +5058,97 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   system_proto = BASIC_PROTO_NUM (ctx, "basic_system_p", 1, {BASIC_MIR_NUM_T, "n", 0});
 #endif
   system_import = MIR_new_import (ctx, "basic_system");
+*/
 
+sound_proto = BASIC_PROTO_GEN (ctx, "basic_sound_p", 0, NULL, 4, 
+                                 {.type = BASIC_MIR_NUM_T, .name = "f", .size = 0}, 
+                                 {.type = BASIC_MIR_NUM_T, .name = "d", .size = 0}, 
+                                 {.type = BASIC_MIR_NUM_T, .name = "v", .size = 0}, 
+                                 {.type = BASIC_MIR_NUM_T, .name = "a", .size = 0});
+  sound_import = MIR_new_import (ctx, "basic_sound");
+
+
+  #ifdef BASIC_USE_FIXED64
+    system_proto = BASIC_PROTO_GEN(ctx, "basic_system_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = MIR_T_P, .name = "cmd", .size = 0});
+  #else
+    system_proto = BASIC_PROTO_NUM (ctx, "basic_system_p", 1, {MIR_T_P, "cmd", 0});
+  #endif
+    system_import = MIR_new_import (ctx, "basic_system");
+
+  
+ home_proto = MIR_new_proto (ctx, "basic_home_p", 0, NULL, 0);
+  home_import = MIR_new_import (ctx, "basic_home");
+  vtab_proto = MIR_new_proto (ctx, "basic_vtab_p", 0, NULL, 1, MIR_T_I64, "n");
+  vtab_import = MIR_new_import (ctx, "basic_vtab");
+  screen_proto = MIR_new_proto (ctx, "basic_screen_p", 0, NULL, 1, MIR_T_I64, "m");
+  screen_import = MIR_new_import (ctx, "basic_screen");
+  cls_proto = MIR_new_proto (ctx, "basic_cls_p", 0, NULL, 0);
+  cls_import = MIR_new_import (ctx, "basic_cls");
+  color_proto = MIR_new_proto (ctx, "basic_color_p", 0, NULL, 1, MIR_T_I64, "c");
+  color_import = MIR_new_import (ctx, "basic_color");
+  keyoff_proto = MIR_new_proto (ctx, "basic_key_off_p", 0, NULL, 0);
+  keyoff_import = MIR_new_import (ctx, "basic_key_off");
+  locate_proto = MIR_new_proto (ctx, "basic_locate_p", 0, NULL, 2, MIR_T_I64, "r", MIR_T_I64, "c");
+  locate_import = MIR_new_import (ctx, "basic_locate");
+  tab_proto = MIR_new_proto (ctx, "basic_tab_p", 0, NULL, 1, MIR_T_I64, "n");
+  tab_import = MIR_new_import (ctx, "basic_tab");
+  poke_proto
+    = MIR_new_proto (ctx, "basic_poke_p", 0, NULL, 2, MIR_T_I64, "addr", MIR_T_I64, "value");
+  poke_import = MIR_new_import (ctx, "basic_poke");
+  text_proto = MIR_new_proto (ctx, "basic_text_p", 0, NULL, 0);
+  text_import = MIR_new_import (ctx, "basic_text");
+  inverse_proto = MIR_new_proto (ctx, "basic_inverse_p", 0, NULL, 0);
+  inverse_import = MIR_new_import (ctx, "basic_inverse");
+  normal_proto = MIR_new_proto (ctx, "basic_normal_p", 0, NULL, 0);
+  normal_import = MIR_new_import (ctx, "basic_normal");
+  hgr2_proto = MIR_new_proto (ctx, "basic_hgr2_p", 0, NULL, 0);
+  hgr2_import = MIR_new_import (ctx, "basic_hgr2");
+  // hcolor_proto = MIR_new_proto (ctx, "basic_hcolor_p", 0, NULL, 1, BASIC_MIR_NUM_T, "c");
+  // hcolor_proto = BASIC_PROTO_GEN (ctx, "basic_hcolor_p", 0, NULL, 1, {BASIC_MIR_NUM_T, "c"});
+  hcolor_proto = BASIC_PROTO_GEN (ctx, "basic_hcolor_p", 0, NULL, 1, {.type = BASIC_MIR_NUM_T, .name = "c", .size = 0});
+  hcolor_import = MIR_new_import (ctx, "basic_hcolor");
+  hplot_proto
+    = MIR_new_proto (ctx, "basic_hplot_p", 0, NULL, 2, BASIC_MIR_NUM_T, "x", BASIC_MIR_NUM_T, "y");
+  hplot_import = MIR_new_import (ctx, "basic_hplot");
+  hplotto_proto
+    = MIR_new_proto (ctx, "basic_hplot_to_p", 0, NULL, 4, BASIC_MIR_NUM_T, "x0", BASIC_MIR_NUM_T,
+                     "y0", BASIC_MIR_NUM_T, "x1", BASIC_MIR_NUM_T, "y1");
+  hplotto_import = MIR_new_import (ctx, "basic_hplot_to");
+  hplottocur_proto = MIR_new_proto (ctx, "basic_hplot_to_current_p", 0, NULL, 2, BASIC_MIR_NUM_T,
+                                    "x", BASIC_MIR_NUM_T, "y");
+  hplottocur_import = MIR_new_import (ctx, "basic_hplot_to_current");
+  move_proto
+    = MIR_new_proto (ctx, "basic_move_p", 0, NULL, 2, BASIC_MIR_NUM_T, "x", BASIC_MIR_NUM_T, "y");
+  move_import = MIR_new_import (ctx, "basic_move");
+  draw_proto
+    = MIR_new_proto (ctx, "basic_draw_p", 0, NULL, 2, BASIC_MIR_NUM_T, "x", BASIC_MIR_NUM_T, "y");
+  draw_import = MIR_new_import (ctx, "basic_draw");
+  line_proto = MIR_new_proto (ctx, "basic_line_p", 0, NULL, 4, BASIC_MIR_NUM_T, "x0",
+                              BASIC_MIR_NUM_T, "y0", BASIC_MIR_NUM_T, "x1", BASIC_MIR_NUM_T, "y1");
+  line_import = MIR_new_import (ctx, "basic_draw_line");
+  circle_proto = MIR_new_proto (ctx, "basic_circle_p", 0, NULL, 3, BASIC_MIR_NUM_T, "x",
+                                BASIC_MIR_NUM_T, "y", BASIC_MIR_NUM_T, "r");
+  circle_import = MIR_new_import (ctx, "basic_circle");
+  rect_proto = MIR_new_proto (ctx, "basic_rect_p", 0, NULL, 4, BASIC_MIR_NUM_T, "x0",
+                              BASIC_MIR_NUM_T, "y0", BASIC_MIR_NUM_T, "x1", BASIC_MIR_NUM_T, "y1");
+  rect_import = MIR_new_import (ctx, "basic_rect");
+  mode_proto = MIR_new_proto (ctx, "basic_mode_p", 0, NULL, 1, BASIC_MIR_NUM_T, "m");
+  mode_import = MIR_new_import (ctx, "basic_mode");
+  fill_proto = MIR_new_proto (ctx, "basic_fill_p", 0, NULL, 4, BASIC_MIR_NUM_T, "x0",
+                              BASIC_MIR_NUM_T, "y0", BASIC_MIR_NUM_T, "x1", BASIC_MIR_NUM_T, "y1");
+  fill_import = MIR_new_import (ctx, "basic_fill");
+  delay_proto = MIR_new_proto (ctx, "basic_delay_p", 0, NULL, 1, MIR_T_I64, "ms");
+  delay_import = MIR_new_import (ctx, "basic_delay");
+  beep_proto = MIR_new_proto (ctx, "basic_beep_p", 0, NULL, 0);
+  beep_import = MIR_new_import (ctx, "basic_beep");
+
+  // sound_import = MIR_new_import (ctx, "basic_sound");
+  sound_off_proto = MIR_new_proto (ctx, "basic_sound_off_p", 0, NULL, 0);
+  sound_off_import = MIR_new_import (ctx, "basic_sound_off");
   
   system_out_proto = MIR_new_proto (ctx, "basic_system_out_p", 1, &p, 0);
   system_out_import = MIR_new_import (ctx, "basic_system_out");
+
 
   chain_proto = MIR_new_proto (ctx, "basic_chain_p", 0, NULL, 1, MIR_T_P, "path");
   chain_import = MIR_new_import (ctx, "basic_chain");
@@ -4745,6 +5156,9 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
     eval_proto = MIR_new_proto (ctx, "basic_eval_p", 0, NULL, 1, MIR_T_P, "cmd");
     eval_import = MIR_new_import (ctx, "basic_eval");
   }
+
+/*
+
   pool_reset_proto = MIR_new_proto (ctx, "basic_pool_reset_p", 0, NULL, 0);
   pool_reset_import = MIR_new_import (ctx, "basic_pool_reset");
 
@@ -5083,6 +5497,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   instr_proto = MIR_new_proto (ctx, "basic_instr_p", 1, &i, 2, MIR_T_P, "s", MIR_T_P, "sub");
   instr_import = MIR_new_import (ctx, "basic_instr");
 
+*/
+
   strdup_proto = MIR_new_proto (ctx, "basic_strdup_p", 1, &p, 1, MIR_T_P, "s");
   strdup_import = MIR_new_import (ctx, "basic_strdup");
   free_proto = MIR_new_proto (ctx, "basic_free_p", 0, NULL, 1, MIR_T_P, "s");
@@ -5232,28 +5648,27 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   read_import = MIR_new_import (ctx, "basic_read");
  */
 
-    
-#ifdef BASIC_USE_FIXED64
-  // For fixed64, create a prototype for a VOID function that takes TWO arguments:
-  // 1. A pointer to store the result in.
-  // 2. The original numeric argument.
-  read_proto = BASIC_PROTO_GEN(ctx, "basic_read_p", 0, NULL, 2, 
-                              {.type = MIR_T_P, .name = "res"}, 
-                              {.type = BASIC_MIR_NUM_T, .name = "n", .size = 0});
-#else
-  // For double, use the original prototype: one argument, one return value.
-  read_proto = BASIC_PROTO_NUM (ctx, "basic_read_p", 1, {BASIC_MIR_NUM_T, "n", 0});
-#endif
+
+  #ifdef BASIC_USE_FIXED64
+  read_proto = BASIC_PROTO_GEN(ctx, "basic_read_p", 0, NULL, 1, {.type = MIR_T_P, .name = "res"});
+  #else
+  read_proto = BASIC_PROTO_NUM (ctx, "basic_read_p", 0);
+  #endif
   read_import = MIR_new_import (ctx, "basic_read");
- 
+  
   read_str_proto = MIR_new_proto (ctx, "basic_read_str_p", 1, &p, 0);
   read_str_import = MIR_new_import (ctx, "basic_read_str");
+  restore_proto = MIR_new_proto (ctx, "basic_restore_p", 0, NULL, 0);
+  restore_import = MIR_new_import (ctx, "basic_restore");
+    
+ 
+  //read_str_proto = MIR_new_proto (ctx, "basic_read_str_p", 1, &p, 0);
+  // read_str_import = MIR_new_import (ctx, "basic_read_str");
+
   clear_array_proto = MIR_new_proto (ctx, "basic_clear_array_p", 0, NULL, 3, MIR_T_P, "base",
                                      BASIC_MIR_NUM_T, "len", BASIC_MIR_NUM_T, "is_str");
   clear_array_import = MIR_new_import (ctx, "basic_clear_array");
-  restore_proto = MIR_new_proto (ctx, "basic_restore_p", 0, NULL, 0);
-  restore_import = MIR_new_import (ctx, "basic_restore");
-  g_ctx = ctx;
+
   /* Pass 1: create prototypes and forward declarations. */
   for (size_t i = 0; i < func_defs.len; i++) {
     FuncDef *fd = &func_defs.data[i];
