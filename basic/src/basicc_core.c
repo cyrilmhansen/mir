@@ -1,5 +1,6 @@
 #include "basic_common.h"
 #include "basic_num_hooks.h"
+#include "basic_emit_num_const.h"
 
 #ifdef BASIC_USE_FIXED64
 #include "basic_runtime_fixed64.h"
@@ -31,14 +32,7 @@
 #endif
 
 #ifndef BASIC_EMIT_NUM_CONST
-static MIR_op_t emit_num_const_default (MIR_context_t ctx, basic_num_t v) {
-#if defined(BASIC_USE_LONG_DOUBLE)
-  return MIR_new_ldouble_op (ctx, v);
-#else
-  return MIR_new_double_op (ctx, v);
-#endif
-}
-#define BASIC_EMIT_NUM_CONST emit_num_const_default
+#define BASIC_EMIT_NUM_CONST fixed64_emit_num_const
 #endif
 #define emit_num_const BASIC_EMIT_NUM_CONST
 
