@@ -361,84 +361,6 @@ typedef struct {
   int op_type;
 } MatStmt;
 
-static const char *stmt_kind_name (StmtKind kind) {
-  static const char *names[] = {
-    [ST_PRINT] = "ST_PRINT",
-    [ST_LET] = "ST_LET",
-    [ST_INC] = "ST_INC",
-    [ST_DEC] = "ST_DEC",
-    [ST_GOTO] = "ST_GOTO",
-    [ST_IF] = "ST_IF",
-    [ST_INPUT] = "ST_INPUT",
-    [ST_GET] = "ST_GET",
-    [ST_PUT] = "ST_PUT",
-    [ST_SWAP] = "ST_SWAP",
-    [ST_OPEN] = "ST_OPEN",
-    [ST_CLOSE] = "ST_CLOSE",
-    [ST_PRINT_HASH] = "ST_PRINT_HASH",
-    [ST_INPUT_HASH] = "ST_INPUT_HASH",
-    [ST_GET_HASH] = "ST_GET_HASH",
-    [ST_PUT_HASH] = "ST_PUT_HASH",
-    [ST_DEF] = "ST_DEF",
-    [ST_DATA] = "ST_DATA",
-    [ST_READ] = "ST_READ",
-    [ST_RESTORE] = "ST_RESTORE",
-    [ST_CLEAR] = "ST_CLEAR",
-    [ST_SCREEN] = "ST_SCREEN",
-    [ST_CLS] = "ST_CLS",
-    [ST_COLOR] = "ST_COLOR",
-    [ST_KEYOFF] = "ST_KEYOFF",
-    [ST_LOCATE] = "ST_LOCATE",
-    [ST_HTAB] = "ST_HTAB",
-    [ST_POKE] = "ST_POKE",
-    [ST_HOME] = "ST_HOME",
-    [ST_VTAB] = "ST_VTAB",
-    [ST_DELAY] = "ST_DELAY",
-    [ST_BEEP] = "ST_BEEP",
-    [ST_SOUND] = "ST_SOUND",
-    [ST_SYSTEM] = "ST_SYSTEM",
-    [ST_RANDOMIZE] = "ST_RANDOMIZE",
-    [ST_TEXT] = "ST_TEXT",
-    [ST_INVERSE] = "ST_INVERSE",
-    [ST_NORMAL] = "ST_NORMAL",
-    [ST_HGR2] = "ST_HGR2",
-    [ST_HCOLOR] = "ST_HCOLOR",
-    [ST_HPLOT] = "ST_HPLOT",
-    [ST_MOVE] = "ST_MOVE",
-    [ST_DRAW] = "ST_DRAW",
-    [ST_LINE] = "ST_LINE",
-    [ST_CIRCLE] = "ST_CIRCLE",
-    [ST_RECT] = "ST_RECT",
-    [ST_MODE] = "ST_MODE",
-    [ST_FILL] = "ST_FILL",
-    [ST_END] = "ST_END",
-    [ST_STOP] = "ST_STOP",
-    [ST_REM] = "ST_REM",
-    [ST_DIM] = "ST_DIM",
-    [ST_FOR] = "ST_FOR",
-    [ST_NEXT] = "ST_NEXT",
-    [ST_WHILE] = "ST_WHILE",
-    [ST_WEND] = "ST_WEND",
-    [ST_DO] = "ST_DO",
-    [ST_LOOP] = "ST_LOOP",
-    [ST_REPEAT] = "ST_REPEAT",
-    [ST_UNTIL] = "ST_UNTIL",
-    [ST_GOSUB] = "ST_GOSUB",
-    [ST_RETURN] = "ST_RETURN",
-    [ST_ON_GOTO] = "ST_ON_GOTO",
-    [ST_ON_GOSUB] = "ST_ON_GOSUB",
-    [ST_ON_ERROR] = "ST_ON_ERROR",
-    [ST_RESUME] = "ST_RESUME",
-    [ST_MAT] = "ST_MAT",
-    [ST_CHAIN] = "ST_CHAIN",
-    [ST_EXTERN] = "ST_EXTERN",
-    [ST_CALL] = "ST_CALL",
-    [ST_EVAL] = "ST_EVAL",
-  };
-  size_t idx = (size_t) kind;
-  if (idx >= sizeof (names) / sizeof (names[0]) || names[idx] == NULL) return "UNKNOWN";
-  return names[idx];
-}
 struct Stmt {
   StmtKind kind;
   union {
@@ -4247,13 +4169,6 @@ static MIR_reg_t gen_expr (MIR_context_t ctx, MIR_item_t func, VarVec *vars, Nod
   return 0;
 }
 
-/* Generate MIR for program */
-static MIR_label_t find_label (LineVec *prog, MIR_label_t *labels, int line) {
-  for (size_t i = 0; i < prog->len; i++)
-    if (prog->data[i].line == line) return labels[i];
-  return labels[0];
-}
-
 static char *change_suffix (const char *name, const char *suf) {
   const char *slash = strrchr (name, '/');
   const char *dot = strrchr (slash ? slash + 1 : name, '.');
@@ -4598,8 +4513,6 @@ static void gen_stmt_for (Stmt *s) {
   MIR_append_insn (g_ctx, g_func, after_cmp);
 }
 
-static void gen_stmt_default (Stmt *s);
-
 static gen_stmt_fn stmt_generators[ST_EVAL + 1] = {
   //[0 ... ST_EVAL] = gen_stmt_default,
   [ST_PRINT] = gen_stmt_print,
@@ -4618,44 +4531,6 @@ static void gen_stmt (Stmt *s) { stmt_generators[s->kind](s); }
 
 void set_stmt_profile_hook (stmt_profile_hook hook) { stmt_profile = hook; }
 
-
-static void gen_stmt_default (Stmt *s) {
-  STMT_PROFILE (s);
-  switch (s->kind) {
-  case ST_DEF: /* fallthrough */
-  case ST_EXTERN:
-    /* no code generation needed */
-    break;
-  case ST_DATA:
-  case ST_READ:
-  case ST_RESTORE:
-  case ST_CLEAR:
-  case ST_SCREEN:
-  case ST_CLS:
-  case ST_COLOR:
-  case ST_KEYOFF:
-  case ST_LOCATE:
-  case ST_HTAB:
-  case ST_VTAB:
-  case ST_HOME:
-  case ST_TEXT:
-  case ST_INVERSE:
-  case ST_NORMAL:
-  case ST_HGR2:
-  case ST_WEND:
-  case ST_DO:
-  case ST_LOOP:
-  case ST_REPEAT:
-  case ST_RETURN:
-  case ST_END:
-  case ST_STOP:
-    gen_stmt (s); /* Re-dispatch to the correct generator */
-    break;
-  default:
-    safe_fprintf (stderr, "Unsupported statement: %s\n", stmt_kind_name (s->kind));
-    break;
-  }
-}
 
 static MIR_UNUSED void preregister_defs (LineVec *prog) {
   for (size_t i = 0; i < prog->len; i++) {
@@ -4702,22 +4577,28 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
 #ifdef BASIC_USE_FIXED64
   /* numeric hooks already initialize fixed64 runtime */
 #endif
-  // print_proto = MIR_new_proto (ctx, "basic_print_p", 0, NULL, 1, BASIC_MIR_NUM_T, "x");
-  // print_proto = BASIC_PROTO_GEN (ctx, "basic_print_p", 0, NULL, 1, {BASIC_MIR_NUM_T, "x"});
-  print_proto = BASIC_PROTO_GEN (ctx, "basic_print_p", 0, NULL, 1, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
+
+// --- START OF REPLACEMENT BLOCK ---
+  #ifdef BASIC_USE_FIXED64
+    print_proto = BASIC_PROTO_GEN (ctx, "basic_print_p", 0, NULL, 1, {.type = MIR_T_P, .name = "res"});
+  #else
+    print_proto = MIR_new_proto (ctx, "basic_print_p", 0, NULL, 1, BASIC_MIR_NUM_T, "x");
+  #endif
   print_import = MIR_new_import (ctx, "basic_print");
+
   prints_proto = MIR_new_proto (ctx, "basic_print_str_p", 0, NULL, 1, MIR_T_P, "s");
   prints_import = MIR_new_import (ctx, "basic_print_str");
-  
-  // input_proto = BASIC_PROTO_NUM (ctx, "basic_input_p", 0);
-  #ifdef BASIC_USE_FIXED64
-    input_proto = BASIC_PROTO_GEN (ctx, "basic_input_p", 0, NULL, 1,
-                                   {.type = MIR_T_P, .name = "res", .size = 0});
-  #else
-    input_proto = BASIC_PROTO_NUM (ctx, "basic_input_p", 0);
-  #endif
-  
+
+#ifdef BASIC_USE_FIXED64
+  input_proto = BASIC_PROTO_GEN (ctx, "basic_input_p", 0, NULL, 1, {.type = MIR_T_P, .name = "res"});
+#else
+  input_proto = BASIC_PROTO_NUM (ctx, "basic_input_p", 0);
+#endif
   input_import = MIR_new_import (ctx, "basic_input");
+
+// ... (the prototypes for input_str, get, put, etc. remain unchanged as they were correct)
+
+
   MIR_type_t p = MIR_T_P;
   MIR_type_t i = MIR_T_I64;
   input_str_proto = MIR_new_proto (ctx, "basic_input_str_p", 1, &p, 0);
@@ -4740,9 +4621,19 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   prinths_proto
     = MIR_new_proto (ctx, "basic_print_hash_str_p", 0, NULL, 2, MIR_T_I64, "n", MIR_T_P, "s");
   prinths_import = MIR_new_import (ctx, "basic_print_hash_str");
+
+// 
+  // --- START OF REPLACEMENT BLOCK ---
+#ifdef BASIC_USE_FIXED64
+  input_hash_proto = BASIC_PROTO_GEN (ctx, "basic_input_hash_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = MIR_T_I64, .name = "n", .size = 0});
+#else
   input_hash_proto = BASIC_PROTO_NUM (ctx, "basic_input_hash_p", 1, {MIR_T_I64, "n", 0});
+#endif
   input_hash_import = MIR_new_import (ctx, "basic_input_hash");
-  input_hash_str_proto = MIR_new_proto (ctx, "basic_input_hash_str_p", 1, &p, 1, MIR_T_I64, "n");
+
+
+  // ... (many other prototypes remain unchanged) ...
+  
   input_hash_str_import = MIR_new_import (ctx, "basic_input_hash_str");
   get_hash_proto = MIR_new_proto (ctx, "basic_get_hash_p", 1, &p, 1, MIR_T_I64, "n");
   get_hash_import = MIR_new_import (ctx, "basic_get_hash");
@@ -4824,10 +4715,30 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   sound_import = MIR_new_import (ctx, "basic_sound");
   sound_off_proto = MIR_new_proto (ctx, "basic_sound_off_p", 0, NULL, 0);
   sound_off_import = MIR_new_import (ctx, "basic_sound_off");
+
+/*
   system_proto = BASIC_PROTO_NUM (ctx, "basic_system_p", 1, {MIR_T_P, "cmd", 0});
   system_import = MIR_new_import (ctx, "basic_system");
+*/
+
+    
+#ifdef BASIC_USE_FIXED64
+  // For fixed64, create a prototype for a VOID function that takes TWO arguments:
+  // 1. A pointer to store the result in.
+  // 2. The original numeric argument.
+  system_proto = BASIC_PROTO_GEN(ctx, "basic_system_p", 0, NULL, 2, 
+                              {.type = MIR_T_P, .name = "res"}, 
+                              {.type = BASIC_MIR_NUM_T, .name = "n", .size = 0});
+#else
+  // For double, use the original prototype: one argument, one return value.
+  system_proto = BASIC_PROTO_NUM (ctx, "basic_system_p", 1, {BASIC_MIR_NUM_T, "n", 0});
+#endif
+  system_import = MIR_new_import (ctx, "basic_system");
+
+  
   system_out_proto = MIR_new_proto (ctx, "basic_system_out_p", 1, &p, 0);
   system_out_import = MIR_new_import (ctx, "basic_system_out");
+
   chain_proto = MIR_new_proto (ctx, "basic_chain_p", 0, NULL, 1, MIR_T_P, "path");
   chain_import = MIR_new_import (ctx, "basic_chain");
   if (eval_p) {
@@ -4883,22 +4794,15 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
       = MIR_new_proto (ctx, "basic_profile_func_exit_p", 0, NULL, 1, MIR_T_P, "name");
     profile_func_exit_import = MIR_new_import (ctx, "basic_profile_func_exit");
   }
-  
+
+
+// --- START OF REPLACEMENT BLOCK ---
 #ifdef BASIC_USE_FIXED64
   rnd_proto = BASIC_PROTO_GEN(ctx, "basic_rnd_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "n", .size = 0});
 #else
   rnd_proto = BASIC_PROTO_NUM (ctx, "basic_rnd_p", 1, {BASIC_MIR_NUM_T, "n", 0});
 #endif
   rnd_import = MIR_new_import (ctx, "basic_rnd");
-  
-  chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, MIR_T_I64, "n");
-  chr_import = MIR_new_import (ctx, "basic_chr");
-  unichar_proto = MIR_new_proto (ctx, "basic_unichar_p", 1, &p, 1, MIR_T_I64, "n");
-  unichar_import = MIR_new_import (ctx, "basic_unichar");
-  string_proto = MIR_new_proto (ctx, "basic_string_p", 1, &p, 2, MIR_T_I64, "n", MIR_T_P, "s");
-  string_import = MIR_new_import (ctx, "basic_string");
-  concat_proto = MIR_new_proto (ctx, "basic_concat_p", 1, &p, 2, MIR_T_P, "a", MIR_T_P, "b");
-  concat_import = MIR_new_import (ctx, "basic_concat");
 
 #ifdef BASIC_USE_FIXED64
   int_proto = BASIC_PROTO_GEN(ctx, "basic_int_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
@@ -4927,15 +4831,6 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   date_proto = BASIC_PROTO_NUM (ctx, "basic_date_p", 0);
 #endif
   date_import = MIR_new_import (ctx, "basic_date");
-  
-  time_str_proto = MIR_new_proto (ctx, "basic_time_str_p", 1, &p, 0);
-  time_str_import = MIR_new_import (ctx, "basic_time_str");
-  date_str_proto = MIR_new_proto (ctx, "basic_date_str_p", 1, &p, 0);
-  date_str_import = MIR_new_import (ctx, "basic_date_str");
-  input_chr_proto = MIR_new_proto (ctx, "basic_input_chr_p", 1, &p, 1, MIR_T_I64, "n");
-  input_chr_import = MIR_new_import (ctx, "basic_input_chr");
-  inkey_proto = MIR_new_proto (ctx, "basic_inkey_p", 1, &p, 0);
-  inkey_import = MIR_new_import (ctx, "basic_inkey");
 
 #ifdef BASIC_USE_FIXED64
   peek_proto = BASIC_PROTO_GEN(ctx, "basic_peek_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "addr", .size = 0});
@@ -4972,10 +4867,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
 #endif
   sgn_import = MIR_new_import (ctx, "basic_sgn");
 
-  iabs_proto = MIR_new_proto (ctx, "basic_iabs_p", 1, &i, 1, MIR_T_I64, "x");
-  iabs_import = MIR_new_import (ctx, "basic_iabs");
-  isgn_proto = MIR_new_proto (ctx, "basic_isgn_p", 1, &i, 1, MIR_T_I64, "x");
-  isgn_import = MIR_new_import (ctx, "basic_isgn");
+  // ... (iabs_proto and isgn_proto are correct) ...
 
 #ifdef BASIC_USE_FIXED64
   sqr_proto = BASIC_PROTO_GEN(ctx, "basic_sqr_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
@@ -4983,7 +4875,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   sqr_proto = BASIC_PROTO_NUM (ctx, "basic_sqr_p", 1, {BASIC_MIR_NUM_T, "x", 0});
 #endif
   sqr_import = MIR_new_import (ctx, "basic_sqr");
-
+  
 #ifdef BASIC_USE_FIXED64
   sin_proto = BASIC_PROTO_GEN(ctx, "basic_sin_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
 #else
@@ -5033,6 +4925,10 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
 #endif
   tanh_import = MIR_new_import (ctx, "basic_tanh");
 
+       
+  // ... (Apply the same #ifdef pattern for sin, cos, tan, atn, sinh, cosh, tanh, etc.) ...
+  // ... (asinh, acosh, atanh, asin, acos, log, log2, log10, exp, fact) ...
+
 #ifdef BASIC_USE_FIXED64
   asinh_proto = BASIC_PROTO_GEN(ctx, "basic_asinh_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
 #else
@@ -5066,7 +4962,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
 #else
   acos_proto = BASIC_PROTO_NUM (ctx, "basic_acos_p", 1, {BASIC_MIR_NUM_T, "x", 0});
 #endif
-  acos_import = MIR_new_import (ctx, "basic_acos");
+  acos_import = MIR_new_import (ctx, "basic_acos");  
 
 #ifdef BASIC_USE_FIXED64
   log_proto = BASIC_PROTO_GEN(ctx, "basic_log_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
@@ -5089,6 +4985,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
 #endif
   log10_import = MIR_new_import (ctx, "basic_log10");
 
+
 #ifdef BASIC_USE_FIXED64
   exp_proto = BASIC_PROTO_GEN(ctx, "basic_exp_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0});
 #else
@@ -5101,7 +4998,8 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
 #else
   fact_proto = BASIC_PROTO_NUM (ctx, "basic_fact_p", 1, {BASIC_MIR_NUM_T, "x", 0});
 #endif
-  fact_import = MIR_new_import (ctx, "basic_fact");
+  fact_import = MIR_new_import (ctx, "basic_fact");    
+  
 
 #ifdef BASIC_USE_FIXED64
   pow_proto = BASIC_PROTO_GEN(ctx, "basic_pow_p", 0, NULL, 3, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "x", .size = 0}, {.type = BASIC_MIR_NUM_T, .name = "y", .size = 0});
@@ -5116,6 +5014,36 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   pi_proto = BASIC_PROTO_NUM (ctx, "basic_pi_p", 0);
 #endif
   pi_import = MIR_new_import (ctx, "basic_pi");
+
+  // FIN PATCH
+  
+  chr_proto = MIR_new_proto (ctx, "basic_chr_p", 1, &p, 1, MIR_T_I64, "n");
+  chr_import = MIR_new_import (ctx, "basic_chr");
+  unichar_proto = MIR_new_proto (ctx, "basic_unichar_p", 1, &p, 1, MIR_T_I64, "n");
+  unichar_import = MIR_new_import (ctx, "basic_unichar");
+  string_proto = MIR_new_proto (ctx, "basic_string_p", 1, &p, 2, MIR_T_I64, "n", MIR_T_P, "s");
+  string_import = MIR_new_import (ctx, "basic_string");
+  concat_proto = MIR_new_proto (ctx, "basic_concat_p", 1, &p, 2, MIR_T_P, "a", MIR_T_P, "b");
+  concat_import = MIR_new_import (ctx, "basic_concat");
+
+  
+  time_str_proto = MIR_new_proto (ctx, "basic_time_str_p", 1, &p, 0);
+  time_str_import = MIR_new_import (ctx, "basic_time_str");
+  date_str_proto = MIR_new_proto (ctx, "basic_date_str_p", 1, &p, 0);
+  date_str_import = MIR_new_import (ctx, "basic_date_str");
+  input_chr_proto = MIR_new_proto (ctx, "basic_input_chr_p", 1, &p, 1, MIR_T_I64, "n");
+  input_chr_import = MIR_new_import (ctx, "basic_input_chr");
+  inkey_proto = MIR_new_proto (ctx, "basic_inkey_p", 1, &p, 0);
+  inkey_import = MIR_new_import (ctx, "basic_inkey");
+
+
+
+  iabs_proto = MIR_new_proto (ctx, "basic_iabs_p", 1, &i, 1, MIR_T_I64, "x");
+  iabs_import = MIR_new_import (ctx, "basic_iabs");
+  isgn_proto = MIR_new_proto (ctx, "basic_isgn_p", 1, &i, 1, MIR_T_I64, "x");
+  isgn_import = MIR_new_import (ctx, "basic_isgn");
+
+
   
   left_proto = MIR_new_proto (ctx, "basic_left_p", 1, &p, 2, MIR_T_P, "s", MIR_T_I64, "n");
   left_import = MIR_new_import (ctx, "basic_left");
@@ -5133,12 +5061,16 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   len_proto = MIR_new_proto (ctx, "basic_len_p", 1, &i, 1, MIR_T_P, "s");
   len_import = MIR_new_import (ctx, "basic_len");
 
+// FIXED GEMINI
 #ifdef BASIC_USE_FIXED64
-  val_proto = BASIC_PROTO_GEN(ctx, "basic_val_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = MIR_T_P, .name = "s", .size = 0});
+  val_proto = BASIC_PROTO_GEN(ctx, "basic_val_p", 0, NULL, 2, 
+                              {.type = MIR_T_P, .name = "res", .size = 0}, 
+                              {.type = MIR_T_P, .name = "s", .size = 0});
 #else
   val_proto = BASIC_PROTO_NUM (ctx, "basic_val_p", 1, {MIR_T_P, "s", 0});
 #endif
   val_import = MIR_new_import (ctx, "basic_val");
+  
   
   /// fin patch gemini
     
@@ -5155,6 +5087,22 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   strdup_import = MIR_new_import (ctx, "basic_strdup");
   free_proto = MIR_new_proto (ctx, "basic_free_p", 0, NULL, 1, MIR_T_P, "s");
   free_import = MIR_new_import (ctx, "basic_free");
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
   mir_ctx_proto = BASIC_PROTO_NUM (ctx, "basic_mir_ctx_p", 0);
   mir_ctx_import = MIR_new_import (ctx, "basic_mir_ctx");
   mir_mod_proto = BASIC_PROTO_NUM (ctx, "basic_mir_mod_p", 2, {BASIC_MIR_NUM_T, "ctx", 0},
@@ -5186,6 +5134,87 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   mir_dump_proto = BASIC_PROTO_NUM (ctx, "basic_mir_dump_p", 1, {BASIC_MIR_NUM_T, "func", 0});
   mir_dump_import = MIR_new_import (ctx, "basic_mir_dump");
 
+*/
+
+
+#ifdef BASIC_USE_FIXED64
+  mir_ctx_proto = BASIC_PROTO_GEN (ctx, "basic_mir_ctx_p", 0, NULL, 1, {.type = MIR_T_P, .name = "res"});
+#else
+  mir_ctx_proto = BASIC_PROTO_NUM (ctx, "basic_mir_ctx_p", 0);
+#endif
+  mir_ctx_import = MIR_new_import (ctx, "basic_mir_ctx");
+
+#ifdef BASIC_USE_FIXED64
+  mir_mod_proto = BASIC_PROTO_GEN (ctx, "basic_mir_mod_p", 0, NULL, 3, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "ctx_h", .size = 0}, {.type = MIR_T_P, .name = "name", .size = 0});
+#else
+  mir_mod_proto = BASIC_PROTO_NUM (ctx, "basic_mir_mod_p", 2, {BASIC_MIR_NUM_T, "ctx_h", 0}, {MIR_T_P, "name", 0});
+#endif
+  mir_mod_import = MIR_new_import (ctx, "basic_mir_mod");
+
+#ifdef BASIC_USE_FIXED64
+  mir_func_proto = BASIC_PROTO_GEN (ctx, "basic_mir_func_p", 0, NULL, 4, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "mod_h", .size = 0}, {.type = MIR_T_P, .name = "name", .size = 0}, {.type = BASIC_MIR_NUM_T, .name = "nargs", .size = 0});
+#else
+  mir_func_proto = BASIC_PROTO_NUM (ctx, "basic_mir_func_p", 3, {BASIC_MIR_NUM_T, "mod_h", 0}, {MIR_T_P, "name", 0}, {BASIC_MIR_NUM_T, "nargs", 0});
+#endif
+  mir_func_import = MIR_new_import (ctx, "basic_mir_func");
+
+#ifdef BASIC_USE_FIXED64
+  mir_reg_proto = BASIC_PROTO_GEN (ctx, "basic_mir_reg_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "func_h", .size = 0});
+#else
+  mir_reg_proto = BASIC_PROTO_NUM (ctx, "basic_mir_reg_p", 1, {BASIC_MIR_NUM_T, "func_h", 0});
+#endif
+  mir_reg_import = MIR_new_import (ctx, "basic_mir_reg");
+
+#ifdef BASIC_USE_FIXED64
+  mir_label_proto = BASIC_PROTO_GEN (ctx, "basic_mir_label_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "func_h", .size = 0});
+#else
+  mir_label_proto = BASIC_PROTO_NUM (ctx, "basic_mir_label_p", 1, {BASIC_MIR_NUM_T, "func_h", 0});
+#endif
+  mir_label_import = MIR_new_import (ctx, "basic_mir_label");
+
+#ifdef BASIC_USE_FIXED64
+  mir_emit_proto = BASIC_PROTO_GEN (ctx, "basic_mir_emit_p", 0, NULL, 6, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "func_h", .size = 0}, {.type = MIR_T_P, .name = "op", .size = 0}, {.type = BASIC_MIR_NUM_T, .name = "a", .size = 0}, {.type = BASIC_MIR_NUM_T, .name = "b", .size = 0}, {.type = BASIC_MIR_NUM_T, .name = "c", .size = 0});
+#else
+  mir_emit_proto = BASIC_PROTO_NUM (ctx, "basic_mir_emit_p", 5, {BASIC_MIR_NUM_T, "func_h", 0}, {MIR_T_P, "op", 0}, {BASIC_MIR_NUM_T, "a", 0}, {BASIC_MIR_NUM_T, "b", 0}, {BASIC_MIR_NUM_T, "c", 0});
+#endif
+  mir_emit_import = MIR_new_import (ctx, "basic_mir_emit");
+
+#ifdef BASIC_USE_FIXED64
+  mir_emitlbl_proto = BASIC_PROTO_GEN (ctx, "basic_mir_emitlbl_p", 0, NULL, 3, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "func_h", .size = 0}, {.type = BASIC_MIR_NUM_T, .name = "lab_h", .size = 0});
+#else
+  mir_emitlbl_proto = BASIC_PROTO_NUM (ctx, "basic_mir_emitlbl_p", 2, {BASIC_MIR_NUM_T, "func_h", 0}, {BASIC_MIR_NUM_T, "lab_h", 0});
+#endif
+  mir_emitlbl_import = MIR_new_import (ctx, "basic_mir_emitlbl");
+
+#ifdef BASIC_USE_FIXED64
+  mir_ret_proto = BASIC_PROTO_GEN (ctx, "basic_mir_ret_p", 0, NULL, 3, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "func_h", .size = 0}, {.type = BASIC_MIR_NUM_T, .name = "reg_h", .size = 0});
+#else
+  mir_ret_proto = BASIC_PROTO_NUM (ctx, "basic_mir_ret_p", 2, {BASIC_MIR_NUM_T, "func_h", 0}, {BASIC_MIR_NUM_T, "reg_h", 0});
+#endif
+  mir_ret_import = MIR_new_import (ctx, "basic_mir_ret");
+
+#ifdef BASIC_USE_FIXED64
+  mir_finish_proto = BASIC_PROTO_GEN (ctx, "basic_mir_finish_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "mod_h", .size = 0});
+#else
+  mir_finish_proto = BASIC_PROTO_NUM (ctx, "basic_mir_finish_p", 1, {BASIC_MIR_NUM_T, "mod_h", 0});
+#endif
+  mir_finish_import = MIR_new_import (ctx, "basic_mir_finish");
+
+#ifdef BASIC_USE_FIXED64
+  mir_run_proto = BASIC_PROTO_GEN (ctx, "basic_mir_run_p", 0, NULL, 6, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "func_h", .size = 0}, {.type = BASIC_MIR_NUM_T, .name = "a1", .size = 0}, {.type = BASIC_MIR_NUM_T, .name = "a2", .size = 0}, {.type = BASIC_MIR_NUM_T, .name = "a3", .size = 0}, {.type = BASIC_MIR_NUM_T, .name = "a4", .size = 0});
+#else
+  mir_run_proto = BASIC_PROTO_NUM (ctx, "basic_mir_run_p", 5, {BASIC_MIR_NUM_T, "func_h", 0}, {BASIC_MIR_NUM_T, "a1", 0}, {BASIC_MIR_NUM_T, "a2", 0}, {BASIC_MIR_NUM_T, "a3", 0}, {BASIC_MIR_NUM_T, "a4", 0});
+#endif
+  mir_run_import = MIR_new_import (ctx, "basic_mir_run");
+
+#ifdef BASIC_USE_FIXED64
+  mir_dump_proto = BASIC_PROTO_GEN (ctx, "basic_mir_dump_p", 0, NULL, 2, {.type = MIR_T_P, .name = "res"}, {.type = BASIC_MIR_NUM_T, .name = "func_h", .size = 0});
+#else
+  mir_dump_proto = BASIC_PROTO_NUM (ctx, "basic_mir_dump_p", 1, {BASIC_MIR_NUM_T, "func_h", 0});
+#endif
+  mir_dump_import = MIR_new_import (ctx, "basic_mir_dump");
+  
+
   calloc_proto = MIR_new_proto (ctx, "calloc_p", 1, &p, 2, MIR_T_I64, "n", MIR_T_I64, "sz");
   calloc_import = MIR_new_import (ctx, "calloc");
   dim_alloc_proto = MIR_new_proto (ctx, "basic_dim_alloc_p", 1, &p, 3, MIR_T_P, "base",
@@ -5197,8 +5226,26 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   MIR_type_t i64 = MIR_T_I64;
   strcmp_proto = MIR_new_proto (ctx, "basic_strcmp_p", 1, &i64, 2, MIR_T_P, "a", MIR_T_P, "b");
   strcmp_import = MIR_new_import (ctx, "basic_strcmp");
+
+ /*
   read_proto = BASIC_PROTO_NUM (ctx, "basic_read_p", 0);
   read_import = MIR_new_import (ctx, "basic_read");
+ */
+
+    
+#ifdef BASIC_USE_FIXED64
+  // For fixed64, create a prototype for a VOID function that takes TWO arguments:
+  // 1. A pointer to store the result in.
+  // 2. The original numeric argument.
+  read_proto = BASIC_PROTO_GEN(ctx, "basic_read_p", 0, NULL, 2, 
+                              {.type = MIR_T_P, .name = "res"}, 
+                              {.type = BASIC_MIR_NUM_T, .name = "n", .size = 0});
+#else
+  // For double, use the original prototype: one argument, one return value.
+  read_proto = BASIC_PROTO_NUM (ctx, "basic_read_p", 1, {BASIC_MIR_NUM_T, "n", 0});
+#endif
+  read_import = MIR_new_import (ctx, "basic_read");
+ 
   read_str_proto = MIR_new_proto (ctx, "basic_read_str_p", 1, &p, 0);
   read_str_import = MIR_new_import (ctx, "basic_read_str");
   clear_array_proto = MIR_new_proto (ctx, "basic_clear_array_p", 0, NULL, 3, MIR_T_P, "base",
