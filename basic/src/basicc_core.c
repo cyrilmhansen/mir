@@ -126,22 +126,23 @@ static BasicRuntimeSymbol local_runtime_symbols[] = {
 /* Runtime call prototypes for expressions */
 static MIR_item_t rnd_proto, rnd_import, chr_proto, chr_import, unichar_proto, unichar_import,
   string_proto, string_import, concat_proto, concat_import, int_proto, int_import, timer_proto,
-  timer_import, time_str_proto, time_str_import, date_str_proto, date_str_import, input_chr_proto,
-  input_chr_import, peek_proto, peek_import, eof_proto, eof_import, abs_proto, abs_import,
-  sgn_proto, sgn_import, iabs_proto, iabs_import, isgn_proto, isgn_import, inkey_proto,
-  inkey_import, sqr_proto, sqr_import, sin_proto, sin_import, cos_proto, cos_import, tan_proto,
-  tan_import, atn_proto, atn_import, asin_proto, asin_import, acos_proto, acos_import, sinh_proto,
-  sinh_import, cosh_proto, cosh_import, tanh_proto, tanh_import, asinh_proto, asinh_import,
-  acosh_proto, acosh_import, atanh_proto, atanh_import, log_proto, log_import, log2_proto,
-  log2_import, log10_proto, log10_import, exp_proto, exp_import, fact_proto, fact_import, pow_proto,
-  pow_import, pi_proto, pi_import, left_proto, left_import, right_proto, right_import, mid_proto,
-  mid_import, mirror_proto, mirror_import, upper_proto, upper_import, lower_proto, lower_import,
-  len_proto, len_import, val_proto, val_import, str_proto, str_import, asc_proto, asc_import,
-  pos_proto, pos_import, instr_proto, instr_import, strdup_proto, strdup_import, mir_ctx_proto,
-  mir_ctx_import, mir_mod_proto, mir_mod_import, mir_func_proto, mir_func_import, mir_reg_proto,
-  mir_reg_import, mir_label_proto, mir_label_import, mir_emit_proto, mir_emit_import,
-  mir_emitlbl_proto, mir_emitlbl_import, mir_ret_proto, mir_ret_import, mir_finish_proto,
-  mir_finish_import, mir_run_proto, mir_run_import, mir_dump_proto, mir_dump_import;
+  timer_import, time_proto, time_import, date_proto, date_import, time_str_proto, time_str_import,
+  date_str_proto, date_str_import, input_chr_proto, input_chr_import, peek_proto, peek_import,
+  eof_proto, eof_import, abs_proto, abs_import, sgn_proto, sgn_import, iabs_proto, iabs_import,
+  isgn_proto, isgn_import, inkey_proto, inkey_import, sqr_proto, sqr_import, sin_proto, sin_import,
+  cos_proto, cos_import, tan_proto, tan_import, atn_proto, atn_import, asin_proto, asin_import,
+  acos_proto, acos_import, sinh_proto, sinh_import, cosh_proto, cosh_import, tanh_proto,
+  tanh_import, asinh_proto, asinh_import, acosh_proto, acosh_import, atanh_proto, atanh_import,
+  log_proto, log_import, log2_proto, log2_import, log10_proto, log10_import, exp_proto, exp_import,
+  fact_proto, fact_import, pow_proto, pow_import, pi_proto, pi_import, left_proto, left_import,
+  right_proto, right_import, mid_proto, mid_import, mirror_proto, mirror_import, upper_proto,
+  upper_import, lower_proto, lower_import, len_proto, len_import, val_proto, val_import, str_proto,
+  str_import, asc_proto, asc_import, pos_proto, pos_import, instr_proto, instr_import, strdup_proto,
+  strdup_import, mir_ctx_proto, mir_ctx_import, mir_mod_proto, mir_mod_import, mir_func_proto,
+  mir_func_import, mir_reg_proto, mir_reg_import, mir_label_proto, mir_label_import, mir_emit_proto,
+  mir_emit_import, mir_emitlbl_proto, mir_emitlbl_import, mir_ret_proto, mir_ret_import,
+  mir_finish_proto, mir_finish_import, mir_run_proto, mir_run_import, mir_dump_proto,
+  mir_dump_import;
 /* Runtime call prototypes for statements */
 static MIR_item_t print_proto, print_import, prints_proto, prints_import, input_proto, input_import,
   input_str_proto, input_str_import, get_proto, get_import, put_proto, put_import, read_proto,
@@ -6149,6 +6150,10 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   int_import = MIR_new_import (ctx, "basic_int");
   timer_proto = BASIC_PROTO_NUM (ctx, "basic_timer_p", 0);
   timer_import = MIR_new_import (ctx, "basic_timer");
+  time_proto = BASIC_PROTO_NUM (ctx, "basic_time_p", 0);
+  time_import = MIR_new_import (ctx, "basic_time");
+  date_proto = BASIC_PROTO_NUM (ctx, "basic_date_p", 0);
+  date_import = MIR_new_import (ctx, "basic_date");
   time_str_proto = MIR_new_proto (ctx, "basic_time_str_p", 1, &p, 0);
   time_str_import = MIR_new_import (ctx, "basic_time_str");
   date_str_proto = MIR_new_proto (ctx, "basic_date_str_p", 1, &p, 0);
