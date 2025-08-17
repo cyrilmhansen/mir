@@ -1,6 +1,10 @@
 #include "basic_common.h"
 #include "basic_num_hooks.h"
 
+#ifdef BASIC_USE_FIXED64
+#include "basic_runtime_fixed64.h"
+#endif
+
 #if defined(BASIC_USE_LONG_DOUBLE)
 #define MIR_DMOV MIR_LDMOV
 #define MIR_DNEG MIR_LDNEG
@@ -5995,6 +5999,9 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
   MIR_context_t ctx = MIR_init ();
   MIR_module_t module = MIR_new_module (ctx, "BASIC");
   basic_num_init (ctx);
+#ifdef BASIC_USE_FIXED64
+  basic_runtime_fixed64_init (ctx);
+#endif
   print_proto = MIR_new_proto (ctx, "basic_print_p", 0, NULL, 1, BASIC_MIR_NUM_T, "x");
   print_import = MIR_new_import (ctx, "basic_print");
   prints_proto = MIR_new_proto (ctx, "basic_print_str_p", 0, NULL, 1, MIR_T_P, "s");
