@@ -25,10 +25,12 @@
 #include "basic_runtime_fixed64.h"
 #include "basic_runtime_shared.h"
 
+#define MIR_NEW_OP(name) MIR_new_##name##_op
+
 #if defined(BASIC_USE_LONG_DOUBLE)
 #define BASIC_MIR_NUM_T MIR_T_LD
 static inline MIR_op_t BASIC_MIR_new_num_op (MIR_context_t ctx, basic_num_t v) {
-  return MIR_new_ldouble_op (ctx, v);
+  return MIR_NEW_OP (ldouble) (ctx, v);
 }
 #define BASIC_MIR_D2I MIR_LD2I
 #define BASIC_MIR_I2D MIR_I2LD
@@ -54,7 +56,7 @@ static inline MIR_op_t BASIC_MIR_new_num_op (MIR_context_t ctx, basic_num_t v) {
 #ifndef BASIC_MIR_NUM_T
 #define BASIC_MIR_NUM_T MIR_T_D
 static inline MIR_op_t BASIC_MIR_new_num_op (MIR_context_t ctx, basic_num_t v) {
-  return MIR_new_double_op (ctx, v);
+  return MIR_NEW_OP (double) (ctx, v);
 }
 #define BASIC_MIR_D2I MIR_D2I
 #define BASIC_MIR_I2D MIR_I2D
