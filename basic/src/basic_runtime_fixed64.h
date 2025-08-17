@@ -8,7 +8,7 @@
 
 #ifdef BASIC_USE_FIXED64
 
-#define BASIC_MIR_NUM_T MIR_T_BLK
+#define BASIC_MIR_NUM_T (MIR_T_BLK + 1)
 static inline MIR_op_t BASIC_MIR_new_num_op (MIR_context_t ctx, basic_num_t v) {
   basic_num_t *p = basic_pool_alloc (sizeof (basic_num_t));
   *p = v;
