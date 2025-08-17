@@ -4291,8 +4291,11 @@ static void print_item (Node *e, Node *next) {
     return;
   }
   MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, e);
-  call1 (e->is_str ? prints_proto : print_proto, e->is_str ? prints_import : print_import,
-         MIR_new_reg_op (g_ctx, r));
+  MIR_op_t op = MIR_new_reg_op (g_ctx, r);
+  if (!e->is_str) {
+    basic_num_hooks.mir_pass_arg (g_ctx, g_func, &op);
+  }
+  call1 (e->is_str ? prints_proto : print_proto, e->is_str ? prints_import : print_import, op);
   if (!e->is_str && next != NULL && !next->is_str) print_str ((MIR_str_t) {2, " "});
 }
 
@@ -4302,8 +4305,12 @@ static void print_hash_str (MIR_reg_t fn, MIR_str_t str) {
 
 static void print_hash_item (MIR_reg_t fn, Node *e, Node *next) {
   MIR_reg_t r = gen_expr (g_ctx, g_func, &g_vars, e);
+  MIR_op_t op = MIR_new_reg_op (g_ctx, r);
+  if (!e->is_str) {
+    basic_num_hooks.mir_pass_arg (g_ctx, g_func, &op);
+  }
   call2 (e->is_str ? prinths_proto : printh_proto, e->is_str ? prinths_import : printh_import,
-         MIR_new_reg_op (g_ctx, fn), MIR_new_reg_op (g_ctx, r));
+         MIR_new_reg_op (g_ctx, fn), op);
   if (!e->is_str && next != NULL && !next->is_str) print_hash_str (fn, (MIR_str_t) {2, " "});
 }
 

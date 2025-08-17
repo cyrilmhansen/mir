@@ -89,8 +89,7 @@ static MIR_op_t basic_mem (MIR_context_t ctx, MIR_item_t func, MIR_op_t op, MIR_
     r = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
     MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, r), op));
   }
-  (void) t;
-  return _MIR_new_var_mem_op (ctx, MIR_T_BLK + 1, sizeof (basic_num_t), r, MIR_NON_VAR, 1);
+  return MIR_new_mem_op (ctx, t, 0, r, 0, 1);
 }
 
 static void basic_mir_binop (MIR_context_t ctx, MIR_item_t func, MIR_insn_code_t code, MIR_op_t dst,

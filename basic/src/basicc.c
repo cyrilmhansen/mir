@@ -32,12 +32,19 @@ static void basic_mir_n2i_default (MIR_context_t ctx, MIR_item_t func, MIR_op_t 
 #endif
 }
 
+static void basic_mir_pass_arg_default (MIR_context_t ctx, MIR_item_t func, MIR_op_t *op) {
+  (void) ctx;
+  (void) func;
+  (void) op;
+}
+
 basic_num_hooks_t basic_num_hooks = {
   .mir_binop = basic_mir_binop_default,
   .mir_unop = basic_mir_unop_default,
   .mir_bcmp = basic_mir_bcmp_default,
   .mir_i2n = basic_mir_i2n_default,
   .mir_n2i = basic_mir_n2i_default,
+  .mir_pass_arg = basic_mir_pass_arg_default,
 };
 
 void basic_num_init (MIR_context_t ctx) { (void) ctx; }
