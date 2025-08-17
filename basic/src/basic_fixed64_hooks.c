@@ -13,19 +13,52 @@ static int safe_snprintf (char *buf, size_t size, const char *fmt, ...) {
   return res;
 }
 
+
 MIR_op_t basic_mem (MIR_context_t ctx, MIR_item_t func, MIR_op_t op, MIR_type_t t) {
-  MIR_reg_t r;
+  MIR_reg_t r_src;
   if (op.mode == MIR_OP_REG) {
-    r = op.u.reg;
+    r_src = op.u.reg;
   } else {
     char buf[32];
     static int addr_id = 0;
     safe_snprintf (buf, sizeof (buf), "$ba%d", addr_id++);
-    r = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
-    MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, r), op));
+    r_src = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+    MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, r_src), op));
   }
+
+  // Allocate space on the stack for the argument
+  char buf[32];
+  static int alloca_id = 0;
+  safe_snprintf (buf, sizeof (buf), "$arg%d", alloca_id++);
+  MIR_reg_t r_dst = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+  MIR_op_t size_op = MIR_new_int_op (ctx, sizeof (basic_num_t));
+  MIR_append_insn (ctx, func, MIR_new_insn (ctx, MIR_ALLOCA, MIR_new_reg_op (ctx, r_dst), size_op));
+
+  // Copy the 16-byte value from the source pointer to the stack space
+  static int tmp_id = 0;
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t temp_lo = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, temp_lo),
+                                 MIR_new_mem_op (ctx, MIR_T_I64, 0, r_src, 0, 1)));
+
+  safe_snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t temp_hi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_MOV, MIR_new_reg_op (ctx, temp_hi),
+                                 MIR_new_mem_op (ctx, MIR_T_I64, 8, r_src, 0, 1)));
+
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_MOV,
+                                 MIR_new_mem_op (ctx, MIR_T_I64, 0, r_dst, 0, 1),
+                                 MIR_new_reg_op (ctx, temp_lo)));
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_MOV,
+                                 MIR_new_mem_op (ctx, MIR_T_I64, 8, r_dst, 0, 1),
+                                 MIR_new_reg_op (ctx, temp_hi)));
+
   (void) t;
-  return _MIR_new_var_mem_op (ctx, MIR_T_BLK + 1, sizeof (basic_num_t), r, MIR_NON_VAR, 1);
+  return MIR_new_mem_op (ctx, MIR_T_BLK + 1, 0, r_dst, 0, 1);
 }
 
 void basic_mir_binop (MIR_context_t ctx, MIR_item_t func, MIR_insn_code_t code, MIR_op_t dst,

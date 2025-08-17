@@ -105,6 +105,7 @@ static inline MIR_item_t basic_proto_num (MIR_context_t ctx, const char *name, s
   for (size_t i = 0; i < nargs; ++i) {
     all_vars[i + 1] = vars[i];
     if (all_vars[i + 1].type == BASIC_MIR_NUM_T) {
+//      all_vars[i + 1].type = MIR_T_BLK + 1;
       all_vars[i + 1].type = MIR_T_BLK + 1;
       all_vars[i + 1].size = sizeof (basic_num_t);
     }

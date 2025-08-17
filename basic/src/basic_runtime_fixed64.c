@@ -350,7 +350,7 @@ void basic_runtime_fixed64_init (MIR_context_t ctx) {
 }
 
 int basic_mir_emit_fixed64 (MIR_context_t ctx, MIR_item_t func, MIR_insn_code_t code, MIR_op_t *ops,
-                            size_t nops) {
+                            size_t MIR_UNUSED) {
   switch (code) {
   case MIR_DMOV:
   case MIR_MOV:
