@@ -39,12 +39,21 @@ static void basic_mir_pass_arg_default (MIR_context_t ctx, MIR_item_t func, MIR_
   (void) op;
 }
 
+static MIR_type_t get_reg_type_default (void) {
+#if defined(BASIC_USE_LONG_DOUBLE)
+  return MIR_T_LD;
+#else
+  return MIR_T_D;
+#endif
+}
+
 basic_num_hooks_t basic_num_hooks = {
   .mir_binop = basic_mir_binop_default,
   .mir_unop = basic_mir_unop_default,
   .mir_bcmp = basic_mir_bcmp_default,
   .mir_i2n = basic_mir_i2n_default,
   .mir_n2i = basic_mir_n2i_default,
+  .get_reg_type = get_reg_type_default,
   .mir_pass_arg = basic_mir_pass_arg_default,
 };
 
