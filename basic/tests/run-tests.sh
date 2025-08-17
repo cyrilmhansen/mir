@@ -243,6 +243,12 @@ PY
                diff "$ROOT/basic/test/basic_system_fix_test.out" "$ROOT/basic/basic_system_fix_test.out"
                echo "basic_system_fix_test OK"
 
+               echo "Running mir_runtime_fix (interp)"
+               "$BASICC" "$ROOT/basic/test/mir_runtime_fix.bas" > "$ROOT/basic/mir_runtime_fix.out"
+               diff "$ROOT/basic/test/mir_runtime_fix.out" "$ROOT/basic/mir_runtime_fix.out"
+               rm -f "$ROOT/basic/mir_runtime_fix.out"
+               echo "mir_runtime_fix (interp) OK"
+
                echo "Running mir_runtime_fix (JIT)"
                "$BASICC" -j "$ROOT/basic/test/mir_runtime_fix.bas" > "$ROOT/basic/mir_runtime_fix.out"
                diff "$ROOT/basic/test/mir_runtime_fix.out" "$ROOT/basic/mir_runtime_fix.out"
