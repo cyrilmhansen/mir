@@ -12,6 +12,13 @@ MIR_item_t fixed64_add_proto, fixed64_add_import, fixed64_sub_proto, fixed64_sub
   fixed64_from_uint_import, fixed64_to_int_proto, fixed64_to_int_import, fixed64_neg_proto,
   fixed64_neg_import;
 
+/*
+  Numeric constants must be emitted via the helpers `emit_num_const` or
+  `BASIC_MIR_new_num_op` so that values are materialized in memory and
+  referenced from MIR instructions.  Avoid creating constants with
+  `MIR_new_*_op` directly, which embeds immediates and breaks the fixed64
+  representation.
+*/
 static MIR_op_t fixed64_emit_num_const (MIR_context_t ctx, basic_num_t v) {
   basic_num_t *p = basic_pool_alloc (sizeof (basic_num_t));
   *p = v;
