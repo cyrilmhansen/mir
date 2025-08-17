@@ -8,8 +8,9 @@ MIR_item_t fixed64_add_proto, fixed64_add_import, fixed64_sub_proto, fixed64_sub
   fixed64_mul_proto, fixed64_mul_import, fixed64_div_proto, fixed64_div_import, fixed64_eq_proto,
   fixed64_eq_import, fixed64_ne_proto, fixed64_ne_import, fixed64_lt_proto, fixed64_lt_import,
   fixed64_le_proto, fixed64_le_import, fixed64_gt_proto, fixed64_gt_import, fixed64_ge_proto,
-  fixed64_ge_import, fixed64_from_int_proto, fixed64_from_int_import, fixed64_to_int_proto,
-  fixed64_to_int_import, fixed64_neg_proto, fixed64_neg_import;
+  fixed64_ge_import, fixed64_from_int_proto, fixed64_from_int_import, fixed64_from_uint_proto,
+  fixed64_from_uint_import, fixed64_to_int_proto, fixed64_to_int_import, fixed64_neg_proto,
+  fixed64_neg_import;
 
 static MIR_op_t fixed64_emit_num_const (MIR_context_t ctx, basic_num_t v) {
   basic_num_t *p = basic_pool_alloc (sizeof (basic_num_t));
@@ -70,6 +71,13 @@ static void basic_fixed64_init (MIR_context_t ctx) {
   int_vars[0].type = MIR_T_I64;
   fixed64_from_int_proto = MIR_new_proto_arr (ctx, "fixed64_from_int_p", 2, i64_pair, 1, int_vars);
   fixed64_from_int_import = MIR_new_import (ctx, "fixed64_from_int");
+
+  MIR_var_t uint_vars[1];
+  uint_vars[0].name = "i";
+  uint_vars[0].type = MIR_T_U64;
+  fixed64_from_uint_proto
+    = MIR_new_proto_arr (ctx, "fixed64_from_uint_p", 2, i64_pair, 1, uint_vars);
+  fixed64_from_uint_import = MIR_new_import (ctx, "fixed64_from_uint");
 
   MIR_var_t to_int_vars[1];
   to_int_vars[0].name = "a";
