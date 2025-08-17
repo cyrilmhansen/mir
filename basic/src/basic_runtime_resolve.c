@@ -141,7 +141,6 @@ static BasicRuntimeSymbol runtime_symbols[] = {
   {"basic_timer", basic_timer},
   {"basic_time", basic_time},
   {"basic_date", basic_date},
-  {"basic_time_str", basic_time_str},
   {"basic_date_str", basic_date_str},
   {"basic_input_chr", basic_input_chr},
   {"basic_peek", basic_peek},
