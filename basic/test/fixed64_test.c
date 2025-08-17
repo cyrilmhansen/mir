@@ -30,6 +30,9 @@ int main (void) {
   assert (fixed64_ge (two, fixed64_from_int (1)));
   assert (fixed64_ge (two, two));
   assert (fixed64_to_int (two) == 2);
+  fixed64_t u = fixed64_from_uint (2);
+  assert (u.hi == 2 && u.lo == 0);
+  (void) u;
   fixed64_t res = fixed64_add (half, quarter);
   assert (res.hi == 0 && res.lo == ((1ULL << 63) + (1ULL << 62)));
   res = fixed64_sub (two, half);

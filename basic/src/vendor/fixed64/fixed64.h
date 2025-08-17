@@ -14,6 +14,7 @@ typedef struct {
 } fixed64_t;
 
 fixed64_t fixed64_from_int (int64_t i);
+fixed64_t fixed64_from_uint (uint64_t u);
 int64_t fixed64_to_int (fixed64_t x);
 int fixed64_cmp (fixed64_t a, fixed64_t b);
 int fixed64_eq (fixed64_t a, fixed64_t b);

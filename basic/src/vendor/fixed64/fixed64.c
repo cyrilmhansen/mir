@@ -41,6 +41,13 @@ fixed64_t fixed64_from_int (int64_t i) {
   return r;
 }
 
+fixed64_t fixed64_from_uint (uint64_t u) {
+  fixed64_t r;
+  r.hi = (int64_t) u;
+  r.lo = 0;
+  return r;
+}
+
 int64_t fixed64_to_int (fixed64_t x) { return x.hi; }
 
 int fixed64_cmp (fixed64_t a, fixed64_t b) {

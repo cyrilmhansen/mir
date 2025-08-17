@@ -74,8 +74,9 @@ static MIR_item_t fixed64_add_proto, fixed64_add_import, fixed64_sub_proto, fixe
   fixed64_mul_proto, fixed64_mul_import, fixed64_div_proto, fixed64_div_import, fixed64_eq_proto,
   fixed64_eq_import, fixed64_ne_proto, fixed64_ne_import, fixed64_lt_proto, fixed64_lt_import,
   fixed64_le_proto, fixed64_le_import, fixed64_gt_proto, fixed64_gt_import, fixed64_ge_proto,
-  fixed64_ge_import, fixed64_from_int_proto, fixed64_from_int_import, fixed64_to_int_proto,
-  fixed64_to_int_import, fixed64_neg_proto, fixed64_neg_import;
+  fixed64_ge_import, fixed64_from_int_proto, fixed64_from_int_import, fixed64_from_uint_proto,
+  fixed64_from_uint_import, fixed64_to_int_proto, fixed64_to_int_import, fixed64_neg_proto,
+  fixed64_neg_import;
 
 static MIR_op_t basic_mem (MIR_context_t ctx, MIR_item_t func, MIR_op_t op, MIR_type_t t) {
   MIR_reg_t r;
@@ -213,6 +214,28 @@ static void basic_mir_i2n (MIR_context_t ctx, MIR_item_t func, MIR_op_t dst, MIR
                                  MIR_new_reg_op (ctx, hi)));
 }
 
+static void basic_mir_u2n (MIR_context_t ctx, MIR_item_t func, MIR_op_t dst, MIR_op_t src) {
+  char buf[32];
+  static int tmp_id = 0;
+  snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t lo = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+  snprintf (buf, sizeof (buf), "$t%d", tmp_id++);
+  MIR_reg_t hi = MIR_new_func_reg (ctx, func->u.func, MIR_T_I64, buf);
+  MIR_append_insn (ctx, func,
+                   MIR_new_call_insn (ctx, 5, MIR_new_ref_op (ctx, fixed64_from_uint_proto),
+                                      MIR_new_ref_op (ctx, fixed64_from_uint_import),
+                                      MIR_new_reg_op (ctx, lo), MIR_new_reg_op (ctx, hi), src));
+  MIR_op_t dst_mem = basic_mem (ctx, func, dst, MIR_T_BLK + 1);
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_MOV,
+                                 MIR_new_mem_op (ctx, MIR_T_I64, 0, dst_mem.u.mem.base, 0, 1),
+                                 MIR_new_reg_op (ctx, lo)));
+  MIR_append_insn (ctx, func,
+                   MIR_new_insn (ctx, MIR_MOV,
+                                 MIR_new_mem_op (ctx, MIR_T_I64, 8, dst_mem.u.mem.base, 0, 1),
+                                 MIR_new_reg_op (ctx, hi)));
+}
+
 static void basic_mir_n2i (MIR_context_t ctx, MIR_item_t func, MIR_op_t dst, MIR_op_t src) {
   MIR_op_t src_mem = basic_mem (ctx, func, src, MIR_T_BLK + 1);
   MIR_append_insn (ctx, func,
@@ -313,6 +336,11 @@ void basic_runtime_fixed64_init (MIR_context_t ctx) {
   int_vars[0].type = MIR_T_I64;
   fixed64_from_int_proto = MIR_new_proto_arr (ctx, "fixed64_from_int_p", 2, res64, 1, int_vars);
   fixed64_from_int_import = MIR_new_import (ctx, "fixed64_from_int");
+  MIR_var_t uint_vars[1];
+  uint_vars[0].name = "i";
+  uint_vars[0].type = MIR_T_U64;
+  fixed64_from_uint_proto = MIR_new_proto_arr (ctx, "fixed64_from_uint_p", 2, res64, 1, uint_vars);
+  fixed64_from_uint_import = MIR_new_import (ctx, "fixed64_from_uint");
   MIR_var_t to_int_vars[1];
   to_int_vars[0].name = "a";
   to_int_vars[0].type = MIR_T_BLK + 1;
@@ -353,6 +381,7 @@ int basic_mir_emit_fixed64 (MIR_context_t ctx, MIR_item_t func, MIR_insn_code_t 
   case MIR_DGT:
   case MIR_DGE: basic_mir_binop (ctx, func, code, ops[0], ops[1], ops[2]); break;
   case MIR_DNEG: basic_mir_unop (ctx, func, code, ops[0], ops[1]); break;
+  case MIR_UI2D: basic_mir_u2n (ctx, func, ops[0], ops[1]); break;
   case MIR_I2D: basic_mir_i2n (ctx, func, ops[0], ops[1]); break;
   case MIR_D2I: basic_mir_n2i (ctx, func, ops[0], ops[1]); break;
   case MIR_DBEQ:
