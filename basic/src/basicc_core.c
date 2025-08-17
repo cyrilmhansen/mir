@@ -361,6 +361,204 @@ typedef struct {
   int op_type;
 } MatStmt;
 
+static const char *stmt_kind_name (StmtKind kind) {
+  static const char *names[] = {
+
+
+    [ST_PRINT] = "ST_PRINT",
+    [ST_LET] = "ST_LET",
+    [ST_INC] = "ST_INC",
+    [ST_DEC] = "ST_DEC",
+    [ST_GOTO] = "ST_GOTO",
+    [ST_IF] = "ST_IF",
+    [ST_INPUT] = "ST_INPUT",
+    [ST_GET] = "ST_GET",
+
+
+    [ST_PUT] = "ST_PUT",
+
+
+    [ST_SWAP] = "ST_SWAP",
+
+
+    [ST_OPEN] = "ST_OPEN",
+
+
+    [ST_CLOSE] = "ST_CLOSE",
+
+
+    [ST_PRINT_HASH] = "ST_PRINT_HASH",
+
+
+    [ST_INPUT_HASH] = "ST_INPUT_HASH",
+
+
+    [ST_GET_HASH] = "ST_GET_HASH",
+
+
+    [ST_PUT_HASH] = "ST_PUT_HASH",
+
+
+    [ST_DEF] = "ST_DEF",
+
+
+    [ST_DATA] = "ST_DATA",
+
+
+    [ST_READ] = "ST_READ",
+
+
+    [ST_RESTORE] = "ST_RESTORE",
+
+
+    [ST_CLEAR] = "ST_CLEAR",
+
+
+    [ST_SCREEN] = "ST_SCREEN",
+
+
+    [ST_CLS] = "ST_CLS",
+
+
+    [ST_COLOR] = "ST_COLOR",
+
+
+    [ST_KEYOFF] = "ST_KEYOFF",
+
+
+    [ST_LOCATE] = "ST_LOCATE",
+
+
+    [ST_HTAB] = "ST_HTAB",
+
+
+    [ST_POKE] = "ST_POKE",
+
+
+    [ST_HOME] = "ST_HOME",
+
+
+    [ST_VTAB] = "ST_VTAB",
+
+
+    [ST_DELAY] = "ST_DELAY",
+
+
+    [ST_BEEP] = "ST_BEEP",
+
+
+    [ST_SOUND] = "ST_SOUND",
+
+
+    [ST_SYSTEM] = "ST_SYSTEM",
+
+
+    [ST_RANDOMIZE] = "ST_RANDOMIZE",
+
+
+    [ST_TEXT] = "ST_TEXT",
+
+
+    [ST_INVERSE] = "ST_INVERSE",
+
+
+    [ST_NORMAL] = "ST_NORMAL",
+
+
+    [ST_HGR2] = "ST_HGR2",
+
+
+    [ST_HCOLOR] = "ST_HCOLOR",
+
+
+    [ST_HPLOT] = "ST_HPLOT",
+
+
+    [ST_MOVE] = "ST_MOVE",
+
+
+    [ST_DRAW] = "ST_DRAW",
+
+
+    [ST_LINE] = "ST_LINE",
+
+
+    [ST_CIRCLE] = "ST_CIRCLE",
+
+
+    [ST_RECT] = "ST_RECT",
+
+
+    [ST_MODE] = "ST_MODE",
+
+
+    [ST_FILL] = "ST_FILL",
+
+
+    [ST_END] = "ST_END",
+
+
+    [ST_STOP] = "ST_STOP",
+
+
+    [ST_REM] = "ST_REM",
+
+
+    [ST_DIM] = "ST_DIM",
+
+
+    [ST_FOR] = "ST_FOR",
+
+
+    [ST_NEXT] = "ST_NEXT",
+
+
+    [ST_WHILE] = "ST_WHILE",
+
+
+    [ST_WEND] = "ST_WEND",
+
+
+    [ST_DO] = "ST_DO",
+
+
+    [ST_LOOP] = "ST_LOOP",
+
+
+    [ST_REPEAT] = "ST_REPEAT",
+
+
+    [ST_UNTIL] = "ST_UNTIL",
+
+
+    [ST_GOSUB] = "ST_GOSUB",
+
+
+    [ST_RETURN] = "ST_RETURN",
+
+
+    [ST_ON_GOTO] = "ST_ON_GOTO",
+
+
+    [ST_ON_GOSUB] = "ST_ON_GOSUB",
+    [ST_ON_ERROR] = "ST_ON_ERROR",
+    [ST_RESUME] = "ST_RESUME",
+    [ST_MAT] = "ST_MAT",
+    [ST_CHAIN] = "ST_CHAIN",
+    [ST_EXTERN] = "ST_EXTERN",
+    [ST_CALL] = "ST_CALL",
+    [ST_EVAL] = "ST_EVAL",
+  };
+
+
+  size_t idx = (size_t) kind;
+  if (idx >= sizeof (names) / sizeof (names[0]) || names[idx] == NULL) return "UNKNOWN";
+  return names[idx];
+
+}
+
+
+
 struct Stmt {
   StmtKind kind;
   union {
@@ -4403,6 +4601,140 @@ static void gen_input_hash (Stmt *s) {
   (s->u.inputhash.is_str ? input_hash_str : input_hash_num) (v, fni);
 }
 
+
+
+static void gen_stmt_default (Stmt *s) {
+
+
+  STMT_PROFILE (s);
+
+
+  switch (s->kind) {
+
+
+  case ST_DEF: /* fallthrough */
+
+
+  case ST_EXTERN:
+
+
+    /* no code generation needed */
+
+
+    break;
+
+
+  case ST_DATA:
+
+
+  case ST_READ:
+
+
+  case ST_RESTORE:
+
+
+  case ST_CLEAR:
+
+
+  case ST_SCREEN:
+
+
+  case ST_CLS:
+
+
+  case ST_COLOR:
+
+
+  case ST_KEYOFF:
+
+
+  case ST_LOCATE:
+
+
+  case ST_HTAB:
+
+
+  case ST_VTAB:
+
+
+  case ST_HOME:
+
+
+  case ST_TEXT:
+
+
+  case ST_INVERSE:
+
+
+  case ST_NORMAL:
+
+
+  case ST_HGR2:
+
+
+  case ST_WEND:
+
+
+  case ST_DO:
+
+
+  case ST_LOOP:
+
+
+  case ST_REPEAT:
+
+
+  case ST_RETURN:
+
+
+  case ST_END:
+
+
+  case ST_STOP:
+
+
+    gen_stmt (s); /* Re-dispatch to the correct generator */
+
+
+    break;
+
+
+  default:
+
+
+    safe_fprintf (stderr, "Unsupported statement: %s\n", stmt_kind_name (s->kind));
+
+
+    break;
+
+
+  }
+
+
+}
+
+static gen_stmt_fn stmt_generators[] = {
+  [ST_PRINT] = gen_stmt_print,
+  [ST_PRINT_HASH] = gen_stmt_print_hash,
+  [ST_INPUT] = gen_stmt_input,
+  [ST_INPUT_HASH] = gen_stmt_input_hash,
+  [ST_GET] = gen_stmt_get,
+  [ST_GET_HASH] = gen_stmt_get_hash,
+  [ST_PUT] = gen_stmt_put,
+  [ST_PUT_HASH] = gen_stmt_put_hash,
+  [ST_POKE] = gen_stmt_poke,
+  [ST_FOR] = gen_stmt_for,
+};
+
+static void gen_stmt (Stmt *s) {
+    if (s->kind <= ST_EVAL && s->kind < (sizeof(stmt_generators)/sizeof(stmt_generators[0])) && stmt_generators[s->kind] != NULL) {
+        stmt_generators[s->kind](s);
+    } else {
+        gen_stmt_default(s);
+    }
+}
+
+
 static void gen_get (Stmt *s) {
   MIR_reg_t v = get_var (&g_vars, g_ctx, g_func, s->u.get.var);
   call1 (get_proto, get_import, MIR_new_reg_op (g_ctx, v));
@@ -4537,19 +4869,25 @@ static void gen_stmt_for (Stmt *s) {
   MIR_append_insn (g_ctx, g_func, after_cmp);
 }
 
-static gen_stmt_fn stmt_generators[ST_EVAL + 1] = {
-  //[0 ... ST_EVAL] = gen_stmt_default,
-  [ST_PRINT] = gen_stmt_print,
-  [ST_PRINT_HASH] = gen_stmt_print_hash,
-  [ST_INPUT] = gen_stmt_input,
-  [ST_INPUT_HASH] = gen_stmt_input_hash,
-  [ST_GET] = gen_stmt_get,
-  [ST_GET_HASH] = gen_stmt_get_hash,
-  [ST_PUT] = gen_stmt_put,
-  [ST_PUT_HASH] = gen_stmt_put_hash,
-  [ST_POKE] = gen_stmt_poke,
-  [ST_FOR] = gen_stmt_for,
-};
+static gen_stmt_fn stmt_generators[ST_EVAL + 1]; // Declare without initializing
+
+static void init_stmt_generators() {
+    // Initialize with the default handler
+    for (int i = 0; i <= ST_EVAL; i++) {
+        stmt_generators[i] = gen_stmt_default;
+    }
+    // Set specific handlers
+    stmt_generators[ST_PRINT] = gen_stmt_print;
+    stmt_generators[ST_PRINT_HASH] = gen_stmt_print_hash;
+    stmt_generators[ST_INPUT] = gen_stmt_input;
+    stmt_generators[ST_INPUT_HASH] = gen_stmt_input_hash;
+    stmt_generators[ST_GET] = gen_stmt_get;
+    stmt_generators[ST_GET_HASH] = gen_stmt_get_hash;
+    stmt_generators[ST_PUT] = gen_stmt_put;
+    stmt_generators[ST_PUT_HASH] = gen_stmt_put_hash;
+    stmt_generators[ST_POKE] = gen_stmt_poke;
+    stmt_generators[ST_FOR] = gen_stmt_for;
+}
 
 static void gen_stmt (Stmt *s) { stmt_generators[s->kind](s); }
 
@@ -4569,6 +4907,7 @@ static void gen_program (LineVec *prog, int jit, int asm_p, int obj_p, int bin_p
                          int reduce_libs, int profile_p, int track_lines, const char *out_name,
                          const char *src_name) {
   int eval_p = 0;
+  init_stmt_generators();
   interp_mode = !jit && !asm_p && !obj_p && !bin_p && !code_p;
   if (!interp_mode && contains_chain) {
     safe_fprintf (stderr, "CHAIN only supported in interpreter mode\n");

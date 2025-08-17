@@ -349,50 +349,10 @@ void basic_runtime_fixed64_init (MIR_context_t ctx) {
   fixed64_to_int_import = MIR_new_import (ctx, "fixed64_to_int");
 }
 
-int basic_mir_emit_fixed64 (MIR_context_t ctx, MIR_item_t func, MIR_insn_code_t code, MIR_op_t *ops,
-                            size_t MIR_UNUSED) {
-  switch (code) {
-  case MIR_DMOV:
-  case MIR_MOV:
-    if ((ops[0].mode == MIR_OP_REG
-         && MIR_reg_type (ctx, ops[0].u.reg, func->u.func) != MIR_T_BLK + 1)
-        || (ops[1].mode == MIR_OP_REG
-            && MIR_reg_type (ctx, ops[1].u.reg, func->u.func) != MIR_T_BLK + 1))
-      return 0;
-    MIR_op_t dst_mem = basic_mem (ctx, func, ops[0], MIR_T_BLK + 1);
-    MIR_op_t src_mem = basic_mem (ctx, func, ops[1], MIR_T_BLK + 1);
-    MIR_append_insn (ctx, func,
-                     MIR_new_insn (ctx, MIR_MOV,
-                                   MIR_new_mem_op (ctx, MIR_T_I64, 0, dst_mem.u.mem.base, 0, 1),
-                                   MIR_new_mem_op (ctx, MIR_T_I64, 0, src_mem.u.mem.base, 0, 1)));
-    MIR_append_insn (ctx, func,
-                     MIR_new_insn (ctx, MIR_MOV,
-                                   MIR_new_mem_op (ctx, MIR_T_I64, 8, dst_mem.u.mem.base, 0, 1),
-                                   MIR_new_mem_op (ctx, MIR_T_I64, 8, src_mem.u.mem.base, 0, 1)));
-    return 1;
-  case MIR_DADD:
-  case MIR_DSUB:
-  case MIR_DMUL:
-  case MIR_DDIV:
-  case MIR_DEQ:
-  case MIR_DNE:
-  case MIR_DLT:
-  case MIR_DLE:
-  case MIR_DGT:
-  case MIR_DGE: basic_mir_binop (ctx, func, code, ops[0], ops[1], ops[2]); break;
-  case MIR_DNEG: basic_mir_unop (ctx, func, code, ops[0], ops[1]); break;
-  case MIR_UI2D: basic_mir_u2n (ctx, func, ops[0], ops[1]); break;
-  case MIR_I2D: basic_mir_i2n (ctx, func, ops[0], ops[1]); break;
-  case MIR_D2I: basic_mir_n2i (ctx, func, ops[0], ops[1]); break;
-  case MIR_DBEQ:
-  case MIR_DBNE:
-  case MIR_DBLT:
-  case MIR_DBLE:
-  case MIR_DBGT:
-  case MIR_DBGE: basic_mir_bcmp (ctx, func, code, ops[0], ops[1], ops[2]); return 1;
-  default: return 0;
-  }
-  return 1;
+int basic_mir_emit_fixed64 (MIR_context_t ctx MIR_UNUSED, MIR_item_t func MIR_UNUSED,
+                            MIR_insn_code_t code MIR_UNUSED, MIR_op_t *ops MIR_UNUSED,
+                            size_t nops MIR_UNUSED) {
+  return 0; /* Signal that we have NOT handled the instruction */
 }
 
 void basic_input (basic_num_t *res) {
